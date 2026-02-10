@@ -331,12 +331,55 @@ policy = SecurityPolicy(
 
 Agent OS Kernel 完整支持主流中国 AI 模型提供商：
 
-| Provider | 模型 | 特点 | 示例 |
-|----------|------|------|------|
-| **DeepSeek** | deepseek-chat, deepseek-reasoner | 性价比高、推理强 | `"deepseek-chat"` |
-| **Kimi (Moonshot)** | moonshot-v1-8k, moonshot-v1-32k | 超长上下文 | `"moonshot-v1-32k"` |
-| **MiniMax** | abab6.5s-chat | 快速响应 | `"abab6.5s-chat"` |
-| **Qwen (阿里)** | qwen-turbo, qwen-plus, qwen-max | 生态完善 | `"qwen-turbo"` |
+| Provider | 模型 | 特点 | 配置示例 |
+|----------|------|------|----------|
+| **DeepSeek** | deepseek-chat, deepseek-reasoner | 性价比高、推理能力强 | `{"provider": "deepseek", "model": "deepseek-chat"}` |
+| **Kimi (Moonshot)** | kimi-vl, kimi-k1 | 超长上下文、多模态 | `{"provider": "kimi", "model": "kimi-vl"}` |
+| **MiniMax** | abab6.5s-chat, abab6.5-chat | 快速响应、低延迟 | `{"provider": "minimax", "model": "abab6.5s-chat"}` |
+| **Qwen (阿里)** | qwen-turbo, qwen-plus, qwen-max, qwen-long | 生态完善、API 稳定 | `{"provider": "qwen", "model": "qwen-turbo"}` |
+
+### 配置方式
+
+```yaml
+# config.yaml
+llms:
+  models:
+    - name: "deepseek-chat"
+      provider: "deepseek"
+      
+    - name: "kimi-vl"
+      provider: "kimi"
+      
+    - name: "abab6.5s-chat"
+      provider: "minimax"
+      
+    - name: "qwen-plus"
+      provider: "qwen"
+```
+
+```python
+from agent_os_kernel.llm import LLMProviderFactory, LLMConfig
+
+factory = LLMProviderFactory()
+
+# 使用 DeepSeek
+provider = factory.create(LLMConfig(
+    provider="deepseek",
+    model="deepseek-chat"
+))
+
+# 使用 Kimi
+provider = factory.create(LLMConfig(
+    provider="kimi",
+    model="kimi-vl"
+))
+
+# 使用 Qwen
+provider = factory.create(LLMConfig(
+    provider="qwen",
+    model="qwen-plus"
+))
+```
 
 ---
 

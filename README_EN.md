@@ -331,12 +331,55 @@ policy = SecurityPolicy(
 
 Agent OS Kernel fully supports major Chinese AI model providers:
 
-| Provider | Models | Features | Example |
-|----------|--------|----------|---------|
-| **DeepSeek** | deepseek-chat, deepseek-reasoner | Cost-effective, strong reasoning | `"deepseek-chat"` |
-| **Kimi (Moonshot)** | moonshot-v1-8k, moonshot-v1-32k | Ultra-long context | `"moonshot-v1-32k"` |
-| **MiniMax** | abab6.5s-chat | Fast response | `"abab6.5s-chat"` |
-| **Qwen (Alibaba)** | qwen-turbo, qwen-plus, qwen-max | Complete ecosystem | `"qwen-turbo"` |
+| Provider | Models | Features | Config Example |
+|----------|--------|----------|---------------|
+| **DeepSeek** | deepseek-chat, deepseek-reasoner | Cost-effective, strong reasoning | `{"provider": "deepseek", "model": "deepseek-chat"}` |
+| **Kimi (Moonshot)** | kimi-vl, kimi-k1 | Ultra-long context, Multimodal | `{"provider": "kimi", "model": "kimi-vl"}` |
+| **MiniMax** | abab6.5s-chat, abab6.5-chat | Fast response, Low latency | `{"provider": "minimax", "model": "abab6.5s-chat"}` |
+| **Qwen (Alibaba)** | qwen-turbo, qwen-plus, qwen-max, qwen-long | Stable API, Complete ecosystem | `{"provider": "qwen", "model": "qwen-turbo"}` |
+
+### Configuration
+
+```yaml
+# config.yaml
+llms:
+  models:
+    - name: "deepseek-chat"
+      provider: "deepseek"
+      
+    - name: "kimi-vl"
+      provider: "kimi"
+      
+    - name: "abab6.5s-chat"
+      provider: "minimax"
+      
+    - name: "qwen-plus"
+      provider: "qwen"
+```
+
+```python
+from agent_os_kernel.llm import LLMProviderFactory, LLMConfig
+
+factory = LLMProviderFactory()
+
+# Use DeepSeek
+provider = factory.create(LLMConfig(
+    provider="deepseek",
+    model="deepseek-chat"
+))
+
+# Use Kimi
+provider = factory.create(LLMConfig(
+    provider="kimi",
+    model="kimi-vl"
+))
+
+# Use Qwen
+provider = factory.create(LLMConfig(
+    provider="qwen",
+    model="qwen-plus"
+))
+```
 
 ---
 
