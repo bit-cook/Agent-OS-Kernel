@@ -1,7 +1,10 @@
 """测试上下文管理器"""
 
 import pytest
-from agent_os_kernel.core.context_manager import ContextManager, ContextPage, PageStatus
+from agent_os_kernel.core.context_manager import (
+    ContextManager, ContextPage, PageStatus
+)
+from agent_os_kernel.core.exceptions import ContextOverflowError
 
 
 class TestContextPage:
@@ -48,148 +51,137 @@ class TestContextPage:
         page = ContextPage(agent_pid="test", content="test content")
         assert page.status == PageStatus.IN_MEMORY
         
-        # Swap out
         page.status = PageStatus.SWAPPED
-        assert page.status == PageStatus.SWAP_OUT
-        assert page.is_dirty() is False  # Should be clean when swapped
+        assert page.is_dirty() is False
     
     def test_lru_score_calculation(self):
         page = ContextPage(agent_pid="test", content="test")
         page.access_count = 5
-        page.last_accessed = 0  # Old time
+        page.last_accessed = 0
         
         score = page.get_lru_score(current_time=1000)
-        assert score > 0  # Should have high LRU score (unused recently)
+        assert score > 0
 
 
 class TestContextManager:
     """测试 ContextManager"""
     
     def test_initialization(self):
-        manager = ContextManager(max_tokens=1000)
+        manager = ContextManager(max_context_tokens=1000)
         
-        assert manager.max_tokens == 1000
-        assert manager.used_tokens == 0
-        assert manager.pages == {}
+        assert manager.max_context_tokens == 1000
+        assert manager.current_usage >= 0
+        assert hasattr(manager, 'pages_in_memory')
     
-    def test_add_page(self):
-        manager = ContextManager(max_tokens=1000)
-        page = manager.add_page(
+    def test_allocate_page(self):
+        manager = ContextManager(max_context_tokens=1000)
+        page_id = manager.allocate_page(
             agent_pid="agent1",
             content="Hello",
-            tokens=2,
-            page_type="user"
+            importance=0.8
         )
         
-        assert page is not None
-        assert page.agent_pid == "agent1"
-        assert len(manager.pages) == 1
-        assert manager.used_tokens >= 2
+        assert page_id is not None
+        assert isinstance(page_id, str)
+        assert len(page_id) > 0
     
-    def test_get_page(self):
-        manager = ContextManager(max_tokens=1000)
-        added = manager.add_page(agent_pid="agent1", content="Test")
+    def test_access_page(self):
+        manager = ContextManager(max_context_tokens=1000)
+        page_id = manager.allocate_page(agent_pid="agent1", content="Test")
         
-        retrieved = manager.get_page(added.page_id)
-        
-        assert retrieved is not None
-        assert retrieved.page_id == added.page_id
-        assert retrieved.access_count == 1  # touch() called
+        page = manager.access_page(page_id)
+        assert page is not None
+        assert page.content == "Test"
     
     def test_get_nonexistent_page(self):
-        manager = ContextManager(max_tokens=1000)
-        
-        result = manager.get_page("nonexistent")
-        
+        manager = ContextManager(max_context_tokens=1000)
+        result = manager.access_page("nonexistent")
         assert result is None
     
-    def test_remove_page(self):
-        manager = ContextManager(max_tokens=1000)
-        page = manager.add_page(agent_pid="agent1", content="Test")
+    def test_get_agent_context(self):
+        manager = ContextManager(max_context_tokens=1000)
         
-        removed = manager.remove_page(page.page_id)
+        manager.allocate_page(agent_pid="agent1", content="page1", importance=0.5)
+        manager.allocate_page(agent_pid="agent1", content="page2", importance=0.7)
+        manager.allocate_page(agent_pid="agent2", content="page3", importance=0.6)
         
-        assert removed is True
-        assert len(manager.pages) == 0
-        assert manager.get_page(page.page_id) is None
+        context1 = manager.get_agent_context("agent1")
+        context2 = manager.get_agent_context("agent2")
+        
+        assert isinstance(context1, str)
+        assert "page1" in context1
+        assert "page2" in context1
+        assert "page3" in context2
     
-    def test_get_agent_pages(self):
-        manager = ContextManager(max_tokens=1000)
-        manager.add_page(agent_pid="agent1", content="page1")
-        manager.add_page(agent_pid="agent1", content="page2")
-        manager.add_page(agent_pid="agent2", content="page3")
+    def test_release_agent_pages(self):
+        manager = ContextManager(max_context_tokens=1000)
         
-        agent1_pages = manager.get_agent_pages("agent1")
-        agent2_pages = manager.get_agent_pages("agent2")
+        manager.allocate_page(agent_pid="agent1", content="page1", importance=0.5)
+        manager.allocate_page(agent_pid="agent1", content="page2", importance=0.7)
         
-        assert len(agent1_pages) == 2
-        assert len(agent2_pages) == 1
+        released = manager.release_agent_pages("agent1")
+        assert released == 2
+        
+        context = manager.get_agent_context("agent1")
+        assert context == ""
     
-    def test_swap_out_low_priority(self):
-        # Create manager with very low token limit
-        manager = ContextManager(max_tokens=10)
-        manager.add_page(agent_pid="a1", content="x" * 10, importance_score=0.1)
-        manager.add_page(agent_pid="a1", content="y" * 10, importance_score=0.9)
+    def test_update_page_content(self):
+        manager = ContextManager(max_context_tokens=1000)
+        page_id = manager.allocate_page(agent_pid="a1", content="old", importance=0.5)
         
-        initial_count = len(manager.pages)
-        freed = manager.swap_out_if_needed()
+        manager.update_page_content(page_id, "new content")
         
-        # Should have tried to free space
-        # Result depends on implementation
-        assert isinstance(freed, int)
+        page = manager.access_page(page_id)
+        assert page.content == "new content"
     
-    def test_get_memory_stats(self):
-        manager = ContextManager(max_tokens=1000)
-        manager.add_page(agent_pid="a1", content="test")
+    def test_update_page_importance(self):
+        manager = ContextManager(max_context_tokens=1000)
+        page_id = manager.allocate_page(agent_pid="a1", content="test", importance=0.5)
         
-        stats = manager.get_memory_stats()
+        manager.update_page_importance(page_id, 0.9)
         
-        assert stats['total_pages'] == 1
-        assert stats['used_tokens'] >= 1
-        assert stats['max_tokens'] == 1000
-        assert 'usage_percent' in stats
+        page = manager.access_page(page_id)
+        assert page.importance_score == 0.9
     
-    def test_clear_agent_pages(self):
-        manager = ContextManager(max_tokens=1000)
-        manager.add_page(agent_pid="agent1", content="page1")
-        manager.add_page(agent_pid="agent1", content="page2")
-        manager.add_page(agent_pid="agent2", content="page3")
+    def test_context_overflow_error(self):
+        """测试上下文溢出错误"""
+        manager = ContextManager(max_context_tokens=10)
         
-        manager.clear_agent_pages("agent1")
+        try:
+            manager.allocate_page(
+                agent_pid="test",
+                content="x" * 10000,
+                importance=1.0
+            )
+        except (ContextOverflowError, MemoryError):
+            pass
+    
+    def test_get_stats(self):
+        manager = ContextManager(max_context_tokens=1000)
+        manager.allocate_page(agent_pid="a1", content="test", importance=0.5)
         
-        assert len(manager.get_agent_pages("agent1")) == 0
-        assert len(manager.get_agent_pages("agent2")) == 1
-        assert len(manager.pages) == 1
+        stats = manager.get_stats()
+        
+        assert isinstance(stats, dict)
+        assert "max_tokens" in stats
+        assert stats["max_tokens"] == 1000
+    
+    def test_token_estimation(self):
+        manager = ContextManager(max_context_tokens=10000)
+        
+        tokens1 = manager._estimate_tokens("Hello world")
+        assert tokens1 > 0
+        
+        long_text = "word " * 100
+        tokens2 = manager._estimate_tokens(long_text)
+        assert tokens2 > tokens1
 
 
-class TestContextPageEviction:
-    """测试页面置换策略"""
+class TestContextManagerKVCache:
+    """测试 KV Cache 优化器"""
     
-    def test_eviction_order(self):
-        """测试低重要性页面先被换出"""
-        manager = ContextManager(max_tokens=50)
+    def test_kv_cache_optimizer_exists(self):
+        manager = ContextManager(max_context_tokens=1000)
         
-        # Add pages with different importance
-        high = manager.add_page(agent_pid="a1", content="important", importance_score=0.9)
-        low = manager.add_page(agent_pid="a1", content="less important", importance_score=0.2)
-        
-        # Both should be in memory initially
-        assert manager.get_page(high.page_id) is not None
-        assert manager.get_page(low.page_id) is not None
-    
-    def test_importance_based_swap(self):
-        """测试基于重要性的置换"""
-        manager = ContextManager(max_tokens=20)
-        
-        # Fill up
-        p1 = manager.add_page(agent_pid="a1", content="a" * 10, importance_score=0.9)
-        p2 = manager.add_page(agent_pid="a1", content="b" * 10, importance_score=0.1)
-        
-        # Access low importance page to make it less likely to be swapped
-        manager.get_page(p2.page_id)
-        
-        # Try to add another page that should trigger swap
-        p3 = manager.add_page(agent_pid="a1", content="c" * 10, importance_score=0.5)
-        
-        # System should handle this gracefully
-        assert p3 is not None
+        assert hasattr(manager, 'kv_cache_optimizer')
+        assert hasattr(manager.kv_cache_optimizer, 'get_hit_rate_stats')

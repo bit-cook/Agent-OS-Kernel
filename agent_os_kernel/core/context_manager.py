@@ -26,6 +26,12 @@ from enum import Enum
 
 
 logger = logging.getLogger(__name__)
+# 尝试导入 tiktoken 用于精确 token 计算
+try:
+    import tiktoken
+    HAS_TIKTOKEN = True
+except ImportError:
+    HAS_TIKTOKEN = False
 
 
 class PageStatus(Enum):
@@ -569,7 +575,7 @@ class ContextManager:
         # 检查是否需要换出页面
         while self.current_usage + tokens > self.max_context_tokens:
             if not self._swap_out_page():
-                raise MemoryError(
+                raise ContextOverflowError(
                     f"Cannot allocate page with {tokens} tokens. "
                     f"Current usage: {self.current_usage}/{self.max_context_tokens}. "
                     "All pages are critical and cannot be swapped out."
@@ -766,9 +772,16 @@ class ContextManager:
         """
         估算文本的 token 数
         
-        简化实现：按空格分词后乘以经验系数 1.3
-        实际生产环境应该使用 tiktoken 或类似工具
+        优先使用 tiktoken（精确），否则使用启发式估计
         """
+        if HAS_TIKTOKEN:
+            try:
+                encoding = tiktoken.encoding_for_model("gpt-4")
+                return len(encoding.encode(text))
+            except Exception:
+                pass
+        
+        # 回退：按空格分词后乘以经验系数 1.3
         words = len(text.split())
         return int(words * 1.3)
     

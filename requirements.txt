@@ -25,3 +25,5 @@ types-requests>=2.31.0
 
 # Development
 ipython>=8.0.0
+# Tokenization (optional, for accurate token counting)
+tiktoken>=0.5.0
