@@ -81,7 +81,7 @@ class CacheSystem:
         self.enable_disk_cache = enable_disk_cache
         
         self._memory_cache: Dict[str, CacheEntry] = {}
-        self._disk_cache_dir = disk_cache_cache_dir
+        self._disk_cache_dir = disk_cache_dir
         self._lock = asyncio.Lock()
         self._stats = {
             "hits": 0,
