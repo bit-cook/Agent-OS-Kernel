@@ -15,7 +15,7 @@
 [![Version](https://img.shields.io/badge/version-1.0.0-green.svg)](https://github.com/bit-cook/Agent-OS-Kernel/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-[English](./README_EN.md) | [中文](./README.md) | [宣言](./MANIFESTO.md) | [文档](docs/) | [示例](./examples)
+[English](./README_EN.md) | [中文](./README.md) | [宣言](./MANIFESTO.md) | [文档](docs/) | [示例](examples/)
 
 </div>
 
@@ -331,17 +331,6 @@ policy = SecurityPolicy(
 
 ---
 
-## 🇨🇳 中国模型支持
-
-Agent OS Kernel 完整支持主流中国 AI 模型提供商：
-
-| Provider | 模型 | 配置示例 |
-|----------|------|----------|
-| **DeepSeek** | deepseek-chat, deepseek-reasoner | `{"provider": "deepseek", "model": "deepseek-chat"}` |
-| **Qwen (阿里)** | qwen-turbo, qwen-plus, qwen-max, qwen-long | `{"provider": "qwen", "model": "qwen-turbo"}` |
-| **Kimi (Moonshot)** | kimi-k2 系列、moonshot-v1 系列 | `{"provider": "kimi", "model": "kimi-k2.5"}` |
-| **MiniMax** | abab6.5s-chat, abab6.5-chat | `{"provider": "minimax", "model": "abab6.5s-chat"}` |
-
 ## 🔧 常用 MCP 服务器
 
 完整支持 Model Context Protocol，连接 400+ MCP 服务器。
@@ -443,12 +432,15 @@ Agent OS Kernel 深度参考 [AIOS](https://github.com/agiresearch/AIOS) (COLM 2
 
 | 指标 | 数值 |
 |------|------|
-| **Python 文件** | 120+ |
-| **核心模块** | 35+ |
+| **Python 文件** | 140+ |
+| **核心模块** | 40+ |
 | **LLM Providers** | 11 |
-| **测试文件** | 16 |
-| **示例代码** | 35+ |
+| **测试文件** | 20+ |
+| **示例代码** | 27 |
+| **研究文档** | 15 |
 | **文档** | 14+ |
+
+详见 [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md)
 
 ## 📄 许可证
 
