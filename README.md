@@ -416,6 +416,18 @@ Agent OS Kernel 深度参考 [AIOS](https://github.com/agiresearch/AIOS) (COLM 2
 
 ---
 
+## 📊 项目统计
+
+| 指标 | 数值 |
+|------|------|
+| **Python 文件** | 87 |
+| **核心模块** | 24+ |
+| **LLM Providers** | 9 |
+| **测试文件** | 10 |
+| **示例代码** | 18 |
+| **文档** | 6 |
+| **Agent Communication** | 5 |
+
 ## 📄 许可证
 
 MIT License © 2026 OpenClaw

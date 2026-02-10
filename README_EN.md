@@ -415,6 +415,18 @@ Agent OS Kernel is deeply inspired by [AIOS](https://github.com/agiresearch/AIOS
 
 ---
 
+## 📊 Project Statistics
+
+| Metric | Value |
+|--------|-------|
+| **Python Files** | 87 |
+| **Core Modules** | 24+ |
+| **LLM Providers** | 9 |
+| **Test Files** | 10 |
+| **Examples** | 18 |
+| **Documentation** | 6 |
+| **Agent Communication** | 5 |
+
 ## 📄 License
 
 MIT License © 2026 OpenClaw
