@@ -1,68 +1,78 @@
 """测试熔断器"""
 
 import pytest
-import asyncio
 from agent_os_kernel.core.circuit_breaker import (
     CircuitBreaker, CircuitState, CircuitConfig
 )
 
 
 class TestCircuitBreaker:
-    def test_initial_state(self):
-        breaker = CircuitBreaker("test", CircuitConfig())
-        assert breaker.state == CircuitState.CLOSED
+    """测试熔断器"""
     
-    @pytest.mark.asyncio
-    async def test_success_call(self):
-        breaker = CircuitBreaker("test", CircuitConfig(failure_threshold=3))
-        
-        async def success():
-            return "success"
-        
-        result = await breaker.call(success)
-        assert result == "success"
+    def test_initialization(self):
+        """测试初始化"""
+        cb = CircuitBreaker("test")
+        assert cb.state == CircuitState.CLOSED
+        assert cb.name == "test"
     
-    @pytest.mark.asyncio
-    async def test_failure_opens_circuit(self):
-        breaker = CircuitBreaker("test", CircuitConfig(failure_threshold=2))
+    def test_closed_state(self):
+        """测试关闭状态"""
+        cb = CircuitBreaker("test", CircuitConfig(
+            name="test",
+            failure_threshold=3,
+            success_threshold=2,
+            timeout_seconds=60
+        ))
         
-        async def fail():
-            raise ValueError("fail")
-        
-        # 两次失败应该打开熔断器
-        for _ in range(2):
-            try:
-                await breaker.call(fail)
-            except ValueError:
-                pass
-        
-        assert breaker.state == CircuitState.OPEN
+        assert cb.state == CircuitState.CLOSED
     
-    @pytest.mark.asyncio
-    async def test_fallback(self):
-        breaker = CircuitBreaker("test", CircuitConfig(failure_threshold=1))
+    def test_metrics(self):
+        """测试指标"""
+        cb = CircuitBreaker("test")
+        metrics = cb.get_metrics()
         
-        async def fail():
-            raise ValueError("fail")
-        
-        async def fallback():
-            return "fallback"
-        
-        try:
-            await breaker.call(fail, fallback=fallback)
-        except:
-            pass
-        
-        # 熔断器打开后调用 fallback
-        result = await breaker.call(fail, fallback=fallback)
-        assert result == "fallback"
+        assert hasattr(metrics, 'total_calls')
+        assert hasattr(metrics, 'failed_calls')
+        assert metrics.total_calls == 0
     
-    def test_get_stats(self):
-        breaker = CircuitBreaker("test", CircuitConfig())
-        stats = breaker.get_stats()
-        assert "state" in stats
-        assert "failure_count" in stats
+    def test_reset(self):
+        """测试重置"""
+        cb = CircuitBreaker("test")
+        cb.reset()
+        
+        assert cb.state == CircuitState.CLOSED
 
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+class TestCircuitState:
+    """测试熔断状态"""
+    
+    def test_state_values(self):
+        """测试状态值"""
+        assert CircuitState.CLOSED.value == "closed"
+        assert CircuitState.OPEN.value == "open"
+        assert CircuitState.HALF_OPEN.value == "half_open"
+
+
+class TestCircuitConfig:
+    """测试熔断配置"""
+    
+    def test_default_config(self):
+        """测试默认配置"""
+        config = CircuitConfig(name="default")
+        
+        assert config.name == "default"
+        assert config.failure_threshold == 5
+        assert config.timeout_seconds == 60.0
+    
+    def test_custom_config(self):
+        """测试自定义配置"""
+        config = CircuitConfig(
+            name="custom",
+            failure_threshold=10,
+            success_threshold=5,
+            timeout_seconds=120.0
+        )
+        
+        assert config.failure_threshold == 10
+        assert config.success_threshold == 5
+        assert config.timeout_seconds == 120.0

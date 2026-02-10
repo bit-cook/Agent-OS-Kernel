@@ -92,7 +92,7 @@ class MemoryStorage(StorageInterface):
                     'modified': time.time(),
                     'access': time.time()
                 }
-                self._stats.last_modify = datetime.utcnow()
+                self._stats.last_modify = datetime.now()
                 self._stats.total_keys = len(self._data)
                 self._stats.total_size_bytes += size
                 return True
@@ -101,7 +101,7 @@ class MemoryStorage(StorageInterface):
     
     def retrieve(self, key: str) -> Optional[Any]:
         with self._lock:
-            self._stats.last_access = datetime.utcnow()
+            self._stats.last_access = datetime.now()
             if key in self._data:
                 self._stats.hit_count += 1
                 self._metadata[key]['access'] = time.time()
@@ -178,7 +178,7 @@ class FileStorage(StorageInterface):
                 path = self._get_path(key)
                 with open(path, 'w', encoding='utf-8') as f:
                     json.dump(value, f, ensure_ascii=False, indent=2)
-                self._stats.last_modify = datetime.utcnow()
+                self._stats.last_modify = datetime.now()
                 self._stats.total_keys += 1
                 return True
             except Exception:
@@ -189,7 +189,7 @@ class FileStorage(StorageInterface):
             try:
                 path = self._get_path(key)
                 if os.path.exists(path):
-                    self._stats.last_access = datetime.utcnow()
+                    self._stats.last_access = datetime.now()
                     self._stats.hit_count += 1
                     with open(path, 'r', encoding='utf-8') as f:
                         return json.load(f)
