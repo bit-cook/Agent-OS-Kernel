@@ -494,16 +494,37 @@ black agent_os_kernel/ tests/
 
 ## 🔗 相关资源
 
-### 灵感来源
-- [AIOS (COLM 2025)](https://github.com/agiresearch/AIOS) - Agent OS 架构
-- [《AI Agent 的操作系统时刻》](https://vonng.com/db/agent-os/) - 冯若航
-- [Manus - Context Engineering](https://manus.im/blog/context-engineering)
-- [DeepSeek Engram](https://arxiv.org/abs/2502.01623)
+### 📖 灵感来源
+- [AIOS (COLM 2025)](https://github.com/agiresearch/AIOS) - Agent OS 架构，论文发表于 Conference on Language Modeling
+- [《AI Agent 的操作系统时刻》](https://vonng.com/db/agent-os/) - 冯若航，最初的灵感来源
+- [Manus - Context Engineering](https://manus.im/blog/context-engineering) - 上下文工程实践经验
+- [DeepSeek Engram](https://arxiv.org/abs/2502.01623) - 记忆增强的 LLM 推理
 
-### 参考项目
-- [E2B](https://e2b.dev/) - Agent 沙箱
-- [MCP](https://modelcontextprotocol.io/) - Model Context Protocol
-- [AutoGen](https://microsoft.github.io/autogen/) - 多 Agent 框架
+### 🌟 参考项目
+
+#### Agent 框架
+- [AutoGen](https://microsoft.github.io/autogen/) - Microsoft 多 Agent 框架，支持 AgentChat 和 Core API
+- [AutoGen Studio](https://microsoft.github.io/autogen-studio/) - No-code 多 Agent 开发 GUI
+- [MetaGPT](https://github.com/geekan/MetaGPT) - 软件开发多 Agent 框架
+
+#### Agent 基础设施
+- [E2B](https://e2b.dev/) - Agent 安全沙箱环境，10.8k+ stars
+- [AIWaves Agents](https://github.com/aiwaves-cn/agents) - 自学习语言 Agent，支持符号学习
+
+#### 工作流与工具
+- [ActivePieces](https://github.com/activepieces/activepieces) - AI 工作流自动化，15k+ stars
+- [Cerebrum](https://github.com/agiresearch/Cerebrum) - AIOS SDK，Agent 开发部署平台
+- [CowAgent](https://github.com/CowAI-Lab/CowAgent) - 多平台接入 Agent，支持飞书/钉钉/企业微信
+
+#### 协议与标准
+- [MCP](https://modelcontextprotocol.io/) - Model Context Protocol，Anthropic 提出
+- [OSWorld](https://github.com/xlang-ai/OSWorld) - 电脑使用 Agent 基准测试
+
+### 📚 项目文档
+
+- [AIOS_ANALYSIS.md](./AIOS_ANALYSIS.md) - AIOS 深度分析文档
+- [INSPIRATION.md](./INSPIRATION.md) - GitHub 项目灵感收集
+- [三日完善计划](3DAY_PLAN.md) - 项目开发计划
 
 ---
 
