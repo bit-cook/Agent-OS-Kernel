@@ -343,19 +343,19 @@ Agent OS Kernel 深度参考 [AIOS](https://github.com/agiresearch/AIOS) (COLM 2
 
 ```
 +----------------------------------------------------------------+
-|              [ Agent-OS-Kernel (AIOS-Inspired) ]              |
+|              [ Agent-OS-Kernel (AIOS-Inspired) ]               |
 +----------------------------------------------------------------+
 |  Kernel Layer                                                 |
-|  + LLM Core (Multi-Provider)                                 |
-|  + Context Manager (Virtual Memory)                           |
-|  + Memory Manager (Memory)                                    |
-|  + Storage Manager (Persistent)                               |
+|  + LLM Core (Multi-Provider)                                  |
+|  + Context Manager (Virtual Memory)                            |
+|  + Memory Manager (Memory)                                     |
+|  + Storage Manager (Persistent)                                |
 |  + Tool Manager (Tools)                                        |
 |  + Scheduler (Process)                                        |
 +----------------------------------------------------------------+
-|  SDK Layer (Cerebrum-Style)                                  |
-|  + Agent Builder (Builder)                                    |
-|  + Tool Registry (Registry)                                    |
+|  SDK Layer (Cerebrum-Style)                                   |
+|  + Agent Builder (Builder)                                     |
+|  + Tool Registry (Registry)                                     |
 |  + Plugin System (Plugins)                                    |
 +----------------------------------------------------------------+
 ```
