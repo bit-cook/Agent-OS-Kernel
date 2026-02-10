@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  agent-os-kernel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agent-os-kernel-dev
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONPATH=/app
+    ports:
+      - "8000:8000"
+    command: >
+      python -m agent_os_kernel.api.server
+      --host 0.0.0.0
+      --port 8000
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15
+    container_name: agent-os-postgres
+    environment:
+      POSTGRES_DB: agent_os
+      POSTGRES_USER: agent
+      POSTGRES_PASSWORD: agent123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: agent-os-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  default:
+    name: agent-os-network
