@@ -339,7 +339,7 @@ Agent OS Kernel 完整支持主流中国 AI 模型提供商：
 |----------|------|------|----------|
 | **DeepSeek** | deepseek-chat, deepseek-reasoner | 性价比高、推理能力强 | `{"provider": "deepseek", "model": "deepseek-chat"}` |
 | **Qwen (阿里)** | qwen-turbo, qwen-plus, qwen-max, qwen-long | 生态完善、API 稳定 | `{"provider": "qwen", "model": "qwen-turbo"}` |
-| **Kimi (Moonshot)** | moonshot-v1-8k, moonshot-v1-32k, moonshot-v1-128k | 超长上下文、多模态 | `{"provider": "kimi", "model": "kimi-vl"}` |
+| **Kimi (Moonshot)** | moonshot-v1-8k, moonshot-v1-32k, moonshot-v1-128k, moonshot-v1-200k | 超长上下文 (8K-200K)、多模态 | `{"provider": "kimi", "model": "kimi-vl"}` |
 | **MiniMax** | abab6.5s-chat, abab6.5-chat | 快速响应、低延迟 | `{"provider": "minimax", "model": "abab6.5s-chat"}` |
 
 ### 配置方式
