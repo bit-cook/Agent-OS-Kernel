@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent-OS-Kernel 管理面板</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        [v-cloak] { display: none; }
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen">
+    <div id="app" v-cloak>
+        <!-- Header -->
+        <header class="bg-gray-800 border-b border-gray-700 sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-xl">🤖</div>
+                    <div>
+                        <h1 class="text-xl font-bold">Agent-OS-Kernel</h1>
+                        <p class="text-xs text-gray-400">v2.0 管理面板</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span class="px-3 py-1 rounded-full text-sm" :class="statusClass">{{ status.overall_health }}</span>
+                    <button @click="refreshAll" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition">
+                        🔄 刷新
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 py-6">
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+                    <div class="text-gray-400 text-sm">CPU 使用率</div>
+                    <div class="text-2xl font-bold mt-1">{{ status.cpu_usage?.toFixed(1) || 0 }}%</div>
+                    <div class="w-full bg-gray-700 h-2 rounded-full mt-2">
+                        <div class="h-2 rounded-full transition-all" :class="getProgressClass(status.cpu_usage)" :style="{width: (status.cpu_usage || 0) + '%'}"></div>
+                    </div>
+                </div>
+                <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+                    <div class="text-gray-400 text-sm">内存使用率</div>
+                    <div class="text-2xl font-bold mt-1">{{ status.memory_usage?.toFixed(1) || 0 }}%</div>
+                    <div class="w-full bg-gray-700 h-2 rounded-full mt-2">
+                        <div class="h-2 rounded-full transition-all" :class="getProgressClass(status.memory_usage)" :style="{width: (status.memory_usage || 0) + '%'}"></div>
+                    </div>
+                </div>
+                <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+                    <div class="text-gray-400 text-sm">活跃 Agent</div>
+                    <div class="text-2xl font-bold mt-1">{{ agents.length }}</div>
+                </div>
+                <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+                    <div class="text-gray-400 text-sm">检查点</div>
+                    <div class="text-2xl font-bold mt-1">{{ checkpoints.length }}</div>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="flex gap-2 mb-6 border-b border-gray-700">
+                <button v-for="tab in tabs" :key="tab.id" @click="currentTab = tab.id"
+                    class="px-4 py-2 text-sm font-medium transition border-b-2 -mb-px"
+                    :class="currentTab === tab.id ? 'text-blue-400 border-blue-400' : 'text-gray-400 border-transparent hover:text-gray-300'">
+                    {{ tab.name }}
+                </button>
+            </div>
+
+            <!-- Agents Tab -->
+            <div v-if="currentTab === 'agents'" class="space-y-4">
+                <!-- Create Agent -->
+                <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+                    <h3 class="font-medium mb-4">创建新 Agent</h3>
+                    <div class="grid md:grid-cols-3 gap-4">
+                        <input v-model="newAgent.name" placeholder="Agent 名称" class="bg-gray-700 border border-gray-600 rounded-lg px-4 py-2">
+                        <input v-model="newAgent.task" placeholder="任务描述" class="bg-gray-700 border border-gray-600 rounded-lg px-4 py-2">
+                        <div class="flex gap-2">
+                            <select v-model="newAgent.priority" class="bg-gray-700 border border-gray-600 rounded-lg px-4 py-2">
+                                <option :value="10">低优先级</option>
+                                <option :value="30">中优先级</option>
+                                <option :value="50">高优先级</option>
+                                <option :value="80">紧急</option>
+                            </select>
+                            <button @click="createAgent" :disabled="!newAgent.name || !newAgent.task"
+                                class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-medium disabled:opacity-50">
+                                创建
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Agent List -->
+                <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+                    <table class="w-full">
+                        <thead class="bg-gray-750 border-b border-gray-700">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">名称</th>
+                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">状态</th>
+                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">优先级</th>
+                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">创建时间</th>
+                                <th class="px-4 py-3 text-right text-sm font-medium text-gray-400">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="agent in agents" :key="agent.pid" class="border-b border-gray-700 hover:bg-gray-750">
+                                <td class="px-4 py-3">{{ agent.name }}</td>
+                                <td class="px-4 py-3">
+                                    <span class="px-2 py-1 rounded text-xs font-medium" :class="getStateClass(agent.state)">{{ agent.state }}</span>
+                                </td>
+                                <td class="px-4 py-3">{{ agent.priority }}</td>
+                                <td class="px-4 py-3 text-gray-400">{{ formatTime(agent.created_at) }}</td>
+                                <td class="px-4 py-3 text-right">
+                                    <button @click="terminateAgent(agent.pid)" class="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-xs">终止</button>
+                                </td>
+                            </tr>
+                            <tr v-if="agents.length === 0">
+                                <td colspan="5" class="px-4 py-8 text-center text-gray-500">暂无 Agent</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Checkpoints Tab -->
+            <div v-if="currentTab === 'checkpoints'" class="space-y-4">
+                <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+                    <table class="w-full">
+                        <thead class="bg-gray-750 border-b border-gray-700">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">Agent</th>
+                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">描述</th>
+                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">创建时间</th>
+                                <th class="px-4 py-3 text-right text-sm font-medium text-gray-400">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="cp in checkpoints" :key="cp.checkpoint_id" class="border-b border-gray-700 hover:bg-gray-750">
+                                <td class="px-4 py-3">{{ cp.agent_name || cp.agent_pid }}</td>
+                                <td class="px-4 py-3 text-gray-400">{{ cp.description || '-' }}</td>
+                                <td class="px-4 py-3 text-gray-400">{{ formatTime(cp.timestamp) }}</td>
+                                <td class="px-4 py-3 text-right">
+                                    <button @click="restoreCheckpoint(cp.checkpoint_id)" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs">恢复</button>
+                                </td>
+                            </tr>
+                            <tr v-if="checkpoints.length === 0">
+                                <td colspan="4" class="px-4 py-8 text-center text-gray-500">暂无检查点</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tools Tab -->
+            <div v-if="currentTab === 'tools'" class="space-y-4">
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div v-for="tool in tools" :key="tool.name" class="bg-gray-800 rounded-xl p-4 border border-gray-700">
+                        <div class="font-medium">{{ tool.name }}</div>
+                        <div class="text-sm text-gray-400 mt-1">{{ tool.description }}</div>
+                        <button @click="selectedTool = tool" class="mt-3 px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs">使用</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Logs Tab -->
+            <div v-if="currentTab === 'logs'" class="space-y-4">
+                <div class="bg-gray-800 rounded-xl border border-gray-700 p-4 max-h-96 overflow-auto font-mono text-sm">
+                    <div v-for="(log, i) in auditLogs" :key="i" class="py-1 border-b border-gray-700 last:border-0">
+                        <span class="text-gray-500">[{{ formatTime(log.timestamp) }}]</span>
+                        <span class="ml-2">{{ log.action }} - {{ log.result }}</span>
+                    </div>
+                    <div v-if="auditLogs.length === 0" class="text-center text-gray-500 py-8">暂无日志</div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Tool Modal -->
+        <div v-if="selectedTool" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="selectedTool = null">
+            <div class="bg-gray-800 rounded-xl p-6 w-full max-w-md border border-gray-700">
+                <h3 class="text-lg font-medium mb-4">{{ selectedTool.name }}</h3>
+                <textarea v-model="toolInput" placeholder="输入参数 (JSON)" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 h-32 font-mono text-sm"></textarea>
+                <div class="flex gap-2 mt-4">
+                    <button @click="executeTool" class="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg">执行</button>
+                    <button @click="selectedTool = null" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg">关闭</button>
+                </div>
+                <div v-if="toolResult" class="mt-4 p-3 bg-gray-700 rounded-lg font-mono text-sm max-h-48 overflow-auto">
+                    {{ toolResult }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted, onUnmounted } = Vue
+
+        createApp({
+            setup() {
+                const status = ref({})
+                const agents = ref([])
+                const checkpoints = ref([])
+                const tools = ref([])
+                const auditLogs = ref([])
+                const currentTab = ref('agents')
+                const selectedTool = ref(null)
+                const toolInput = ref('{}')
+                const toolResult = ref('')
+
+                const newAgent = ref({ name: '', task: '', priority: 30 })
+                const tabs = [
+                    { id: 'agents', name: '🤖 Agent 管理' },
+                    { id: 'checkpoints', name: '💾 检查点' },
+                    { id: 'tools', name: '🛠️ 工具' },
+                    { id: 'logs', name: '📋 日志' }
+                ]
+
+                const statusClass = computed(() => {
+                    const health = status.value.overall_health
+                    if (health === 'healthy') return 'bg-green-500/20 text-green-400'
+                    if (health === 'warning') return 'bg-yellow-500/20 text-yellow-400'
+                    return 'bg-red-500/20 text-red-400'
+                })
+
+                const getProgressClass = (value) => {
+                    if (!value) return 'bg-blue-500'
+                    if (value < 60) return 'bg-green-500'
+                    if (value < 80) return 'bg-yellow-500'
+                    return 'bg-red-500'
+                }
+
+                const getStateClass = (state) => {
+                    const classes = {
+                        'running': 'bg-green-500/20 text-green-400',
+                        'ready': 'bg-blue-500/20 text-blue-400',
+                        'waiting': 'bg-yellow-500/20 text-yellow-400',
+                        'terminated': 'bg-gray-500/20 text-gray-400',
+                        'error': 'bg-red-500/20 text-red-400'
+                    }
+                    return classes[state] || 'bg-gray-500/20 text-gray-400'
+                }
+
+                const formatTime = (ts) => {
+                    if (!ts) return '-'
+                    return new Date(ts).toLocaleString('zh-CN')
+                }
+
+                let refreshInterval
+
+                const fetchStatus = async () => {
+                    try {
+                        const r = await axios.get('/api/status')
+                        status.value = r.data
+                    } catch (e) { console.error('Status error:', e) }
+                }
+
+                const fetchAgents = async () => {
+                    try {
+                        const r = await axios.get('/api/agents')
+                        agents.value = r.data
+                    } catch (e) { console.error('Agents error:', e) }
+                }
+
+                const fetchCheckpoints = async () => {
+                    try {
+                        const r = await axios.get('/api/checkpoints')
+                        checkpoints.value = r.data
+                    } catch (e) { console.error('Checkpoints error:', e) }
+                }
+
+                const fetchTools = async () => {
+                    try {
+                        const r = await axios.get('/api/tools')
+                        tools.value = r.data
+                    } catch (e) { console.error('Tools error:', e) }
+                }
+
+                const fetchLogs = async () => {
+                    try {
+                        const r = await axios.get('/api/audit-logs')
+                        auditLogs.value = r.data.slice(-50).reverse()
+                    } catch (e) { console.error('Logs error:', e) }
+                }
+
+                const refreshAll = async () => {
+                    await Promise.all([fetchStatus(), fetchAgents(), fetchCheckpoints(), fetchTools(), fetchLogs()])
+                }
+
+                const createAgent = async () => {
+                    try {
+                        await axios.post('/api/agents', newAgent.value)
+                        newAgent.value = { name: '', task: '', priority: 30 }
+                        await fetchAgents()
+                    } catch (e) { alert('创建失败: ' + (e.response?.data?.detail || e.message)) }
+                }
+
+                const terminateAgent = async (pid) => {
+                    if (!confirm('确定要终止此 Agent 吗？')) return
+                    try {
+                        await axios.delete(`/api/agents/${pid}`)
+                        await fetchAgents()
+                    } catch (e) { alert('终止失败: ' + e.message) }
+                }
+
+                const restoreCheckpoint = async (checkpointId) => {
+                    try {
+                        await axios.post(`/api/checkpoints/${checkpointId}/restore`)
+                        await fetchAgents()
+                    } catch (e) { alert('恢复失败: ' + e.message) }
+                }
+
+                const executeTool = async () => {
+                    try {
+                        const params = JSON.parse(toolInput.value)
+                        const r = await axios.post('/api/tools/execute', {
+                            tool_name: selectedTool.value.name,
+                            parameters: params
+                        })
+                        toolResult.value = JSON.stringify(r.data, null, 2)
+                    } catch (e) {
+                        toolResult.value = '执行失败: ' + (e.response?.data?.detail || e.message)
+                    }
+                }
+
+                onMounted(() => {
+                    refreshAll()
+                    refreshInterval = setInterval(refreshAll, 5000)
+                })
+
+                onUnmounted(() => {
+                    clearInterval(refreshInterval)
+                })
+
+                return {
+                    status, agents, checkpoints, tools, auditLogs, currentTab, tabs,
+                    newAgent, selectedTool, toolInput, toolResult,
+                    statusClass, getProgressClass, getStateClass, formatTime,
+                    refreshAll, createAgent, terminateAgent, restoreCheckpoint, executeTool
+                }
+            }
+        }).mount('#app')
+    </script>
+</body>
+</html>

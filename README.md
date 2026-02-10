@@ -439,3 +439,111 @@ MIT License © 2026 Bit-Cook
 [![Star History Chart](https://api.star-history.com/svg?repos=bit-cook/Agent-OS-Kernel&type=Date)](https://star-history.com/#bit-cook/Agent-OS-Kernel&Date)
 
 </div>
+
+---
+
+## 🛠️ 开发指南
+
+### 本地开发
+
+```bash
+# 克隆仓库
+git clone https://github.com/bit-cook/Agent-OS-Kernel.git
+cd Agent-OS-Kernel
+
+# 创建虚拟环境
+python -m venv .venv
+source .venv/bin/activate  # Linux/Mac
+# 或
+.venv\Scripts\activate  # Windows
+
+# 安装依赖
+pip install -r requirements.txt
+
+# 运行测试
+pytest tests/ -v
+
+# 运行类型检查
+mypy agent_os_kernel/
+
+# 代码格式化
+black agent_os_kernel/ tests/
+```
+
+### Docker 部署
+
+```bash
+# 构建镜像
+docker build -t agent-os-kernel .
+
+# 运行容器
+docker run -p 8080:8080 agent-os-kernel
+
+# 或使用 docker-compose
+docker-compose up -d
+```
+
+### CI/CD
+
+项目使用 GitHub Actions 进行持续集成：
+
+- **测试**: 在 Python 3.8-3.11 上运行完整测试套件
+- **代码质量**: black 格式化检查、flake8 静态分析、mypy 类型检查
+- **Docker**: 构建并验证 Docker 镜像
+
+### 项目结构
+
+```
+Agent-OS-Kernel/
+├── agent_os_kernel/        # 核心代码
+│   ├── kernel.py          # 主内核
+│   ├── core/              # 核心子系统
+│   │   ├── context_manager.py  # 虚拟内存管理
+│   │   ├── scheduler.py        # 进程调度
+│   │   ├── storage.py          # 持久化存储
+│   │   ├── security.py         # 安全子系统
+│   │   └── types.py            # 类型定义
+│   ├── tools/             # 工具系统
+│   └── integrations/      # 外部集成
+├── tests/                 # 测试用例
+│   ├── test_kernel.py
+│   ├── test_context_manager.py
+│   ├── test_scheduler.py
+│   ├── test_storage.py
+│   ├── test_security.py
+│   └── test_tools.py
+├── examples/              # 示例代码
+├── .github/workflows/     # CI/CD 配置
+├── Dockerfile            # Docker 构建
+├── docker-compose.yml     # Docker Compose
+└── mypy.ini              # 类型检查配置
+```
+
+### 添加新功能
+
+1. Fork 仓库
+2. 创建特性分支: `git checkout -b feature/your-feature`
+3. 编写代码和测试
+4. 确保所有测试通过: `pytest tests/ -v`
+5. 确保代码符合规范: `black agent_os_kernel/ tests/`
+6. 提交并创建 Pull Request
+
+### 版本历史
+
+见 [CHANGELOG.md](./CHANGELOG.md)
+
+### 贡献者
+
+感谢所有贡献者！
+
+### 许可证
+
+MIT License - 见 [LICENSE](./LICENSE)
+
+---
+
+<div align="center">
+
+**给项目一个 Star ⭐ 支持我们！**
+
+</div>

@@ -5,120 +5,62 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "agent-os-kernel"
 version = "0.2.0"
-description = "Agent OS Kernel: Bringing 50 years of OS wisdom to AI Agent infrastructure"
+description = "AI Agent Operating System Kernel - 填补 Agent 生态中'缺失的内核'"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "Bit-Cook", email = "bit-cook@example.com"}
+    {name = "bit-cook", email = "contact@example.com"}
 ]
-keywords = ["ai", "agent", "os", "kernel", "llm", "scheduler", "context-management"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Topic :: Software Development :: Libraries :: Python Modules",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 requires-python = ">=3.8"
 dependencies = [
-    # 核心依赖（仅标准库）
+    "psutil>=5.9.0",
+    "pyyaml>=6.0",
+    "requests>=2.31.0",
 ]
 
 [project.optional-dependencies]
-# PostgreSQL 存储后端
-postgres = [
-    "psycopg2-binary>=2.9.0",
-    "pgvector>=0.2.0",
-]
-
-# Claude API 集成
-claude = [
-    "anthropic>=0.20.0",
-]
-
-# OpenAI API 集成
-openai = [
-    "openai>=1.0.0",
-]
-
-# Docker 沙箱
-docker = [
-    "docker>=6.0.0",
-]
-
-# 完整功能
-all = [
-    "psycopg2-binary>=2.9.0",
-    "pgvector>=0.2.0",
-    "anthropic>=0.20.0",
-    "openai>=1.0.0",
-    "docker>=6.0.0",
-]
-
-# 开发依赖
 dev = [
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "pytest-asyncio>=0.21.0",
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
     "black>=23.0.0",
-    "isort>=5.12.0",
-    "flake8>=6.0.0",
-    "mypy>=1.0.0",
-    "sphinx>=6.0.0",
-    "sphinx-rtd-theme>=1.2.0",
+    "flake8>=6.1.0",
+    "mypy>=1.5.0",
+    "types-requests>=2.31.0",
+]
+docs = [
+    "sphinx>=7.2.0",
+    "sphinx-rtd-theme>=1.3.0",
+]
+docker = [
+    "docker>=6.1.0",
 ]
 
 [project.urls]
 Homepage = "https://github.com/bit-cook/Agent-OS-Kernel"
-Documentation = "https://github.com/bit-cook/Agent-OS-Kernel#readme"
-Repository = "https://github.com/bit-cook/Agent-OS-Kernel.git"
+Repository = "https://github.com/bit-cook/Agent-OS-Kernel"
 Issues = "https://github.com/bit-cook/Agent-OS-Kernel/issues"
 
 [project.scripts]
-agent-os = "agent_os_kernel.cli:main"
+agent-os-kernel = "agent_os_kernel:main"
 
 [tool.setuptools.packages.find]
-where = ["."]
 include = ["agent_os_kernel*"]
-exclude = ["tests*", "docs*", "examples*"]
 
 [tool.black]
 line-length = 100
-target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+target-version = ['py38', 'py39', 'py310', 'py311']
 include = '\.pyi?$'
-extend-exclude = '''
-/(
-  # directories
-  \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | build
-  | dist
-)/
-'''
-
-[tool.isort]
-profile = "black"
-line_length = 100
-known_first_party = ["agent_os_kernel"]
-
-[tool.mypy]
-python_version = "3.8"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-check_untyped_defs = true
-ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -126,3 +68,17 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["agent_os_kernel"]
+omit = ["tests/*"]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = True
+warn_unused_configs = True
+ignore_missing_imports = True
+
+[tool.darker]
+src = ["agent_os_kernel", "tests"]
+line_length = 100

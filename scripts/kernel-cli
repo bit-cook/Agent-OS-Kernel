@@ -1,0 +1,94 @@
+#!/usr/bin/env python3
+"""
+Agent-OS-Kernel CLI 工具
+参考 AIOS CLI 设计
+"""
+
+import os
+import sys
+import json
+import click
+import yaml
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+GREEN = '\033[92m'
+YELLOW = '\033[93m'
+BLUE = '\033[94m'
+RESET = '\033[0m'
+BOLD = '\033[1m'
+
+def echo(msg, color=None):
+    if color:
+        click.echo(f"{color}{msg}{RESET}")
+    else:
+        click.echo(msg)
+
+@click.group()
+def cli():
+    pass
+
+@cli.group()
+def env():
+    pass
+
+@env.command('list')
+def env_list():
+    echo("\n" + BOLD + BLUE + "环境变量列表" + RESET)
+    keys = [
+        ('OPENAI_API_KEY', 'OpenAI'),
+        ('ANTHROPIC_API_KEY', 'Anthropic'),
+        ('DEEPSEEK_API_KEY', 'DeepSeek'),
+        ('GROQ_API_KEY', 'Groq'),
+    ]
+    for env_key, name in keys:
+        value = os.getenv(env_key)
+        if value:
+            echo(f"  ✅ {name}: {value[:8]}...")
+        else:
+            echo(f"  ❌ {name}: 未设置")
+
+@env.command('set')
+def env_set():
+    echo("交互式设置环境变量")
+    api_keys = [
+        ('OPENAI_API_KEY', 'OpenAI API Key', False),
+        ('ANTHROPIC_API_KEY', 'Anthropic API Key', False),
+    ]
+    for env_key, name, sensitive in api_keys:
+        value = click.prompt(f"{name}", default='', hide_input=sensitive)
+        if value:
+            os.environ[env_key] = value
+            echo(f"  ✅ {env_key} 已设置")
+
+@cli.command()
+def status():
+    echo("\n服务状态检查...")
+    import socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(1)
+    try:
+        result = sock.connect_ex(('localhost', 8000))
+        if result == 0:
+            echo("✅ 服务运行中 (端口 8000)")
+        else:
+            echo("❌ 服务未运行")
+    except:
+        echo("❌ 检查失败")
+    finally:
+        sock.close()
+
+@cli.command()
+def info():
+    echo("\n" + BOLD + BLUE + "Agent-OS-Kernel 信息" + RESET)
+    echo("\n支持的 Provider:")
+    echo("  ✅ OpenAI (GPT-4)")
+    echo("  ✅ Anthropic (Claude)")
+    echo("  ✅ DeepSeek")
+    echo("  ✅ Groq")
+    echo("  ✅ Ollama (本地)")
+    echo("  ✅ vLLM (本地)")
+
+if __name__ == '__main__':
+    cli()

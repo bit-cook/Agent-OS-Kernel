@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  agent-os-kernel:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - AOSK_LOG_LEVEL=INFO
+      - AOSK_STORAGE_BACKEND=postgresql
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DB=aosk
+      - POSTGRES_USER=aosk
+      - POSTGRES_PASSWORD=secret
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB=aosk
+      POSTGRES_USER=aosk
+      POSTGRES_PASSWORD=secret
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aosk -d aosk"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

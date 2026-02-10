@@ -124,7 +124,7 @@ class AgentOSKernel:
         # 2. 上下文管理器（虚拟内存）
         self.context_manager = ContextManager(
             max_context_tokens=max_context_tokens,
-            storage_backend=self.storage.backend
+            storage_backend=self.storage._backend
         )
         logger.info("[2/5] Context Manager ready (Virtual Memory)")
         
@@ -224,7 +224,7 @@ class AgentOSKernel:
         )
         
         # 4. 注册工具定义（L2 Cache：Tools）
-        tool_schema = self.tool_registry.get_tool_schemas()
+        tool_schema = self.tool_registry.get_schemas()
         tools_page = self.context_manager.allocate_page(
             agent_pid=process.pid,
             content=f"Available tools: {tool_schema}",
@@ -249,7 +249,7 @@ class AgentOSKernel:
             self.security.create_sandbox(process.pid, policy)
         
         # 7. 保存到存储（长期记忆）
-        self.storage.save_process(process)
+        self.storage.save(f"process:{process.pid}", process.__dict__)
         
         # 8. 加入调度队列
         self.scheduler.add_process(process)

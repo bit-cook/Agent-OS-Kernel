@@ -1,0 +1,162 @@
+# Agent-OS-Kernel 配置示例
+# 复制此文件为 config.yaml 并修改
+
+# ============================================
+# 服务器配置
+# ============================================
+server:
+  host: "0.0.0.0"
+  port: 8080
+  debug: false
+  workers: 4
+
+# ============================================
+# 上下文管理配置
+# ============================================
+context:
+  max_tokens: 128000        # 最大上下文 Token 数
+  min_tokens_reserved: 4096  # 保留的最小 Token 数
+  enable_swap: true          # 是否启用页面置换
+  swap_threshold: 0.9       # 触发置换的使用率阈值
+  default_importance: 0.5    # 默认页面重要性
+  page_types:
+    system:
+      max_pages: 10
+      importance: 0.95
+    task:
+      max_pages: 50
+      importance: 0.8
+    memory:
+      max_pages: 100
+      importance: 0.6
+    working:
+      max_pages: 200
+      importance: 0.3
+
+# ============================================
+# 调度器配置
+# ============================================
+scheduler:
+  max_concurrent_agents: 10
+  default_priority: 30
+  time_slice_ms: 1000      # 时间片大小
+  quantum: 5                # 每个时间片的迭代数
+  max_iterations_per_agent: 1000
+  fair_share: true         # 公平调度
+
+# ============================================
+# 存储配置
+# ============================================
+storage:
+  backend: "memory"        # memory, file, postgresql
+  file:
+    base_path: "./data"
+    compression: false
+  postgresql:
+    host: "localhost"
+    port: 5432
+    database: "aosk"
+    user: "aosk"
+    password: "secret"
+    pool_size: 10
+    max_overflow: 20
+
+# ============================================
+# 安全配置
+# ============================================
+security:
+  sandbox_enabled: true
+  rate_limit:
+    enabled: true
+    requests_per_minute: 100
+    burst_limit: 20
+  audit:
+    enabled: true
+    log_file: "./logs/audit.log"
+  dangerous_patterns:
+    - "rm -rf"
+    - "sudo"
+    - "__import__"
+    - "eval"
+    - "exec"
+
+# ============================================
+# 工具配置
+# ============================================
+tools:
+  enabled:
+    - calculator
+    - read_file
+    - write_file
+    - search
+    - json
+  calculator:
+    max_expression_length: 1000
+    timeout_seconds: 5
+  file_io:
+    allowed_paths:
+      - "./workspace"
+      - "./data"
+    max_file_size_mb: 10
+    allowed_extensions:
+      - .txt
+      - .json
+      - .yaml
+      - .py
+      - .md
+  search:
+    max_results: 10
+    timeout_seconds: 30
+
+# ============================================
+# 监控配置
+# ============================================
+monitoring:
+  enabled: true
+  port: 9090
+  metrics:
+    enabled: true
+    retention_seconds: 3600
+    export_interval_seconds: 60
+  health_check:
+    enabled: true
+    interval_seconds: 30
+  prometheus:
+    enabled: false
+    port: 9091
+
+# ============================================
+# 日志配置
+# ============================================
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "./logs/kernel.log"
+  max_size_mb: 100
+  backup_count: 5
+  async_write: true
+
+# ============================================
+# 插件配置
+# ============================================
+plugins:
+  enabled: []
+  paths:
+    - "./plugins"
+  auto_load: true
+
+# ============================================
+# 性能配置
+# ============================================
+performance:
+  cache:
+    enabled: true
+    max_size: 10000
+    ttl_seconds: 300
+  connection_pool:
+    min: 2
+    max: 20
+    timeout_seconds: 30
+  batch:
+    max_batch_size: 100
+    max_wait_ms: 100

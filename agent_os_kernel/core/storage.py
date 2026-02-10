@@ -1,980 +1,799 @@
 # -*- coding: utf-8 -*-
-"""
-Storage Layer - 存储层
+"""存储管理器
 
-PostgreSQL 在 Agent OS 中的五重角色：
-1. 长期记忆存储（海马体）：对话历史、学到的知识、用户偏好
-2. 状态持久化（硬盘）：Checkpoint/快照、任务状态、恢复点
-3. 向量索引（页表）：语义检索、相似度匹配、Context 换入决策
-4. 协调服务（IPC）：分布式锁、任务队列、事件通知
-5. 审计日志（黑匣子）：所有操作的不可篡改记录、合规、可重放
+支持多种存储后端：
+- Memory (内存)
+- File (文件系统)
+- PostgreSQL (关系数据库)
+- Vector (向量数据库)
 
-核心洞察（来自冯若航《AI Agent 的操作系统时刻》）：
-- 数据库是确定性最高的商业机会
-- PostgreSQL 不仅是存储，更有潜力成为 Runtime
-- 统一的存储层可以避免维护多套系统与胶水组件
+五重角色：
+1. 记忆存储 (Episodic Memory)
+2. 状态持久化 (State Persistence)
+3. 向量索引 (Vector Index)
+4. 审计日志 (Audit Log)
+5. 检查点存储 (Checkpoint Storage)
 """
 
 import json
+import pickle
+import hashlib
 import time
-import uuid
-import logging
 from abc import ABC, abstractmethod
-from typing import Optional, Dict, Any, List, Callable
+from typing import Any, Dict, List, Optional, TypeVar, Generic, Type
+from dataclasses import dataclass, field
 from datetime import datetime
-from contextlib import contextmanager
+from enum import Enum
+import threading
+
+from .types import StorageBackend
 
 
-logger = logging.getLogger(__name__)
+T = TypeVar('T')
 
 
-class StorageBackend(ABC):
-    """
-    存储后端抽象基类
+@dataclass
+class StorageStats:
+    """存储统计信息"""
+    backend: str = ""
+    total_keys: int = 0
+    total_size_bytes: int = 0
+    last_access: Optional[datetime] = None
+    last_modify: Optional[datetime] = None
+    hit_count: int = 0
+    miss_count: int = 0
+
+
+class StorageInterface(ABC):
+    """存储接口"""
     
-    定义 PostgreSQL 五重角色的标准接口
-    """
-    
-    # ========== 1. 长期记忆存储 ==========
     @abstractmethod
-    def save_memory(self, agent_pid: str, memory_type: str, 
-                   content: str, metadata: Optional[Dict] = None) -> str:
-        """保存长期记忆"""
+    def save(self, key: str, value: Any) -> bool:
         pass
     
     @abstractmethod
-    def retrieve_memories(self, agent_pid: str, memory_type: Optional[str] = None,
-                         limit: int = 100) -> List[Dict[str, Any]]:
-        """检索长期记忆"""
-        pass
-    
-    # ========== 2. 状态持久化 ==========
-    @abstractmethod
-    def save_process(self, process: Any):
-        """保存进程状态"""
+    def retrieve(self, key: str) -> Optional[Any]:
         pass
     
     @abstractmethod
-    def load_process(self, pid: str) -> Optional[Any]:
-        """加载进程状态"""
+    def delete(self, key: str) -> bool:
         pass
     
     @abstractmethod
-    def save_checkpoint(self, agent_pid: str, process_state: Dict,
-                       context_pages: List[Dict], description: str = "") -> str:
-        """保存检查点"""
+    def exists(self, key: str) -> bool:
         pass
     
     @abstractmethod
-    def load_checkpoint(self, checkpoint_id: str) -> Optional[Dict]:
-        """加载检查点"""
+    def list_keys(self, prefix: str = "") -> List[str]:
         pass
     
     @abstractmethod
-    def list_checkpoints(self, agent_pid: str) -> List[Dict]:
-        """列出所有检查点"""
-        pass
-    
-    # ========== 3. 向量索引 ==========
-    @abstractmethod
-    def save_context_page(self, page: Any) -> str:
-        """保存上下文页面（用于 swap out）"""
-        pass
-    
-    @abstractmethod
-    def load_context_page(self, page_id: str) -> Optional[Any]:
-        """加载上下文页面（用于 swap in）"""
-        pass
-    
-    @abstractmethod
-    def semantic_search(self, agent_pid: str, query_embedding: List[float],
-                       limit: int = 10, threshold: float = 0.7) -> List[Dict]:
-        """语义搜索（向量相似度）"""
-        pass
-    
-    @abstractmethod
-    def find_similar_memories(self, agent_pid: str, content: str,
-                             limit: int = 5) -> List[Dict]:
-        """查找相似记忆"""
-        pass
-    
-    # ========== 4. 协调服务 ==========
-    @abstractmethod
-    @contextmanager
-    def acquire_lock(self, lock_name: str, timeout: float = 30.0):
-        """获取分布式锁"""
-        pass
-    
-    @abstractmethod
-    def enqueue_task(self, queue_name: str, task: Dict) -> str:
-        """入队任务"""
-        pass
-    
-    @abstractmethod
-    def dequeue_task(self, queue_name: str) -> Optional[Dict]:
-        """出队任务"""
-        pass
-    
-    @abstractmethod
-    def publish_event(self, channel: str, message: Dict):
-        """发布事件"""
-        pass
-    
-    @abstractmethod
-    def subscribe_events(self, channel: str, callback: Callable):
-        """订阅事件"""
-        pass
-    
-    # ========== 5. 审计日志 ==========
-    @abstractmethod
-    def log_action(self, agent_pid: str, action_type: str,
-                   input_data: Dict, output_data: Dict,
-                   reasoning: str = "", metadata: Optional[Dict] = None):
-        """记录审计日志"""
-        pass
-    
-    @abstractmethod
-    def get_audit_trail(self, agent_pid: str, limit: int = 100) -> List[Dict]:
-        """获取审计追踪"""
-        pass
-    
-    @abstractmethod
-    def replay_actions(self, agent_pid: str, 
-                      from_checkpoint: Optional[str] = None) -> List[Dict]:
-        """回放操作（用于调试和审计）"""
-        pass
-    
-    @abstractmethod
-    def close(self):
-        """关闭存储连接"""
+    def clear(self) -> bool:
         pass
 
 
-class PostgreSQLStorage(StorageBackend):
-    """
-    PostgreSQL 存储后端 - 实现五重角色
+class MemoryStorage(StorageInterface):
+    """内存存储后端"""
     
-    使用 PostgreSQL + pgvector 扩展实现完整的 Agent 存储层。
-    这是生产环境推荐的后端。
+    def __init__(self):
+        self._data: Dict[str, Any] = {}
+        self._metadata: Dict[str, Dict] = {}
+        self._lock = threading.RLock()
+        self._stats = StorageStats(backend="memory")
     
-    数据库 Schema：
-    - agent_processes: 进程状态表
-    - checkpoints: 检查点表
-    - context_pages: 上下文页面表（带向量）
-    - long_term_memory: 长期记忆表
-    - audit_logs: 审计日志表
-    - task_queues: 任务队列表
-    - distributed_locks: 分布式锁表
-    """
+    def save(self, key: str, value: Any) -> bool:
+        with self._lock:
+            try:
+                size = len(pickle.dumps(value))
+                self._data[key] = value
+                self._metadata[key] = {
+                    'size': size,
+                    'created': time.time(),
+                    'modified': time.time(),
+                    'access': time.time()
+                }
+                self._stats.last_modify = datetime.utcnow()
+                self._stats.total_keys = len(self._data)
+                self._stats.total_size_bytes += size
+                return True
+            except Exception:
+                return False
     
-    CREATE_TABLES_SQL = """
-    -- 1. 进程状态表（状态持久化）
-    CREATE TABLE IF NOT EXISTS agent_processes (
-        pid UUID PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        state VARCHAR(50) NOT NULL,
-        priority INTEGER DEFAULT 50,
-        token_usage BIGINT DEFAULT 0,
-        api_calls INTEGER DEFAULT 0,
-        execution_time FLOAT DEFAULT 0,
-        cpu_time FLOAT DEFAULT 0,
-        context_snapshot JSONB,
-        checkpoint_id UUID,
-        parent_pid UUID,
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        last_run TIMESTAMPTZ,
-        started_at TIMESTAMPTZ,
-        terminated_at TIMESTAMPTZ,
-        error_count INTEGER DEFAULT 0,
-        last_error TEXT,
-        metadata JSONB DEFAULT '{}',
-        CONSTRAINT valid_state CHECK (state IN ('ready', 'running', 'waiting', 'suspended', 'terminated', 'error'))
-    );
+    def retrieve(self, key: str) -> Optional[Any]:
+        with self._lock:
+            self._stats.last_access = datetime.utcnow()
+            if key in self._data:
+                self._stats.hit_count += 1
+                self._metadata[key]['access'] = time.time()
+                return self._data[key]
+            self._stats.miss_count += 1
+            return None
     
-    -- 2. 检查点表（状态持久化）
-    CREATE TABLE IF NOT EXISTS checkpoints (
-        checkpoint_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        agent_pid UUID REFERENCES agent_processes(pid) ON DELETE CASCADE,
-        process_state JSONB NOT NULL,
-        context_pages JSONB DEFAULT '[]',
-        timestamp TIMESTAMPTZ DEFAULT NOW(),
-        description TEXT,
-        tags TEXT[],
-        parent_checkpoint UUID,
-        version INTEGER DEFAULT 1
-    );
+    def delete(self, key: str) -> bool:
+        with self._lock:
+            if key in self._data:
+                size = self._metadata[key]['size']
+                del self._data[key]
+                del self._metadata[key]
+                self._stats.total_keys = len(self._data)
+                self._stats.total_size_bytes -= size
+                return True
+            return False
     
-    -- 3. 上下文页面表（向量索引 + swap backing store）
-    CREATE TABLE IF NOT EXISTS context_pages (
-        page_id UUID PRIMARY KEY,
-        agent_pid UUID REFERENCES agent_processes(pid) ON DELETE CASCADE,
-        content TEXT NOT NULL,
-        tokens INTEGER DEFAULT 0,
-        importance_score FLOAT DEFAULT 0.5,
-        page_type VARCHAR(50) DEFAULT 'general',
-        status VARCHAR(20) DEFAULT 'swapped',
-        embedding VECTOR(1536),
-        access_count INTEGER DEFAULT 0,
-        last_accessed TIMESTAMPTZ DEFAULT NOW(),
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        metadata JSONB DEFAULT '{}'
-    );
+    def exists(self, key: str) -> bool:
+        with self._lock:
+            return key in self._data
     
-    -- 4. 长期记忆表（海马体）
-    CREATE TABLE IF NOT EXISTS long_term_memory (
-        memory_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        agent_pid UUID REFERENCES agent_processes(pid) ON DELETE CASCADE,
-        memory_type VARCHAR(50) NOT NULL,  -- 'fact', 'preference', 'experience', 'skill'
-        content TEXT NOT NULL,
-        embedding VECTOR(1536),
-        importance_score FLOAT DEFAULT 0.5,
-        access_count INTEGER DEFAULT 0,
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        last_accessed TIMESTAMPTZ DEFAULT NOW(),
-        metadata JSONB DEFAULT '{}',
-        expiration_date TIMESTAMPTZ
-    );
+    def list_keys(self, prefix: str = "") -> List[str]:
+        with self._lock:
+            if not prefix:
+                return list(self._data.keys())
+            return [k for k in self._data.keys() if k.startswith(prefix)]
     
-    -- 5. 审计日志表（黑匣子）
-    CREATE TABLE IF NOT EXISTS audit_logs (
-        log_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        agent_pid UUID REFERENCES agent_processes(pid) ON DELETE SET NULL,
-        action_type VARCHAR(100) NOT NULL,
-        input_data JSONB,
-        output_data JSONB,
-        reasoning TEXT,
-        timestamp TIMESTAMPTZ DEFAULT NOW(),
-        duration_ms FLOAT,
-        tokens_used INTEGER DEFAULT 0,
-        api_calls INTEGER DEFAULT 0,
-        session_id UUID,
-        trace_id UUID,
-        metadata JSONB DEFAULT '{}'
-    );
+    def clear(self) -> bool:
+        with self._lock:
+            self._data.clear()
+            self._metadata.clear()
+            self._stats = StorageStats(backend="memory")
+            return True
     
-    -- 6. 任务队列表（协调服务）
-    CREATE TABLE IF NOT EXISTS task_queues (
-        task_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        queue_name VARCHAR(100) NOT NULL,
-        task_data JSONB NOT NULL,
-        priority INTEGER DEFAULT 50,
-        status VARCHAR(20) DEFAULT 'pending',  -- pending, processing, completed, failed
-        agent_pid UUID,
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        processed_at TIMESTAMPTZ,
-        retry_count INTEGER DEFAULT 0
-    );
+    def get_stats(self) -> StorageStats:
+        with self._lock:
+            return StorageStats(
+                backend="memory",
+                total_keys=len(self._data),
+                total_size_bytes=sum(m['size'] for m in self._metadata.values()),
+                last_access=datetime.fromtimestamp(
+                    max(m['access'] for m in self._metadata.values())
+                ) if self._metadata else None,
+                last_modify=self._stats.last_modify,
+                hit_count=self._stats.hit_count,
+                miss_count=self._stats.miss_count
+            )
+
+
+class FileStorage(StorageInterface):
+    """文件存储后端"""
     
-    -- 7. 分布式锁表（协调服务）
-    CREATE TABLE IF NOT EXISTS distributed_locks (
-        lock_name VARCHAR(255) PRIMARY KEY,
-        agent_pid UUID,
-        acquired_at TIMESTAMPTZ DEFAULT NOW(),
-        expires_at TIMESTAMPTZ NOT NULL
-    );
+    def __init__(self, base_path: str = "./data"):
+        import os
+        self._base_path = base_path
+        os.makedirs(base_path, exist_ok=True)
+        self._lock = threading.RLock()
+        self._stats = StorageStats(backend="file")
     
-    -- 创建索引
-    CREATE INDEX IF NOT EXISTS idx_audit_agent ON audit_logs(agent_pid, timestamp DESC);
-    CREATE INDEX IF NOT EXISTS idx_audit_session ON audit_logs(session_id);
-    CREATE INDEX IF NOT EXISTS idx_context_agent ON context_pages(agent_pid);
-    CREATE INDEX IF NOT EXISTS idx_memory_agent ON long_term_memory(agent_pid, memory_type);
-    CREATE INDEX IF NOT EXISTS idx_checkpoints_agent ON checkpoints(agent_pid);
-    CREATE INDEX IF NOT EXISTS idx_task_queue ON task_queues(queue_name, status, priority);
+    def _get_path(self, key: str) -> str:
+        import os
+        # 使用 hash 防止目录过深
+        key_hash = hashlib.md5(key.encode()).hexdigest()
+        subdir = key_hash[:2]
+        filename = key_hash[2:] + ".json"
+        path = os.path.join(self._base_path, subdir)
+        os.makedirs(path, exist_ok=True)
+        return os.path.join(path, filename)
     
-    -- 向量索引（需要 pgvector）
-    CREATE INDEX IF NOT EXISTS idx_context_embedding ON context_pages 
-        USING ivfflat (embedding vector_cosine_ops);
-    CREATE INDEX IF NOT EXISTS idx_memory_embedding ON long_term_memory 
-        USING ivfflat (embedding vector_cosine_ops);
-    """
+    def save(self, key: str, value: Any) -> bool:
+        with self._lock:
+            try:
+                path = self._get_path(key)
+                with open(path, 'w', encoding='utf-8') as f:
+                    json.dump(value, f, ensure_ascii=False, indent=2)
+                self._stats.last_modify = datetime.utcnow()
+                self._stats.total_keys += 1
+                return True
+            except Exception:
+                return False
     
-    def __init__(self, connection_string: str, enable_vector: bool = True):
-        """
-        初始化 PostgreSQL 存储
-        
-        Args:
-            connection_string: PostgreSQL 连接字符串
-            enable_vector: 是否启用向量支持（需要 pgvector 扩展）
-        """
-        self.connection_string = connection_string
-        self.enable_vector = enable_vector
-        self.conn = None
-        self.cur = None
-        
-        try:
-            import psycopg2
-            from psycopg2.extras import RealDictCursor
-            self.psycopg2 = psycopg2
-            self.RealDictCursor = RealDictCursor
-            
-            if enable_vector:
-                try:
-                    from pgvector.psycopg2 import register_vector
-                    self.register_vector = register_vector
-                except ImportError:
-                    logger.warning("pgvector not installed, vector search disabled")
-                    self.enable_vector = False
-                    self.register_vector = None
-            
-            self._connect()
-            self._create_tables()
-            
-            logger.info("PostgreSQLStorage initialized (Five Roles Ready)")
-            
-        except ImportError:
-            logger.error("psycopg2 not installed. Install with: pip install psycopg2-binary")
-            raise
-        except Exception as e:
-            logger.error(f"Failed to initialize PostgreSQLStorage: {e}")
-            raise
+    def retrieve(self, key: str) -> Optional[Any]:
+        with self._lock:
+            try:
+                path = self._get_path(key)
+                if os.path.exists(path):
+                    self._stats.last_access = datetime.utcnow()
+                    self._stats.hit_count += 1
+                    with open(path, 'r', encoding='utf-8') as f:
+                        return json.load(f)
+                self._stats.miss_count += 1
+                return None
+            except Exception:
+                return None
+    
+    def delete(self, key: str) -> bool:
+        with self._lock:
+            try:
+                path = self._get_path(key)
+                if os.path.exists(path):
+                    os.remove(path)
+                    self._stats.total_keys -= 1
+                    return True
+                return False
+            except Exception:
+                return False
+    
+    def exists(self, key: str) -> bool:
+        import os
+        with self._lock:
+            return os.path.exists(self._get_path(key))
+    
+    def list_keys(self, prefix: str = "") -> List[str]:
+        import os
+        with self._lock:
+            keys = []
+            for root, dirs, files in os.walk(self._base_path):
+                for f in files:
+                    if f.endswith('.json'):
+                        # 恢复原始 key
+                        key_hash = f.replace('.json', '')
+                        full_hash = os.path.basename(root) + key_hash
+                        try:
+                            # 这里简化处理，实际应该维护映射
+                            keys.append(full_hash)
+                        except Exception:
+                            pass
+            return keys
+    
+    def clear(self) -> bool:
+        import shutil
+        with self._lock:
+            try:
+                shutil.rmtree(self._base_path)
+                os.makedirs(self._base_path, exist_ok=True)
+                self._stats = StorageStats(backend="file")
+                return True
+            except Exception:
+                return False
+
+
+class PostgreSQLStorage(StorageInterface):
+    """PostgreSQL 存储后端"""
+    
+    def __init__(self,
+                 host: str = "localhost",
+                 port: int = 5432,
+                 database: str = "aosk",
+                 user: str = "aosk",
+                 password: str = "secret",
+                 table_prefix: str = "aosk_"):
+        self._host = host
+        self._port = port
+        self._database = database
+        self._user = user
+        self._password = password
+        self._table_prefix = table_prefix
+        self._pool = None
+        self._lock = threading.RLock()
+        self._connect()
     
     def _connect(self):
         """建立数据库连接"""
-        self.conn = self.psycopg2.connect(self.connection_string)
-        self.cur = self.conn.cursor()
-        
-        if self.enable_vector and self.register_vector:
-            self.register_vector(self.conn)
-            
-        if self.enable_vector:
-            self.cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
-            self.conn.commit()
+        try:
+            import psycopg2
+            from psycopg2 import pool
+            self._pool = pool.ThreadedConnectionPool(
+                minconn=2,
+                maxconn=20,
+                host=self._host,
+                port=self._port,
+                database=self._database,
+                user=self._user,
+                password=self._password
+            )
+            self._init_schema()
+        except ImportError:
+            self._pool = None
     
-    def _create_tables(self):
-        """创建数据库表"""
-        self.cur.execute(self.CREATE_TABLES_SQL)
-        self.conn.commit()
-        logger.debug("Database tables created/verified")
+    def _init_schema(self):
+        """初始化数据库 schema"""
+        if self._pool is None:
+            return
+        
+        conn = self._pool.getconn()
+        try:
+            cur = conn.cursor()
+            # 主数据表
+            cur.execute(f"""
+                CREATE TABLE IF NOT EXISTS {self._table_prefix}data (
+                    key VARCHAR(512) PRIMARY KEY,
+                    value TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    modified_at TIMESTAMP DEFAULT NOW(),
+                    access_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            # 检查点表
+            cur.execute(f"""
+                CREATE TABLE IF NOT EXISTS {self._table_prefix}checkpoints (
+                    checkpoint_id VARCHAR(64) PRIMARY KEY,
+                    agent_pid VARCHAR(128) NOT NULL,
+                    agent_name VARCHAR(256),
+                    description TEXT,
+                    state TEXT NOT NULL,
+                    context TEXT,
+                    metadata TEXT,
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            # 审计日志表
+            cur.execute(f"""
+                CREATE TABLE IF NOT EXISTS {self._table_prefix}audit (
+                    id SERIAL PRIMARY KEY,
+                    agent_pid VARCHAR(128),
+                    action VARCHAR(128),
+                    resource VARCHAR(512),
+                    details TEXT,
+                    result VARCHAR(64),
+                    duration_ms REAL,
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            # 向量索引表
+            cur.execute(f"""
+                CREATE TABLE IF NOT EXISTS {self._table_prefix}vectors (
+                    id SERIAL PRIMARY KEY,
+                    key VARCHAR(512),
+                    content TEXT NOT NULL,
+                    embedding BYTEA,
+                    metadata TEXT,
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
+            conn.commit()
+        finally:
+            self._pool.putconn(conn)
     
-    # ========== 1. 长期记忆存储（海马体）==========
+    def save(self, key: str, value: Any) -> bool:
+        if self._pool is None:
+            return False
+        with self._lock:
+            try:
+                conn = self._pool.getconn()
+                cur = conn.cursor()
+                value_json = json.dumps(value, ensure_ascii=False)
+                cur.execute(f"""
+                    INSERT INTO {self._table_prefix}data (key, value, modified_at)
+                    VALUES (%s, %s, NOW())
+                    ON CONFLICT (key) DO UPDATE SET value = %s, modified_at = NOW()
+                """, (key, value_json, value_json))
+                conn.commit()
+                self._pool.putconn(conn)
+                return True
+            except Exception:
+                return False
     
-    def save_memory(self, agent_pid: str, memory_type: str,
-                   content: str, metadata: Optional[Dict] = None) -> str:
-        """
-        保存长期记忆
-        
-        Args:
-            agent_pid: Agent PID
-            memory_type: 记忆类型（fact, preference, experience, skill）
-            content: 记忆内容
-            metadata: 额外元数据
-        
-        Returns:
-            记忆 ID
-        """
-        # 生成嵌入向量
-        embedding = None
-        if self.enable_vector:
-            embedding = self._generate_embedding(content)
-        
-        self.cur.execute("""
-            INSERT INTO long_term_memory 
-            (agent_pid, memory_type, content, embedding, metadata)
-            VALUES (%s, %s, %s, %s, %s)
-            RETURNING memory_id
-        """, (agent_pid, memory_type, content, embedding, json.dumps(metadata or {})))
-        
-        memory_id = self.cur.fetchone()[0]
-        self.conn.commit()
-        
-        logger.debug(f"Saved {memory_type} memory {memory_id[:8]} for agent {agent_pid[:8]}")
-        return str(memory_id)
+    def retrieve(self, key: str) -> Optional[Any]:
+        if self._pool is None:
+            return None
+        with self._lock:
+            try:
+                conn = self._pool.getconn()
+                cur = conn.cursor()
+                cur.execute(f"""
+                    UPDATE {self._table_prefix}data SET access_at = NOW() WHERE key = %s
+                """, (key,))
+                cur.execute(f"SELECT value FROM {self._table_prefix}data WHERE key = %s", (key,))
+                row = cur.fetchone()
+                self._pool.putconn(conn)
+                if row:
+                    return json.loads(row[0])
+                return None
+            except Exception:
+                return None
     
-    def retrieve_memories(self, agent_pid: str, memory_type: Optional[str] = None,
-                         limit: int = 100) -> List[Dict[str, Any]]:
-        """检索长期记忆"""
-        if memory_type:
-            self.cur.execute("""
-                SELECT * FROM long_term_memory
-                WHERE agent_pid = %s AND memory_type = %s
-                ORDER BY last_accessed DESC
-                LIMIT %s
-            """, (agent_pid, memory_type, limit))
-        else:
-            self.cur.execute("""
-                SELECT * FROM long_term_memory
-                WHERE agent_pid = %s
-                ORDER BY last_accessed DESC
-                LIMIT %s
-            """, (agent_pid, limit))
-        
-        memories = []
-        for row in self.cur.fetchall():
-            memories.append({
-                'memory_id': row[0],
-                'memory_type': row[2],
-                'content': row[3],
-                'importance_score': row[5],
-                'created_at': row[7].timestamp() if row[7] else None,
-            })
-        
-        return memories
+    def delete(self, key: str) -> bool:
+        if self._pool is None:
+            return False
+        with self._lock:
+            try:
+                conn = self._pool.getconn()
+                cur = conn.cursor()
+                cur.execute(f"DELETE FROM {self._table_prefix}data WHERE key = %s", (key,))
+                deleted = cur.rowcount > 0
+                conn.commit()
+                self._pool.putconn(conn)
+                return deleted
+            except Exception:
+                return False
     
-    # ========== 2. 状态持久化（硬盘）==========
+    def exists(self, key: str) -> bool:
+        if self._pool is None:
+            return False
+        with self._lock:
+            try:
+                conn = self._pool.getconn()
+                cur = conn.cursor()
+                cur.execute(f"SELECT 1 FROM {self._table_prefix}data WHERE key = %s", (key,))
+                exists = cur.fetchone() is not None
+                self._pool.putconn(conn)
+                return exists
+            except Exception:
+                return False
     
-    def save_process(self, process: Any):
-        """保存进程状态"""
-        data = process.to_dict() if hasattr(process, 'to_dict') else process
-        
-        def ts_to_datetime(ts):
-            return datetime.fromtimestamp(ts) if ts else None
-        
-        self.cur.execute("""
-            INSERT INTO agent_processes 
-            (pid, name, state, priority, token_usage, api_calls,
-             execution_time, cpu_time, context_snapshot, checkpoint_id,
-             parent_pid, created_at, last_run, started_at, terminated_at,
-             error_count, last_error, metadata)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (pid) DO UPDATE SET
-                state = EXCLUDED.state,
-                priority = EXCLUDED.priority,
-                token_usage = EXCLUDED.token_usage,
-                api_calls = EXCLUDED.api_calls,
-                execution_time = EXCLUDED.execution_time,
-                cpu_time = EXCLUDED.cpu_time,
-                context_snapshot = EXCLUDED.context_snapshot,
-                checkpoint_id = EXCLUDED.checkpoint_id,
-                last_run = EXCLUDED.last_run,
-                terminated_at = EXCLUDED.terminated_at,
-                error_count = EXCLUDED.error_count,
-                last_error = EXCLUDED.last_error,
-                metadata = EXCLUDED.metadata
-        """, (
-            data.get('pid'), data.get('name'), data.get('state'), 
-            data.get('priority', 50), data.get('token_usage', 0),
-            data.get('api_calls', 0), data.get('execution_time', 0),
-            data.get('cpu_time', 0), json.dumps(data.get('context', {})),
-            data.get('checkpoint_id'), data.get('parent_pid'),
-            ts_to_datetime(data.get('created_at')),
-            ts_to_datetime(data.get('last_run')),
-            ts_to_datetime(data.get('started_at')),
-            ts_to_datetime(data.get('terminated_at')),
-            data.get('error_count', 0), data.get('last_error'),
-            json.dumps(data.get('metadata', {}))
-        ))
-        
-        self.conn.commit()
-    
-    def load_process(self, pid: str) -> Optional[Any]:
-        """加载进程状态"""
-        self.cur.execute("SELECT * FROM agent_processes WHERE pid = %s", (pid,))
-        row = self.cur.fetchone()
-        return row
-    
-    def save_checkpoint(self, agent_pid: str, process_state: Dict,
-                       context_pages: List[Dict], description: str = "") -> str:
-        """保存检查点"""
-        checkpoint_id = str(uuid.uuid4())
-        
-        self.cur.execute("""
-            INSERT INTO checkpoints 
-            (checkpoint_id, agent_pid, process_state, context_pages, description)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (checkpoint_id, agent_pid, json.dumps(process_state),
-              json.dumps(context_pages), description))
-        
-        self.conn.commit()
-        logger.info(f"Saved checkpoint {checkpoint_id[:8]} for agent {agent_pid[:8]}")
-        return checkpoint_id
-    
-    def load_checkpoint(self, checkpoint_id: str) -> Optional[Dict]:
-        """加载检查点"""
-        self.cur.execute("""
-            SELECT * FROM checkpoints WHERE checkpoint_id = %s
-        """, (checkpoint_id,))
-        
-        row = self.cur.fetchone()
-        if row:
-            return {
-                'checkpoint_id': row[0],
-                'agent_pid': row[1],
-                'process_state': row[2],
-                'context_pages': row[3],
-                'timestamp': row[4].timestamp() if row[4] else None,
-                'description': row[5],
-            }
-        return None
-    
-    def list_checkpoints(self, agent_pid: str) -> List[Dict]:
-        """列出所有检查点"""
-        self.cur.execute("""
-            SELECT checkpoint_id, timestamp, description
-            FROM checkpoints
-            WHERE agent_pid = %s
-            ORDER BY timestamp DESC
-        """, (agent_pid,))
-        
-        return [{'checkpoint_id': r[0], 'timestamp': r[1], 'description': r[2]} 
-                for r in self.cur.fetchall()]
-    
-    # ========== 3. 向量索引（页表）==========
-    
-    def save_context_page(self, page: Any) -> str:
-        """保存上下文页面（用于 swap out）"""
-        data = page.to_dict() if hasattr(page, 'to_dict') else page
-        
-        embedding = data.get('embedding')
-        if not embedding and self.enable_vector and data.get('content'):
-            embedding = self._generate_embedding(data['content'])
-        
-        self.cur.execute("""
-            INSERT INTO context_pages 
-            (page_id, agent_pid, content, tokens, importance_score, page_type,
-             status, embedding, access_count, last_accessed, metadata)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (page_id) DO UPDATE SET
-                content = EXCLUDED.content,
-                tokens = EXCLUDED.tokens,
-                importance_score = EXCLUDED.importance_score,
-                status = EXCLUDED.status,
-                embedding = EXCLUDED.embedding,
-                access_count = EXCLUDED.access_count,
-                last_accessed = EXCLUDED.last_accessed
-        """, (
-            data['page_id'], data['agent_pid'], data['content'],
-            data['tokens'], data['importance_score'], data['page_type'],
-            'swapped', embedding, data['access_count'],
-            datetime.fromtimestamp(data['last_accessed']),
-            json.dumps(data.get('metadata', {}))
-        ))
-        
-        self.conn.commit()
-        return data['page_id']
-    
-    def load_context_page(self, page_id: str) -> Optional[Any]:
-        """加载上下文页面（用于 swap in）"""
-        self.cur.execute("SELECT * FROM context_pages WHERE page_id = %s", (page_id,))
-        row = self.cur.fetchone()
-        
-        if row:
-            # 更新访问时间
-            self.cur.execute("""
-                UPDATE context_pages 
-                SET access_count = access_count + 1, last_accessed = NOW()
-                WHERE page_id = %s
-            """, (page_id,))
-            self.conn.commit()
-        
-        return row
-    
-    def semantic_search(self, agent_pid: str, query_embedding: List[float],
-                       limit: int = 10, threshold: float = 0.7) -> List[Dict]:
-        """语义搜索"""
-        if not self.enable_vector:
-            logger.warning("Vector search disabled")
+    def list_keys(self, prefix: str = "") -> List[str]:
+        if self._pool is None:
             return []
-        
-        self.cur.execute("""
-            SELECT page_id, content, metadata, importance_score,
-                   1 - (embedding <=> %s::vector) AS similarity
-            FROM context_pages
-            WHERE agent_pid = %s AND embedding IS NOT NULL
-            ORDER BY embedding <=> %s::vector
-            LIMIT %s
-        """, (query_embedding, agent_pid, query_embedding, limit))
-        
-        results = []
-        for row in self.cur.fetchall():
-            if row[4] >= threshold:  # 相似度阈值
+        with self._lock:
+            try:
+                conn = self._pool.getconn()
+                cur = conn.cursor()
+                if prefix:
+                    cur.execute(f"SELECT key FROM {self._table_prefix}data WHERE key LIKE %s", 
+                               (f"{prefix}%",))
+                else:
+                    cur.execute(f"SELECT key FROM {self._table_prefix}data")
+                keys = [row[0] for row in cur.fetchall()]
+                self._pool.putconn(conn)
+                return keys
+            except Exception:
+                return []
+    
+    def clear(self) -> bool:
+        if self._pool is None:
+            return False
+        with self._lock:
+            try:
+                conn = self._pool.getconn()
+                cur = conn.cursor()
+                cur.execute(f"TRUNCATE {self._table_prefix}data CASCADE")
+                conn.commit()
+                self._pool.putconn(conn)
+                return True
+            except Exception:
+                return False
+    
+    def save_checkpoint(self, checkpoint_data: dict) -> bool:
+        """保存检查点"""
+        if self._pool is None:
+            return False
+        try:
+            conn = self._pool.getconn()
+            cur = conn.cursor()
+            cur.execute(f"""
+                INSERT INTO {self._table_prefix}checkpoints 
+                (checkpoint_id, agent_pid, agent_name, description, state, context, metadata)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (checkpoint_id) DO UPDATE SET
+                    state = EXCLUDED.state,
+                    context = EXCLUDED.context,
+                    metadata = EXCLUDED.metadata
+            """, (
+                checkpoint_data['checkpoint_id'],
+                checkpoint_data.get('agent_pid', ''),
+                checkpoint_data.get('agent_name', ''),
+                checkpoint_data.get('description', ''),
+                json.dumps(checkpoint_data.get('state', {})),
+                json.dumps(checkpoint_data.get('context_pages', [])),
+                json.dumps(checkpoint_data.get('metadata', {}))
+            ))
+            conn.commit()
+            self._pool.putconn(conn)
+            return True
+        except Exception:
+            return False
+    
+    def save_audit_log(self, log_data: dict) -> bool:
+        """保存审计日志"""
+        if self._pool is None:
+            return False
+        try:
+            conn = self._pool.getconn()
+            cur = conn.cursor()
+            cur.execute(f"""
+                INSERT INTO {self._table_prefix}audit 
+                (agent_pid, action, resource, details, result, duration_ms)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (
+                log_data.get('agent_pid', ''),
+                log_data.get('action', ''),
+                log_data.get('resource', ''),
+                json.dumps(log_data.get('details', {})),
+                log_data.get('result', ''),
+                log_data.get('duration_ms', 0)
+            ))
+            conn.commit()
+            self._pool.putconn(conn)
+            return True
+        except Exception:
+            return False
+    
+    def save_vector(self, key: str, content: str, embedding: bytes, metadata: dict = None) -> bool:
+        """保存向量"""
+        if self._pool is None:
+            return False
+        try:
+            conn = self._pool.getconn()
+            cur = conn.cursor()
+            cur.execute(f"""
+                INSERT INTO {self._table_prefix}vectors (key, content, embedding, metadata)
+                VALUES (%s, %s, %s, %s)
+            """, (key, content, embedding, json.dumps(metadata or {})))
+            conn.commit()
+            self._pool.putconn(conn)
+            return True
+        except Exception:
+            return False
+    
+    def search_vectors(self, query_embedding: bytes, limit: int = 10) -> List[dict]:
+        """搜索向量 (简化版 - 实际应使用 pgvector)"""
+        if self._pool is None:
+            return []
+        try:
+            conn = self._pool.getconn()
+            cur = conn.cursor()
+            # 这里使用简化的相似度计算
+            # 实际应该使用 pgvector 扩展的向量操作
+            cur.execute(f"""
+                SELECT id, key, content, metadata, 
+                       (embedding <=> %s) as similarity
+                FROM {self._table_prefix}vectors
+                ORDER BY similarity ASC
+                LIMIT %s
+            """, (query_embedding, limit))
+            results = []
+            for row in cur.fetchall():
                 results.append({
-                    'page_id': row[0],
-                    'content': row[1],
-                    'metadata': row[2],
-                    'importance_score': row[3],
+                    'id': row[0],
+                    'key': row[1],
+                    'content': row[2],
+                    'metadata': json.loads(row[3]) if row[3] else {},
                     'similarity': row[4]
                 })
-        
-        return results
-    
-    def find_similar_memories(self, agent_pid: str, content: str,
-                             limit: int = 5) -> List[Dict]:
-        """查找相似记忆"""
-        if not self.enable_vector:
+            self._pool.putconn(conn)
+            return results
+        except Exception:
             return []
-        
-        embedding = self._generate_embedding(content)
-        
-        self.cur.execute("""
-            SELECT memory_id, memory_type, content, importance_score,
-                   1 - (embedding <=> %s::vector) AS similarity
-            FROM long_term_memory
-            WHERE agent_pid = %s AND embedding IS NOT NULL
-            ORDER BY embedding <=> %s::vector
-            LIMIT %s
-        """, (embedding, agent_pid, embedding, limit))
-        
-        return [{
-            'memory_id': r[0],
-            'memory_type': r[1],
-            'content': r[2],
-            'importance_score': r[3],
-            'similarity': r[4]
-        } for r in self.cur.fetchall()]
     
-    # ========== 4. 协调服务（IPC）==========
+    def close(self):
+        """关闭连接池"""
+        if self._pool:
+            self._pool.closeall()
+
+
+class VectorStorage(StorageInterface):
+    """向量存储后端 (简化实现)"""
     
-    @contextmanager
-    def acquire_lock(self, lock_name: str, timeout: float = 30.0):
-        """获取分布式锁"""
-        import signal
-        
-        lock_acquired = False
-        agent_pid = str(uuid.uuid4())  # 临时 PID
-        expires_at = datetime.now() + __import__('datetime').timedelta(seconds=timeout)
-        
+    def __init__(self, embedding_dim: int = 384):
+        self._embedding_dim = embedding_dim
+        self._vectors: Dict[str, bytes] = {}
+        self._metadata: Dict[str, Dict] = {}
+        self._content: Dict[str, str] = {}
+        self._lock = threading.RLock()
+    
+    def save(self, key: str, embedding: bytes) -> bool:
+        with self._lock:
+            self._vectors[key] = embedding
+            return True
+    
+    def retrieve(self, key: str) -> Optional[bytes]:
+        with self._lock:
+            return self._vectors.get(key)
+    
+    def delete(self, key: str) -> bool:
+        with self._lock:
+            if key in self._vectors:
+                del self._vectors[key]
+                if key in self._metadata:
+                    del self._metadata[key]
+                return True
+            return False
+    
+    def exists(self, key: str) -> bool:
+        with self._lock:
+            return key in self._vectors
+    
+    def list_keys(self, prefix: str = "") -> List[str]:
+        with self._lock:
+            if not prefix:
+                return list(self._vectors.keys())
+            return [k for k in self._vectors.keys() if k.startswith(prefix)]
+    
+    def clear(self) -> bool:
+        with self._lock:
+            self._vectors.clear()
+            self._metadata.clear()
+            return True
+    
+    def add(self, key: str, content: str, embedding: bytes, metadata: Dict = None) -> bool:
+        """添加向量和内容"""
+        with self._lock:
+            self._vectors[key] = embedding
+            self._content[key] = content
+            self._metadata[key] = metadata or {}
+            return True
+    
+    def search(self, query_embedding: bytes, top_k: int = 10) -> List[dict]:
+        """搜索相似向量 (暴力计算 - 生产环境应使用索引)"""
+        import math
+        with self._lock:
+            results = []
+            for key, emb in self._vectors.items():
+                # 计算余弦相似度
+                similarity = self._cosine_similarity(query_embedding, emb)
+                results.append({
+                    'key': key,
+                    'content': self._content.get(key, ''),
+                    'metadata': self._metadata.get(key, {}),
+                    'similarity': similarity
+                })
+            # 排序并返回 top_k
+            results.sort(key=lambda x: x['similarity'], reverse=True)
+            return results[:top_k]
+    
+    def _cosine_similarity(self, a: bytes, b: bytes) -> float:
+        """计算余弦相似度"""
+        import struct
+        if len(a) != len(b):
+            return 0.0
+        # 将 bytes 转换为浮点数列表
         try:
-            # 尝试获取锁
-            self.cur.execute("""
-                INSERT INTO distributed_locks (lock_name, agent_pid, expires_at)
-                VALUES (%s, %s, %s)
-                ON CONFLICT (lock_name) DO NOTHING
-            """, (lock_name, agent_pid, expires_at))
-            
-            self.conn.commit()
-            
-            # 检查是否获取成功
-            self.cur.execute("""
-                SELECT agent_pid FROM distributed_locks WHERE lock_name = %s
-            """, (lock_name,))
-            
-            row = self.cur.fetchone()
-            lock_acquired = row and row[0] == agent_pid
-            
-            if lock_acquired:
-                logger.debug(f"Acquired lock {lock_name}")
-                yield True
-            else:
-                yield False
-                
-        finally:
-            if lock_acquired:
-                self.cur.execute("""
-                    DELETE FROM distributed_locks WHERE lock_name = %s
-                """, (lock_name,))
-                self.conn.commit()
-                logger.debug(f"Released lock {lock_name}")
-    
-    def enqueue_task(self, queue_name: str, task: Dict) -> str:
-        """入队任务"""
-        task_id = str(uuid.uuid4())
-        
-        self.cur.execute("""
-            INSERT INTO task_queues (task_id, queue_name, task_data, priority)
-            VALUES (%s, %s, %s, %s)
-        """, (task_id, queue_name, json.dumps(task), task.get('priority', 50)))
-        
-        self.conn.commit()
-        return task_id
-    
-    def dequeue_task(self, queue_name: str) -> Optional[Dict]:
-        """出队任务"""
-        # 使用 SKIP LOCKED 实现并发安全
-        self.cur.execute("""
-            UPDATE task_queues
-            SET status = 'processing', processed_at = NOW()
-            WHERE task_id = (
-                SELECT task_id FROM task_queues
-                WHERE queue_name = %s AND status = 'pending'
-                ORDER BY priority ASC, created_at ASC
-                FOR UPDATE SKIP LOCKED
-                LIMIT 1
-            )
-            RETURNING task_id, task_data, priority
-        """, (queue_name,))
-        
-        row = self.cur.fetchone()
-        self.conn.commit()
-        
-        if row:
-            return {
-                'task_id': row[0],
-                'data': json.loads(row[1]),
-                'priority': row[2]
-            }
-        return None
-    
-    def publish_event(self, channel: str, message: Dict):
-        """发布事件（使用 PostgreSQL NOTIFY）"""
-        payload = json.dumps(message)
-        self.cur.execute("NOTIFY %s, %s", (channel, payload))
-        self.conn.commit()
-    
-    def subscribe_events(self, channel: str, callback: Callable):
-        """订阅事件"""
-        # 简化实现：实际应该使用异步监听
-        logger.info(f"Subscribed to channel {channel}")
-    
-    # ========== 5. 审计日志（黑匣子）==========
-    
-    def log_action(self, agent_pid: str, action_type: str,
-                   input_data: Dict, output_data: Dict,
-                   reasoning: str = "", metadata: Optional[Dict] = None):
-        """记录审计日志"""
-        self.cur.execute("""
-            INSERT INTO audit_logs 
-            (agent_pid, action_type, input_data, output_data, reasoning, metadata)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (
-            agent_pid, action_type, json.dumps(input_data),
-            json.dumps(output_data), reasoning, json.dumps(metadata or {})
-        ))
-        
-        self.conn.commit()
-    
-    def get_audit_trail(self, agent_pid: str, limit: int = 100) -> List[Dict]:
-        """获取审计追踪"""
-        self.cur.execute("""
-            SELECT * FROM audit_logs 
-            WHERE agent_pid = %s 
-            ORDER BY timestamp DESC 
-            LIMIT %s
-        """, (agent_pid, limit))
-        
-        logs = []
-        for row in self.cur.fetchall():
-            logs.append({
-                'log_id': row[0],
-                'action_type': row[2],
-                'input_data': row[3],
-                'output_data': row[4],
-                'reasoning': row[5],
-                'timestamp': row[6].timestamp() if row[6] else None,
-            })
-        
-        return logs
-    
-    def replay_actions(self, agent_pid: str,
-                      from_checkpoint: Optional[str] = None) -> List[Dict]:
-        """回放操作"""
-        # 获取检查点时间
-        start_time = None
-        if from_checkpoint:
-            self.cur.execute("""
-                SELECT timestamp FROM checkpoints WHERE checkpoint_id = %s
-            """, (from_checkpoint,))
-            row = self.cur.fetchone()
-            if row:
-                start_time = row[0]
-        
-        if start_time:
-            self.cur.execute("""
-                SELECT * FROM audit_logs 
-                WHERE agent_pid = %s AND timestamp > %s
-                ORDER BY timestamp ASC
-            """, (agent_pid, start_time))
-        else:
-            self.cur.execute("""
-                SELECT * FROM audit_logs 
-                WHERE agent_pid = %s
-                ORDER BY timestamp ASC
-            """, (agent_pid,))
-        
-        return [{
-            'action_type': r[2],
-            'input': r[3],
-            'output': r[4],
-            'reasoning': r[5],
-            'timestamp': r[6].timestamp() if r[6] else None,
-        } for r in self.cur.fetchall()]
-    
-    # ========== 辅助方法 ==========
-    
-    def _generate_embedding(self, text: str) -> List[float]:
-        """生成嵌入向量（简化实现）"""
-        import random
-        import hashlib
-        # 使用文本哈希作为随机种子，确保相同文本产生相同嵌入
-        seed = int(hashlib.md5(text.encode()).hexdigest(), 16) % (2**32)
-        random.seed(seed)
-        return [random.random() for _ in range(1536)]
-    
-    def close(self):
-        """关闭数据库连接"""
-        if self.cur:
-            self.cur.close()
-        if self.conn:
-            self.conn.close()
-        logger.info("PostgreSQL connection closed")
-
-
-class MemoryStorage(StorageBackend):
-    """
-    内存存储后端（简化版，用于开发和测试）
-    
-    所有数据存储在内存中，进程退出后数据丢失。
-    仅支持五重角色的基本功能。
-    """
-    
-    def __init__(self):
-        # 1. 长期记忆存储
-        self.memories_db: Dict[str, List[Dict]] = defaultdict(list)
-        
-        # 2. 状态持久化
-        self.processes_db: Dict[str, Dict] = {}
-        self.checkpoints_db: Dict[str, Dict] = {}
-        
-        # 3. 向量索引
-        self.context_pages_db: Dict[str, Dict] = {}
-        
-        # 4. 协调服务
-        self.task_queues: Dict[str, List[Dict]] = defaultdict(list)
-        self.distributed_locks: Dict[str, Dict] = {}
-        
-        # 5. 审计日志
-        self.audit_logs_db: List[Dict] = []
-        
-        logger.info("MemoryStorage initialized (Five Roles - In-Memory Mode)")
-    
-    # 1. 长期记忆存储
-    def save_memory(self, agent_pid: str, memory_type: str,
-                   content: str, metadata: Optional[Dict] = None) -> str:
-        memory_id = str(uuid.uuid4())
-        self.memories_db[agent_pid].append({
-            'memory_id': memory_id,
-            'memory_type': memory_type,
-            'content': content,
-            'metadata': metadata or {},
-            'created_at': time.time(),
-        })
-        return memory_id
-    
-    def retrieve_memories(self, agent_pid: str, memory_type: Optional[str] = None,
-                         limit: int = 100) -> List[Dict]:
-        memories = self.memories_db.get(agent_pid, [])
-        if memory_type:
-            memories = [m for m in memories if m['memory_type'] == memory_type]
-        return memories[-limit:]
-    
-    # 2. 状态持久化
-    def save_process(self, process: Any):
-        data = process.to_dict() if hasattr(process, 'to_dict') else process
-        self.processes_db[data.get('pid')] = data
-    
-    def load_process(self, pid: str) -> Optional[Any]:
-        return self.processes_db.get(pid)
-    
-    def save_checkpoint(self, agent_pid: str, process_state: Dict,
-                       context_pages: List[Dict], description: str = "") -> str:
-        checkpoint_id = str(uuid.uuid4())
-        self.checkpoints_db[checkpoint_id] = {
-            'checkpoint_id': checkpoint_id,
-            'agent_pid': agent_pid,
-            'process_state': process_state,
-            'context_pages': context_pages,
-            'description': description,
-            'timestamp': time.time(),
-        }
-        return checkpoint_id
-    
-    def load_checkpoint(self, checkpoint_id: str) -> Optional[Dict]:
-        return self.checkpoints_db.get(checkpoint_id)
-    
-    def list_checkpoints(self, agent_pid: str) -> List[Dict]:
-        return [cp for cp in self.checkpoints_db.values() 
-                if cp.get('agent_pid') == agent_pid]
-    
-    # 3. 向量索引
-    def save_context_page(self, page: Any) -> str:
-        data = page.to_dict() if hasattr(page, 'to_dict') else page
-        self.context_pages_db[data['page_id']] = data
-        return data['page_id']
-    
-    def load_context_page(self, page_id: str) -> Optional[Any]:
-        return self.context_pages_db.get(page_id)
-    
-    def semantic_search(self, agent_pid: str, query_embedding: List[float],
-                       limit: int = 10, threshold: float = 0.7) -> List[Dict]:
-        # 内存版不支持向量搜索
-        return []
-    
-    def find_similar_memories(self, agent_pid: str, content: str,
-                             limit: int = 5) -> List[Dict]:
-        return []
-    
-    # 4. 协调服务
-    @contextmanager
-    def acquire_lock(self, lock_name: str, timeout: float = 30.0):
-        if lock_name not in self.distributed_locks:
-            self.distributed_locks[lock_name] = {
-                'acquired_at': time.time(),
-                'expires_at': time.time() + timeout
-            }
-            try:
-                yield True
-            finally:
-                del self.distributed_locks[lock_name]
-        else:
-            yield False
-    
-    def enqueue_task(self, queue_name: str, task: Dict) -> str:
-        task_id = str(uuid.uuid4())
-        self.task_queues[queue_name].append({
-            'task_id': task_id,
-            'data': task,
-            'status': 'pending',
-        })
-        return task_id
-    
-    def dequeue_task(self, queue_name: str) -> Optional[Dict]:
-        queue = self.task_queues.get(queue_name, [])
-        for task in queue:
-            if task['status'] == 'pending':
-                task['status'] = 'processing'
-                return task
-        return None
-    
-    def publish_event(self, channel: str, message: Dict):
-        pass
-    
-    def subscribe_events(self, channel: str, callback: Callable):
-        pass
-    
-    # 5. 审计日志
-    def log_action(self, agent_pid: str, action_type: str,
-                   input_data: Dict, output_data: Dict,
-                   reasoning: str = "", metadata: Optional[Dict] = None):
-        self.audit_logs_db.append({
-            'log_id': str(uuid.uuid4()),
-            'agent_pid': agent_pid,
-            'action_type': action_type,
-            'input_data': input_data,
-            'output_data': output_data,
-            'reasoning': reasoning,
-            'metadata': metadata or {},
-            'timestamp': time.time(),
-        })
-    
-    def get_audit_trail(self, agent_pid: str, limit: int = 100) -> List[Dict]:
-        logs = [log for log in self.audit_logs_db if log['agent_pid'] == agent_pid]
-        logs.sort(key=lambda x: x['timestamp'], reverse=True)
-        return logs[-limit:]
-    
-    def replay_actions(self, agent_pid: str,
-                      from_checkpoint: Optional[str] = None) -> List[Dict]:
-        return self.get_audit_trail(agent_pid)
-    
-    def close(self):
-        pass
+            vec_a = struct.unpack(f'{len(a)//8}f', a)
+            vec_b = struct.unpack(f'{len(b)//8}f', b)
+            dot = sum(x * y for x, y in zip(vec_a, vec_b))
+            norm_a = math.sqrt(sum(x * x for x in vec_a))
+            norm_b = math.sqrt(sum(x * x for x in vec_b))
+            if norm_a * norm_b == 0:
+                return 0.0
+            return dot / (norm_a * norm_b)
+        except Exception:
+            return 0.0
 
 
 class StorageManager:
     """
     存储管理器
     
-    统一的存储接口，封装 PostgreSQL 五重角色。
+    支持多种存储后端，提供统一的存储接口。
+    五重角色：
+    1. 记忆存储 (Episodic Memory)
+    2. 状态持久化 (State Persistence)
+    3. 向量索引 (Vector Index)
+    4. 审计日志 (Audit Log)
+    5. 检查点存储 (Checkpoint Storage)
     """
     
-    def __init__(self, backend: Optional[StorageBackend] = None):
-        self.backend = backend or MemoryStorage()
-        logger.info(f"StorageManager initialized with {type(self.backend).__name__}")
+    def __init__(self,
+                 backend: StorageBackend = StorageBackend.MEMORY,
+                 **kwargs):
+        self._backend = backend
+        self._kwargs = kwargs
+        
+        # 初始化各存储后端
+        self._data = self._create_storage(backend, kwargs)
+        
+        # 向量存储 (用于语义搜索)
+        self._vector = VectorStorage()
+        
+        # 检查点存储
+        self._checkpoint = self._create_storage(StorageBackend.MEMORY, kwargs)
+        
+        # 审计日志存储
+        self._audit = self._create_storage(StorageBackend.MEMORY, kwargs)
     
-    @classmethod
-    def from_postgresql(cls, connection_string: str, **kwargs):
-        """从 PostgreSQL 创建存储管理器"""
-        backend = PostgreSQLStorage(connection_string, **kwargs)
-        return cls(backend)
+    def _create_storage(self, backend: StorageBackend, kwargs: Dict) -> StorageInterface:
+        """创建存储后端实例"""
+        if backend == StorageBackend.MEMORY:
+            return MemoryStorage()
+        elif backend == StorageBackend.FILE:
+            return FileStorage(kwargs.get('base_path', './data'))
+        elif backend == StorageBackend.POSTGRESQL:
+            return PostgreSQLStorage(
+                host=kwargs.get('postgresql_host', 'localhost'),
+                port=kwargs.get('postgresql_port', 5432),
+                database=kwargs.get('postgresql_database', 'aosk'),
+                user=kwargs.get('postgresql_user', 'aosk'),
+                password=kwargs.get('postgresql_password', 'secret'),
+                table_prefix=kwargs.get('table_prefix', 'aosk_')
+            )
+        else:
+            return MemoryStorage()
     
-    # 代理所有 StorageBackend 方法
-    def __getattr__(self, name):
-        return getattr(self.backend, name)
+    # ========== 通用存储接口 ==========
+    
+    def save(self, key: str, value: Any) -> bool:
+        """保存数据"""
+        return self._data.save(key, value)
+    
+    def retrieve(self, key: str) -> Optional[Any]:
+        """检索数据"""
+        return self._data.retrieve(key)
+    
+    def delete(self, key: str) -> bool:
+        """删除数据"""
+        result = self._data.delete(key)
+        self._vector.delete(key)
+        return result
+    
+    def exists(self, key: str) -> bool:
+        """检查键是否存在"""
+        return self._data.exists(key)
+    
+    def list_keys(self, prefix: str = "") -> List[str]:
+        """列出所有键"""
+        return self._data.list_keys(prefix)
+    
+    def clear(self) -> bool:
+        """清空存储"""
+        return self._data.clear()
+    
+    # ========== 检查点管理 ==========
+    
+    def save_checkpoint(self, checkpoint_data: dict) -> bool:
+        """保存检查点"""
+        checkpoint_id = checkpoint_data.get('checkpoint_id', '')
+        if self._backend == StorageBackend.POSTGRESQL:
+            if isinstance(self._data, PostgreSQLStorage):
+                return self._data.save_checkpoint(checkpoint_data)
+        return self._checkpoint.save(checkpoint_id, checkpoint_data)
+    
+    def get_checkpoint(self, checkpoint_id: str) -> Optional[dict]:
+        """获取检查点"""
+        if self._backend == StorageBackend.POSTGRESQL:
+            if isinstance(self._data, PostgreSQLStorage):
+                # 查询 PostgreSQL
+                pass
+        return self._checkpoint.retrieve(checkpoint_id)
+    
+    def list_checkpoints(self, agent_pid: str = None) -> List[dict]:
+        """列出检查点"""
+        keys = self._checkpoint.list_keys()
+        checkpoints = []
+        for key in keys:
+            cp = self._checkpoint.retrieve(key)
+            if cp and (agent_pid is None or cp.get('agent_pid') == agent_pid):
+                checkpoints.append(cp)
+        return checkpoints
+    
+    # ========== 审计日志 ==========
+    
+    def log_audit(self, log_data: dict) -> bool:
+        """记录审计日志"""
+        if self._backend == StorageBackend.POSTGRESQL:
+            if isinstance(self._data, PostgreSQLStorage):
+                return self._data.save_audit_log(log_data)
+        return self._audit.save(
+            f"{log_data.get('action', 'unknown')}_{log_data.get('agent_pid', 'unknown')}_{time.time()}",
+            log_data
+        )
+    
+    def get_audit_logs(self, agent_pid: str = None, limit: int = 100) -> List[dict]:
+        """获取审计日志"""
+        keys = self._audit.list_keys()
+        logs = []
+        for key in keys[-limit:]:
+            log = self._audit.retrieve(key)
+            if log and (agent_pid is None or log.get('agent_pid') == agent_pid):
+                logs.append(log)
+        return logs
+    
+    # ========== 向量存储 ==========
+    
+    def save_vector(self, key: str, content: str, embedding: bytes, metadata: Dict = None) -> bool:
+        """保存向量"""
+        self._data.save(key, {'content': content, 'metadata': metadata or {}})
+        return self._vector.add(key, content, embedding, metadata)
+    
+    def search_vectors(self, query_embedding: bytes, top_k: int = 10) -> List[dict]:
+        """搜索向量"""
+        return self._vector.search(query_embedding, top_k)
+    
+    def semantic_search(self, query: str, embedding: bytes, top_k: int = 10) -> List[dict]:
+        """语义搜索"""
+        return self._vector.search(embedding, top_k)
+    
+    # ========== 统计信息 ==========
+    
+    def get_stats(self) -> Dict[str, StorageStats]:
+        """获取存储统计"""
+        return {
+            'data': self._data.get_stats() if hasattr(self._data, 'get_stats') else None,
+            'checkpoint': self._checkpoint.get_stats() if hasattr(self._checkpoint, 'get_stats') else None,
+            'audit': self._audit.get_stats() if hasattr(self._audit, 'get_stats') else None,
+        }
+    
+    def close(self):
+        """关闭存储"""
+        if hasattr(self._data, 'close'):
+            self._data.close()
+        if hasattr(self._checkpoint, 'close'):
+            self._checkpoint.close()
+        if hasattr(self._audit, 'close'):
+            self._audit.close()

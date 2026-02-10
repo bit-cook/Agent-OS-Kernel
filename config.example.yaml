@@ -1,0 +1,174 @@
+# Agent-OS-Kernel 配置文件
+# 参考 AIOS 设计
+
+# API Keys (建议使用环境变量)
+api_keys:
+  # 国外模型
+  openai: "${OPENAI_API_KEY}"          # OpenAI API Key
+  anthropic: "${ANTHROPIC_API_KEY}"    # Anthropic API Key
+  groq: "${GROQ_API_KEY}"             # Groq API Key
+  huggingface: "${HF_AUTH_TOKEN}"      # HuggingFace Token
+  
+  # 🇨🇳 中国模型
+  deepseek: "${DEEPSEEK_API_KEY}"       # DeepSeek API Key
+  kimi: "${KIMI_API_KEY}"             # Kimi (Moonshot AI) API Key
+  minimax: "${MINIMAX_API_KEY}"        # MiniMax API Key
+  qwen: "${DASHSCOPE_API_KEY}"         # 阿里云通义千问 API Key
+
+# LLM Models 配置
+llms:
+  models:
+    # 🇨🇳 中国模型 (默认推荐)
+    - name: "deepseek-chat"
+      provider: "deepseek"
+      description: "DeepSeek Chat (性价比高)"
+      max_tokens: 8192
+      temperature: 0.7
+    
+    - name: "deepseek-reasoner"
+      provider: "deepseek"
+      description: "DeepSeek Reasoner (推理增强)"
+      max_tokens: 8192
+      temperature: 0.3
+    
+    - name: "qwen-turbo"
+      provider: "qwen"
+      description: "通义千问 Turbo (快速响应)"
+      max_tokens: 8192
+      temperature: 0.7
+    
+    - name: "qwen-plus"
+      provider: "qwen"
+      description: "通义千问 Plus (平衡性能)"
+      max_tokens: 16384
+      temperature: 0.7
+    
+    - name: "qwen-max"
+      provider: "qwen"
+      description: "通义千问 Max (最强性能)"
+      max_tokens: 16384
+      temperature: 0.7
+    
+    - name: "moonshot-v1-8k"
+      provider: "kimi"
+      description: "Kimi 8K 上下文"
+      max_tokens: 8192
+      temperature: 0.7
+    
+    - name: "moonshot-v1-32k"
+      provider: "kimi"
+      description: "Kimi 32K 上下文"
+      max_tokens: 32768
+      temperature: 0.7
+    
+    - name: "abab6.5s-chat"
+      provider: "minimax"
+      description: "MiniMax 聊天模型"
+      max_tokens: 16384
+      temperature: 0.7
+    
+    # 🌐 国外模型
+    - name: "gpt-4o"
+      provider: "openai"
+      description: "GPT-4o (多模态)"
+      max_tokens: 8192
+      temperature: 0.7
+    
+    - name: "gpt-4o-mini"
+      provider: "openai"
+      description: "GPT-4o-mini (快速便宜)"
+      max_tokens: 4096
+      temperature: 0.7
+    
+    - name: "claude-sonnet-4-20250514"
+      provider: "anthropic"
+      description: "Claude Sonnet 4"
+      max_tokens: 8192
+      temperature: 0.7
+    
+    - name: "llama-3.3-70b-versatile"
+      provider: "groq"
+      description: "Llama 3 (高速推理)"
+      max_tokens: 8192
+      temperature: 0.7
+    
+    # 🏠 本地模型
+    - name: "qwen2.5:7b"
+      provider: "ollama"
+      description: "Qwen 2.5 本地模型"
+      base_url: "http://localhost:11434"
+      max_tokens: 4096
+      temperature: 0.7
+    
+    - name: "meta-llama/Llama-3.1-8B-Instruct"
+      provider: "vllm"
+      description: "Llama 3.1 8B (vLLM)"
+      base_url: "http://localhost:8000/v1"
+      max_tokens: 4096
+      temperature: 0.7
+
+# 默认模型 (推荐中国模型)
+default_model: "deepseek-chat"
+
+# Server 配置
+server:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 1
+  reload: false
+
+# Database 配置 (PostgreSQL)
+database:
+  host: "localhost"
+  port: 5432
+  username: "postgres"
+  password: "${POSTGRES_PASSWORD}"
+  name: "agent_os_kernel"
+  pool_size: 10
+  max_overflow: 20
+
+# Redis 配置
+redis:
+  host: "localhost"
+  port: 6379
+  db: 0
+
+# Vector Store 配置 (pgvector)
+vector:
+  enabled: true
+  dimension: 1536
+  metric: "cosine"
+
+# Agent 配置
+agents:
+  max_concurrent: 10
+  default_timeout: 300
+  max_memory_pages: 100
+  max_tools_per_agent: 50
+
+# 工具配置
+tools:
+  max_execution_time: 60
+
+# 调度配置
+scheduler:
+  type: "fifo"
+  quantum: 5.0
+  max_queue_size: 100
+
+# 监控配置
+monitoring:
+  metrics_enabled: true
+  health_check_interval: 30
+  log_level: "INFO"
+
+# 安全配置
+security:
+  rate_limit:
+    enabled: true
+    requests_per_minute: 60
+  cors:
+    enabled: true
+    origins:
+      - "http://localhost:3000"
+      - "http://localhost:8080"

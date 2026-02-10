@@ -1,17 +1,27 @@
-# Agent OS Kernel - 基础依赖
-# 核心功能仅使用 Python 标准库
+# Core dependencies
+psutil>=5.9.0
+pyyaml>=6.0
+requests>=2.31.0
 
-# 可选依赖（根据需要使用）:
+# Web API dependencies
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.6
 
-# PostgreSQL 存储后端
-# psycopg2-binary>=2.9.0
-# pgvector>=0.2.0
+# Database dependencies
+psycopg2-binary>=2.9.9
+redis>=5.0.0
 
-# Claude API 集成
-# anthropic>=0.20.0
+# Testing dependencies
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-asyncio>=0.23.0
 
-# OpenAI API 集成
-# openai>=1.0.0
+# Code quality
+black>=23.0.0
+flake8>=6.1.0
+mypy>=1.5.0
+types-requests>=2.31.0
 
-# Docker 沙箱
-# docker>=6.0.0
+# Development
+ipython>=8.0.0
