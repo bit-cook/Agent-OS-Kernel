@@ -211,32 +211,32 @@ policy = SecurityPolicy(
 
 ```
 +----------------------------------------------------------------+
-|                        Agent Applications                       |
-|        (CodeAssistant | ResearchAgent | DataAnalyst...)        |
+|                        Agent Applications                        |
+|        (CodeAssistant | ResearchAgent | DataAnalyst...)         |
 +----------------------------------------------------------------+
                                 |
                                 v
 +----------------------------------------------------------------+
-|                    [ Agent OS Kernel ]                          |
+|                      [ Agent OS Kernel ]                        |
 +----------------------------------------------------------------+
 |  +------------------+------------------+------------------+      |
 |  |     Context      |     Process     |       I/O        |      |
 |  |     Manager      |    Scheduler    |     Manager     |      |
 |  +------------------+------------------+------------------+      |
 |  +------------------+------------------+------------------+      |
-|  |              Storage Layer (PostgreSQL)                      | |
-|  |      Memory | Storage | Vector | Audit                      | |
+|  |     Storage Layer (PostgreSQL)                               | |
+|  |     Memory | Storage | Vector | Audit                          | |
 |  +------------------+------------------+------------------+      |
 |  +------------------+------------------+------------------+      |
-|  |              Learning Layer (Self-Learning)                  | |
-|  |        Trajectory | Optimizer | Experience                  | |
+|  |     Learning Layer (Self-Learning)                           | |
+|  |     Trajectory | Optimizer | Experience                      | |
 |  +------------------+------------------+------------------+      |
 +----------------------------------------------------------------+
                                 |
                                 v
 +----------------------------------------------------------------+
-|                   [ Hardware Resources ]                         |
-|           LLM APIs | Vector DB | MCP Servers                   |
+|                     [ Hardware Resources ]                        |
+|             LLM APIs | Vector DB | MCP Servers                  |
 +----------------------------------------------------------------+
 ```
 
@@ -343,20 +343,20 @@ Agent OS Kernel 深度参考 [AIOS](https://github.com/agiresearch/AIOS) (COLM 2
 
 ```
 +----------------------------------------------------------------+
-|              [ Agent-OS-Kernel (AIOS-Inspired) ]               |
+|            [ Agent-OS-Kernel (AIOS-Inspired) ]                   |
 +----------------------------------------------------------------+
-|  Kernel Layer                                                 |
-|  + LLM Core (Multi-Provider)                                  |
+|  Kernel Layer                                                  |
+|  + LLM Core (Multi-Provider)                                    |
 |  + Context Manager (Virtual Memory)                            |
 |  + Memory Manager (Memory)                                     |
 |  + Storage Manager (Persistent)                                |
 |  + Tool Manager (Tools)                                        |
-|  + Scheduler (Process)                                        |
+|  + Scheduler (Process)                                         |
 +----------------------------------------------------------------+
-|  SDK Layer (Cerebrum-Style)                                   |
-|  + Agent Builder (Builder)                                     |
-|  + Tool Registry (Registry)                                     |
-|  + Plugin System (Plugins)                                    |
+|  SDK Layer (Cerebrum-Style)                                    |
+|  + Agent Builder (Builder)                                      |
+|  + Tool Registry (Registry)                                    |
+|  + Plugin System (Plugins)                                      |
 +----------------------------------------------------------------+
 ```
 
