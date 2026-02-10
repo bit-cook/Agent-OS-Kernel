@@ -41,6 +41,8 @@ from .core.pipeline import Pipeline, PipelineItem, PipelineStage
 from .core.cache_system import CacheSystem, CacheLevel, EvictionPolicy
 from .core.lock_manager import LockManager, LockType, async_lock
 from .core.state_machine import StateMachine, EventType
+from .core.memory_feedback import MemoryFeedbackSystem, FeedbackType
+from .core.tool_memory import ToolMemory, ToolStatus
 from .core.monitoring import Monitor, HealthStatus
 from .core.worker import WorkerPool, WorkerStatus
 from .core.config_manager import ConfigManager
@@ -179,6 +181,10 @@ __all__ = [
     'HealthStatus',
     'WorkerPool',
     'WorkerStatus',
+    'MemoryFeedbackSystem',
+    'FeedbackType',
+    'ToolMemory',
+    'ToolStatus',
     'CrewDefinition',
     
     # Advanced Core - Workflow

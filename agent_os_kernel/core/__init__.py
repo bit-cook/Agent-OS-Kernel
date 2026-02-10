@@ -216,3 +216,17 @@ __all__ += [
     'Worker',
     'WorkerStatus',
 ]
+
+
+# ========== Memory Enhancement (MemOS Integration) ==========
+from .memory_feedback import MemoryFeedbackSystem, MemoryFeedback, FeedbackType
+from .tool_memory import ToolMemory, ToolCall, ToolStatus
+
+__all__ += [
+    'MemoryFeedbackSystem',
+    'MemoryFeedback',
+    'FeedbackType',
+    'ToolMemory',
+    'ToolCall',
+    'ToolStatus',
+]
