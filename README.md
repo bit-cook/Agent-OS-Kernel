@@ -297,6 +297,89 @@ for name, model in providers:
 
 ```python
 from agent_os_kernel.core.learning import TrajectoryRecorder, AgentOptimizer
+```
+
+### 🔄 工作流引擎
+
+基于 DAG 的工作流编排引擎，支持并行/串行任务执行：
+
+```python
+from agent_os_kernel import WorkflowEngine, Workflow
+
+engine = WorkflowEngine(max_concurrent=10)
+workflow = await engine.create_workflow("数据处理流程")
+await engine.execute(workflow)
+```
+
+### 📡 事件总线
+
+发布/订阅模式的事件驱动架构：
+
+```python
+from agent_os_kernel.core import EventBus, EventPriority
+
+bus = EventBus()
+bus.subscribe("agent.started", handler)
+await bus.publish("agent.started", {"agent_id": "agent-001"})
+```
+
+### 🛡️ 熔断器
+
+保护系统免受级联故障影响：
+
+```python
+from agent_os_kernel.core import CircuitBreaker, CircuitConfig
+
+breaker = CircuitBreaker("api", CircuitConfig(failure_threshold=5))
+await breaker.call(unstable_api)
+```
+
+### 📊 指标收集器
+
+生产级别的指标收集和 Prometheus 导出：
+
+```python
+from agent_os_kernel.core import MetricsCollector
+
+collector = MetricsCollector()
+collector.counter("requests", 1)
+collector.gauge("memory", 512)
+```
+
+### 🏊 Agent 池
+
+Agent 实例复用，提高性能：
+
+```python
+from agent_os_kernel.core import AgentPool
+
+pool = AgentPool(max_size=10, min_idle=2)
+agent = await pool.acquire(definition)
+await pool.release(agent)
+```
+
+### 🔒 Agent 注册中心
+
+集中管理 Agent 实例的注册和发现：
+
+```python
+from agent_os_kernel.core import AgentRegistry
+
+registry = AgentRegistry()
+await registry.register(agent_id, "Assistant", "helper")
+await registry.heartbeat(agent_id)
+```
+
+### 🎯 速率限制器
+
+控制 API 调用频率：
+
+```python
+from agent_os_kernel.core import RateLimiter, RateLimitConfig
+
+limiter = RateLimiter(RateLimitConfig(burst_size=20))
+await limiter.acquire("user-001")
+```
 
 # 轨迹记录
 recorder = TrajectoryRecorder()
