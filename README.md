@@ -4,7 +4,7 @@
 
 **AI Agent 的操作系统内核**
 
-> 深受 [冯若航《AI Agent 的操作系统时刻》](https://vonng.com/db/agent-os/) 启发，试图填补 Agent 生态中"缺失的内核"
+> 受到[《AI Agent 的操作系统时刻》](https://vonng.com/db/agent-os/) 启发，尝试填补 Agent 生态中"缺失的内核"
 
 **支持本地模型**: Ollama | vLLM | Kimi | LocalAI ...
 
