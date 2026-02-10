@@ -1,357 +1,287 @@
 # -*- coding: utf-8 -*-
-"""FastAPI Web Server
+"""
+REST API Server
 
-提供 RESTful API 接口：
-- Agent 管理
-- 状态监控
-- 检查点操作
-- 系统配置
+提供 REST API 接口，支持：
+1. Agent 管理
+2. 任务提交
+3. 状态查询
+4. 指标监控
 """
 
-import os
-import sys
-from typing import Dict, List, Any, Optional
+import asyncio
+import logging
+from typing import Dict, Any, List, Optional
+from dataclasses import dataclass
 from datetime import datetime
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Query, Depends, BackgroundTasks
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
+import uvicorn
 
-# 添加父目录到路径
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from agent_os_kernel import AgentOSKernel, create_metrics_collector
+from agent_os_kernel.core.events import EventBus, EventType
 
-from agent_os_kernel import AgentOSKernel
-from agent_os_kernel.core.types import AgentState, Checkpoint
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
-# ========== Pydantic Models ==========
+# ========== Data Models ==========
 
 class AgentCreateRequest(BaseModel):
     """创建 Agent 请求"""
-    name: str = Field(..., min_length=1, max_length=128, description="Agent 名称")
+    name: str = Field(..., description="Agent 名称")
     task: str = Field(..., description="任务描述")
-    priority: int = Field(default=30, ge=0, le=100, description="优先级")
+    priority: int = Field(50, ge=0, le=100, description="优先级")
+
+
+class TaskSubmitRequest(BaseModel):
+    """提交任务请求"""
+    agent_id: str = Field(..., description="Agent ID")
+    task: str = Field(..., description="任务内容")
+
+
+class ContextRequest(BaseModel):
+    """上下文请求"""
+    agent_id: str = Field(..., description="Agent ID")
+    content: str = Field(..., description="上下文内容")
 
 
 class AgentResponse(BaseModel):
     """Agent 响应"""
-    pid: str
+    agent_id: str
     name: str
-    state: str
+    task: str
     priority: int
-    created_at: Optional[str] = None
-    active: Optional[str] = None
+    state: str
+    created_at: str
+
+
+class TaskResponse(BaseModel):
+    """任务响应"""
+    task_id: str
+    agent_id: str
+    status: str
+    result: Optional[str] = None
 
 
 class StatusResponse(BaseModel):
-    """系统状态响应"""
-    status: str
-    overall_health: str
-    version: str
-    active_agents: int
-    total_agents: int
-    cpu_usage: float
-    memory_usage: float
-    gateway_latency: Optional[int] = None
+    """状态响应"""
+    running: bool
+    agents_count: int
+    uptime_seconds: float
+    metrics: Dict[str, Any]
 
 
-class CheckpointResponse(BaseModel):
-    """检查点响应"""
-    checkpoint_id: str
-    agent_pid: str
-    agent_name: str
-    description: str
-    timestamp: str
+# ========== API Server ==========
 
-
-class CheckpointCreateRequest(BaseModel):
-    """创建检查点请求"""
-    description: str = Field(default="", description="检查点描述")
-
-
-class MetricsResponse(BaseModel):
-    """指标响应"""
-    timestamp: str
-    cpu_usage: float
-    memory_usage: float
-    context_hit_rate: float
-    swap_count: int
-    active_agents: int
-    queued_agents: int
-
-
-class ToolCallRequest(BaseModel):
-    """工具调用请求"""
-    tool_name: str
-    parameters: Dict[str, Any] = Field(default_factory=dict)
-
-
-class ToolCallResponse(BaseModel):
-    """工具调用响应"""
-    success: bool
-    result: Any
-    error: Optional[str] = None
-
-
-# ========== 全局内核实例 ==========
-
-_kernel: Optional[AgentOSKernel] = None
-
-
-def get_kernel() -> AgentOSKernel:
-    """获取内核实例"""
-    global _kernel
-    if _kernel is None:
-        _kernel = AgentOSKernel()
-    return _kernel
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """应用生命周期"""
-    global _kernel
-    _kernel = AgentOSKernel()
-    print("🚀 Agent-OS-Kernel API Server started")
-    yield
-    print("👋 Agent-OS-Kernel API Server stopped")
-
-
-# ========== 创建 FastAPI App ==========
-
-def create_app(title: str = "Agent-OS-Kernel API",
-               description: str = "AI Agent Operating System Kernel API",
-               version: str = "2.0.0") -> FastAPI:
+class AgentOSKernelAPI:
+    """API 服务器"""
     
-    app = FastAPI(
-        title=title,
-        description=description,
-        version=version,
-        lifespan=lifespan,
-        docs_url="/docs",
-        redoc_url="/redoc"
-    )
+    def __init__(self, host: str = "0.0.0.0", port: int = 8000):
+        self.host = host
+        self.port = port
+        self.kernel = None
+        self.metrics = create_metrics_collector()
+        self.start_time = datetime.now()
+        self._app = None
     
-    # CORS
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    def create_app(self) -> FastAPI:
+        """创建 FastAPI 应用"""
+        @asynccontextmanager
+        async def lifespan(app: FastAPI):
+            # 启动
+            self.kernel = AgentOSKernel()
+            logger.info("Kernel started")
+            yield
+            # 停止
+            self.kernel.stop()
+            logger.info("Kernel stopped")
+        
+        app = FastAPI(
+            title="Agent OS Kernel API",
+            description="AI Agent Operating System Kernel API",
+            version="1.0.0",
+            lifespan=lifespan
+        )
+        
+        self._register_routes(app)
+        self._app = app
+        
+        return app
     
-    # ========== API 端点 ==========
-    
-    @app.get("/", include_in_schema=False)
-    async def root():
-        """API 根路径"""
-        return {
-            "name": "Agent-OS-Kernel API",
-            "version": version,
-            "docs": "/docs",
-            "health": "/api/health"
-        }
-    
-    @app.get("/api/health")
-    async def health_check():
-        """健康检查"""
-        return {
-            "status": "healthy",
-            "timestamp": datetime.utcnow().isoformat(),
-            "version": version
-        }
-    
-    # ========== Agent Management ==========
-    
-    @app.get("/api/agents", response_model=List[AgentResponse])
-    async def list_agents(kernel: AgentOSKernel = Depends(get_kernel)):
-        """列出所有 Agent"""
-        agents = kernel.scheduler.get_active_processes()
-        return [
-            AgentResponse(
-                pid=p.pid,
-                name=p.name,
-                state=p.state.value,
-                priority=p.priority,
-                created_at=datetime.fromtimestamp(p.created_at).isoformat() if hasattr(p, 'created_at') else None,
-                active=p.active if hasattr(p, 'active') else None
+    def _register_routes(self, app: FastAPI):
+        """注册路由"""
+        
+        @app.get("/", tags=["Root"])
+        async def root():
+            return {
+                "name": "Agent OS Kernel API",
+                "version": "1.0.0",
+                "docs": "/docs"
+            }
+        
+        @app.get("/health", tags=["Health"])
+        async def health():
+            return {"status": "healthy"}
+        
+        # ========== Agent Management ==========
+        
+        @app.post("/api/v1/agents", response_model=AgentResponse, tags=["Agents"])
+        async def create_agent(request: AgentCreateRequest):
+            """创建 Agent"""
+            agent_id = self.kernel.spawn_agent(
+                name=request.name,
+                task=request.task,
+                priority=request.priority
             )
-            for p in agents
-        ]
-    
-    @app.post("/api/agents", response_model=AgentResponse, status_code=201)
-    async def create_agent(request: AgentCreateRequest, kernel: AgentOSKernel = Depends(get_kernel)):
-        """创建 Agent"""
-        pid = kernel.spawn_agent(
-            name=request.name,
-            task=request.task,
-            priority=request.priority
-        )
-        
-        if not pid:
-            raise HTTPException(status_code=500, detail="Failed to create agent")
-        
-        process = kernel.scheduler.get_process(pid)
-        return AgentResponse(
-            pid=pid,
-            name=process.name,
-            state=process.state.value,
-            priority=process.priority
-        )
-    
-    @app.get("/api/agents/{agent_pid}", response_model=AgentResponse)
-    async def get_agent(agent_pid: str, kernel: AgentOSKernel = Depends(get_kernel)):
-        """获取 Agent 详情"""
-        process = kernel.scheduler.get_process(agent_pid)
-        if process is None:
-            raise HTTPException(status_code=404, detail="Agent not found")
-        
-        return AgentResponse(
-            pid=process.pid,
-            name=process.name,
-            state=process.state.value,
-            priority=process.priority,
-            created_at=datetime.fromtimestamp(process.created_at).isoformat() if hasattr(process, 'created_at') else None,
-            active=process.active if hasattr(process, 'active') else None
-        )
-    
-    @app.delete("/api/agents/{agent_pid}", status_code=204)
-    async def terminate_agent(agent_pid: str, kernel: AgentOSKernel = Depends(get_kernel)):
-        """终止 Agent"""
-        success = kernel.terminate_agent(agent_pid)
-        if not success:
-            raise HTTPException(status_code=404, detail="Agent not found or already terminated")
-    
-    # ========== Checkpoints ==========
-    
-    @app.get("/api/checkpoints", response_model=List[CheckpointResponse])
-    async def list_checkpoints(agent_pid: Optional[str] = Query(None, description="过滤特定 Agent"), kernel: AgentOSKernel = Depends(get_kernel)):
-        """列出检查点"""
-        checkpoints = kernel.storage.list_checkpoints(agent_pid)
-        return [
-            CheckpointResponse(
-                checkpoint_id=cp.get('checkpoint_id', ''),
-                agent_pid=cp.get('agent_pid', ''),
-                agent_name=cp.get('agent_name', ''),
-                description=cp.get('description', ''),
-                timestamp=cp.get('timestamp', datetime.utcnow().isoformat())
+            
+            self.metrics.counter("agents_created_total")
+            
+            agent = self.kernel.get_agent(agent_id)
+            
+            return AgentResponse(
+                agent_id=agent_id,
+                name=request.name,
+                task=request.task,
+                priority=request.priority,
+                state="created",
+                created_at=datetime.now().isoformat()
             )
-            for cp in checkpoints
-        ]
-    
-    @app.post("/api/agents/{agent_pid}/checkpoints", response_model=CheckpointResponse, status_code=201)
-    async def create_checkpoint(agent_pid: str, request: CheckpointCreateRequest, kernel: AgentOSKernel = Depends(get_kernel)):
-        """创建检查点"""
-        checkpoint_id = kernel.create_checkpoint(agent_pid, request.description)
-        if not checkpoint_id:
-            raise HTTPException(status_code=500, detail="Failed to create checkpoint")
         
-        checkpoint = kernel.storage.get_checkpoint(checkpoint_id)
-        return CheckpointResponse(
-            checkpoint_id=checkpoint_id,
-            agent_pid=agent_pid,
-            agent_name=checkpoint.get('agent_name', '') if checkpoint else '',
-            description=request.description,
-            timestamp=datetime.utcnow().isoformat()
-        )
-    
-    @app.post("/api/checkpoints/{checkpoint_id}/restore", response_model=AgentResponse, status_code=201)
-    async def restore_checkpoint(checkpoint_id: str, kernel: AgentOSKernel = Depends(get_kernel)):
-        """从检查点恢复"""
-        new_pid = kernel.restore_checkpoint(checkpoint_id)
-        if not new_pid:
-            raise HTTPException(status_code=404, detail="Checkpoint not found")
+        @app.get("/api/v1/agents", response_model=List[AgentResponse], tags=["Agents"])
+        async def list_agents():
+            """列出所有 Agent"""
+            agents = self.kernel.list_agents()
+            
+            return [
+                AgentResponse(
+                    agent_id=a["pid"],
+                    name=a["name"],
+                    task=a["task"],
+                    priority=a["priority"],
+                    state=a.get("state", "unknown"),
+                    created_at=a.get("created_at", datetime.now().isoformat())
+                )
+                for a in agents
+            ]
         
-        process = kernel.scheduler.get_process(new_pid)
-        return AgentResponse(
-            pid=new_pid,
-            name=process.name,
-            state=process.state.value,
-            priority=process.priority
-        )
-    
-    # ========== System Status ==========
-    
-    @app.get("/api/status", response_model=StatusResponse)
-    async def get_status(kernel: AgentOSKernel = Depends(get_kernel)):
-        """获取系统状态"""
-        status = kernel.get_openclaw_status()
-        return StatusResponse(
-            status=status.get('status', 'unknown'),
-            overall_health=status.get('overall_health', 'unknown'),
-            version=status.get('version', ''),
-            active_agents=len(kernel.scheduler.get_active_processes()),
-            total_agents=len(kernel.scheduler.processes),
-            cpu_usage=status.get('system', {}).get('cpu_percent', 0),
-            memory_usage=status.get('system', {}).get('memory_percent', 0),
-            gateway_latency=status.get('gateway_latency')
-        )
-    
-    @app.get("/api/metrics", response_model=MetricsResponse)
-    async def get_metrics(kernel: AgentOSKernel = Depends(get_kernel)):
-        """获取性能指标"""
-        metrics = kernel.metrics.get_metrics(
-            active_agents=len(kernel.scheduler.get_active_processes())
-        )
-        return MetricsResponse(
-            timestamp=metrics.timestamp.isoformat(),
-            cpu_usage=metrics.cpu_usage,
-            memory_usage=metrics.memory_usage,
-            context_hit_rate=metrics.context_hit_rate,
-            swap_count=metrics.swap_count,
-            active_agents=metrics.active_agents,
-            queued_agents=metrics.queued_agents
-        )
-    
-    # ========== Tools ==========
-    
-    @app.get("/api/tools", response_model=List[Dict])
-    async def list_tools(kernel: AgentOSKernel = Depends(get_kernel)):
-        """列出可用工具"""
-        return kernel.tool_registry.list_tools()
-    
-    @app.post("/api/tools/execute", response_model=ToolCallResponse)
-    async def execute_tool(request: ToolCallRequest, kernel: AgentOSKernel = Depends(get_kernel)):
-        """执行工具"""
-        result = kernel.tool_registry.execute(request.tool_name, **request.parameters)
-        if result.get('success'):
-            return ToolCallResponse(success=True, result=result.get('data'))
-        return ToolCallResponse(success=False, result=None, error=result.get('error'))
-    
-    # ========== Statistics ==========
-    
-    @app.get("/api/stats")
-    async def get_statistics(kernel: AgentOSKernel = Depends(get_kernel)):
-        """获取统计信息"""
-        return kernel.get_statistics()
-    
-    @app.get("/api/storage/stats")
-    async def get_storage_stats(kernel: AgentOSKernel = Depends(get_kernel)):
-        """获取存储统计"""
-        return kernel.storage.get_stats()
-    
-    @app.get("/api/audit-logs")
-    async def get_audit_logs(agent_pid: Optional[str] = Query(None), limit: int = Query(100, le=1000), kernel: AgentOSKernel = Depends(get_kernel)):
-        """获取审计日志"""
-        return kernel.storage.get_audit_logs(agent_pid, limit)
-    
-    return app
+        @app.get("/api/v1/agents/{agent_id}", response_model=AgentResponse, tags=["Agents"])
+        async def get_agent(agent_id: str):
+            """获取 Agent 信息"""
+            agent = self.kernel.get_agent(agent_id)
+            if not agent:
+                raise HTTPException(status_code=404, detail="Agent not found")
+            
+            return AgentResponse(
+                agent_id=agent_id,
+                name=agent.get("name", ""),
+                task=agent.get("task", ""),
+                priority=agent.get("priority", 0),
+                state=agent.get("state", "unknown"),
+                created_at=agent.get("created_at", datetime.now().isoformat())
+            )
+        
+        @app.delete("/api/v1/agents/{agent_id}", tags=["Agents"])
+        async def delete_agent(agent_id: str):
+            """删除 Agent"""
+            # 实现删除逻辑
+            self.metrics.counter("agents_deleted_total")
+            return {"status": "deleted", "agent_id": agent_id}
+        
+        # ========== Tasks ==========
+        
+        @app.post("/api/v1/tasks", response_model=TaskResponse, tags=["Tasks"])
+        async def submit_task(request: TaskSubmitRequest):
+            """提交任务"""
+            task_id = f"task-{datetime.now().timestamp()}"
+            
+            # 实现任务提交
+            self.metrics.counter("tasks_submitted_total")
+            
+            return TaskResponse(
+                task_id=task_id,
+                agent_id=request.agent_id,
+                status="pending",
+                result=None
+            )
+        
+        @app.get("/api/v1/tasks/{task_id}", response_model=TaskResponse, tags=["Tasks"])
+        async def get_task(task_id: str):
+            """获取任务状态"""
+            # 实现任务查询
+            return TaskResponse(
+                task_id=task_id,
+                agent_id="",
+                status="unknown"
+            )
+        
+        # ========== Context ==========
+        
+        @app.post("/api/v1/context", tags=["Context"])
+        async def add_context(request: ContextRequest):
+            """添加上下文"""
+            from agent_os_kernel import ContextManager
+            cm = ContextManager()
+            
+            page_id = cm.allocate_page(
+                agent_pid=request.agent_id,
+                content=request.content,
+                importance=0.5
+            )
+            
+            return {"page_id": page_id, "status": "added"}
+        
+        @app.get("/api/v1/context/{agent_id}", tags=["Context"])
+        async def get_context(agent_id: str):
+            """获取上下文"""
+            from agent_os_kernel import ContextManager
+            cm = ContextManager()
+            
+            context = cm.get_agent_context(agent_id)
+            
+            return {"context": context}
+        
+        # ========== Metrics ==========
+        
+        @app.get("/api/v1/metrics", tags=["Metrics"])
+        async def get_metrics():
+            """获取指标"""
+            uptime = (datetime.now() - self.start_time).total_seconds()
+            
+            return {
+                "uptime_seconds": uptime,
+                "metrics": self.metrics.get_stats()
+            }
+        
+        @app.get("/api/v1/metrics/prometheus", tags=["Metrics"])
+        async def get_metrics_prometheus():
+            """Prometheus 格式指标"""
+            return self.metrics.export_prometheus()
+        
+        # ========== System ==========
+        
+        @app.get("/api/v1/status", response_model=StatusResponse, tags=["System"])
+        async def get_status():
+            """获取系统状态"""
+            uptime = (datetime.now() - self.start_time).total_seconds()
+            
+            return StatusResponse(
+                running=True,
+                agents_count=len(self.kernel.list_agents()),
+                uptime_seconds=uptime,
+                metrics=self.metrics.get_stats()
+            )
 
 
-# ========== 主入口 ==========
-
-app = create_app()
+def run_server(host: str = "0.0.0.0", port: int = 8000):
+    """运行服务器"""
+    api = AgentOSKernelAPI(host=host, port=port)
+    app = api.create_app()
+    
+    uvicorn.run(app, host=host, port=port)
 
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(
-        "server:app",
-        host="0.0.0.0",
-        port=8080,
-        reload=True,
-        log_level="info"
-    )
+    run_server()

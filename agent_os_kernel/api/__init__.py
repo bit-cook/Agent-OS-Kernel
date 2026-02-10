@@ -1,4 +1,8 @@
-# API module
-from .server import create_app, app as api_app
+# API Module
 
-__all__ = ['create_app', 'api_app']
+from .server import AgentOSKernelAPI, run_server
+
+__all__ = [
+    'AgentOSKernelAPI',
+    'run_server',
+]

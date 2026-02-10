@@ -11,174 +11,114 @@ Agent OS Kernel - AI Agent 的操作系统内核
 - Database 是新 Disk，PostgreSQL 五重角色
 - Agent 是新 Process，真正的进程管理
 - Tools 是设备驱动，Agent-Native CLI 标准
-
-五大子系统：
-1. 内存管理（Context Manager）- 虚拟内存、KV-Cache 优化、内存层次
-2. 外存管理（Storage）- PostgreSQL 五重角色（记忆、状态、向量、协调、审计）
-3. 进程管理（Scheduler）- 抢占式调度、Checkpoint/恢复、IPC
-4. I/O 管理（Tools）- Agent-Native CLI 标准
-5. 安全与可观测性（Security）- 沙箱、审计日志、决策追溯
-
-使用示例：
-    >>> from agent_os_kernel import AgentOSKernel, StorageManager
-    >>> 
-    >>> # 使用 PostgreSQL 作为存储后端（五重角色）
-    >>> storage = StorageManager.from_postgresql("postgresql://...")
-    >>> kernel = AgentOSKernel(storage_backend=storage.backend)
-    >>> 
-    >>> # 创建 Agent
-    >>> agent_pid = kernel.spawn_agent("Assistant", "Help me with coding")
-    >>> 
-    >>> # 运行内核
-    >>> kernel.run(max_iterations=10)
-    >>> 
-    >>> # 创建检查点（状态持久化）
-    >>> checkpoint_id = kernel.create_checkpoint(agent_pid)
-    >>> 
-    >>> # 从检查点恢复
-    >>> new_pid = kernel.restore_checkpoint(checkpoint_id)
 """
 
-__version__ = "0.2.0"
+__version__ = "1.0.0"
 __author__ = "Bit-Cook"
 __license__ = "MIT"
 
-# 核心数据结构和枚举
-from .core.types import (
-    AgentState,
-    ResourceQuota,
+# ========== Core Types ==========
+from .core.types import AgentState, ResourceQuota
+
+# ========== Core Components ==========
+from .core.context_manager import ContextManager
+from .core.scheduler import AgentScheduler
+from .core.storage import StorageManager
+from .core.security import SecurityPolicy
+
+# ========== Advanced Core ==========
+from .core.events import EventBus, Event, EventType, create_event_bus
+from .core.state import StateManager, AgentState, create_state_manager
+from .core.metrics import (
+    MetricsCollector, Metric, MetricType,
+    create_metrics_collector, timer
+)
+from .core.plugin_system import (
+    PluginManager, BasePlugin, PluginState,
+    create_plugin_manager
 )
 
-# 核心组件
-from .core.context_manager import (
-    ContextManager,
-    ContextPage,
-    PageStatus,
-    MemoryHierarchy,
-    KVCacheOptimizer,
-)
-from .core.scheduler import (
-    AgentScheduler,
-    AgentProcess,
-    IPCChannel,
-)
-from .core.storage import (
-    StorageManager,
-    StorageBackend,
-    PostgreSQLStorage,
-    MemoryStorage,
-)
-from .core.security import (
-    SandboxManager,
-    SecurityPolicy,
-    PermissionLevel,
-)
-
-# 工具系统
-from .tools.base import (
-    Tool,
-    ToolResult,
-    ToolErrorCode,
-    ToolParameter,
-    SimpleTool,
-    CLITool,
-    AgentNativeCLITool,
-)
+# ========== Tools ==========
+from .tools.base import Tool, ToolResult, SimpleTool
 from .tools.registry import ToolRegistry
 
-# 主内核
+# ========== LLM ==========
+from .llm import LLMProviderFactory, LLMConfig
+
+# ========== Communication ==========
+from .agents.communication import (
+    AgentMessenger, Message, MessageType,
+    KnowledgeSharing, KnowledgePacket,
+    GroupChatManager, ChatRole,
+    AgentCollaboration, TaskType
+)
+
+# ========== Kernel ==========
 from .kernel import AgentOSKernel, KernelStats
 
-__all__ = [
-    # 版本信息
-    "__version__",
-    "__author__",
-    "__license__",
-    
-    # 核心类型
-    "AgentState",
-    "ResourceQuota",
-    "ToolErrorCode",
-    
-    # 上下文管理（虚拟内存）
-    "ContextManager",
-    "ContextPage",
-    "PageStatus",
-    "MemoryHierarchy",
-    "KVCacheOptimizer",
-    
-    # 进程调度
-    "AgentScheduler",
-    "AgentProcess",
-    "IPCChannel",
-    
-    # 存储（PostgreSQL 五重角色）
-    "StorageManager",
-    "StorageBackend",
-    "PostgreSQLStorage",
-    "MemoryStorage",
-    
-    # 安全
-    "SandboxManager",
-    "SecurityPolicy",
-    "PermissionLevel",
-    
-    # 工具系统（Agent-Native CLI）
-    "Tool",
-    "ToolResult",
-    "ToolParameter",
-    "SimpleTool",
-    "CLITool",
-    "AgentNativeCLITool",
-    "ToolRegistry",
-    
-    # 主内核
-    "AgentOSKernel",
-    "KernelStats",
-]
-
-# Event System
-from .core.events import (
-    EventBus,
-    Event,
-    EventType,
-    create_event_bus
-)
-
-# State Management
-from .core.state import (
-    StateManager,
-    AgentState,
-    AgentStateRecord,
-    create_state_manager
-)
-
-# Metrics
-from .core.metrics import (
-    MetricsCollector,
-    Metric,
-    MetricType,
-    create_metrics_collector,
-    timer
-)
+# ========== API ==========
+from .api import AgentOSKernelAPI, run_server
 
 __all__ = [
-    # Event System
+    # Version
+    '__version__',
+    '__author__',
+    '__license__',
+    
+    # Types
+    'AgentState',
+    'ResourceQuota',
+    
+    # Core
+    'ContextManager',
+    'AgentScheduler',
+    'StorageManager',
+    'SecurityPolicy',
+    
+    # Advanced Core
     'EventBus',
     'Event',
     'EventType',
     'create_event_bus',
-    
-    # State Management
     'StateManager',
     'AgentState',
-    'AgentStateRecord',
     'create_state_manager',
-    
-    # Metrics
     'MetricsCollector',
     'Metric',
     'MetricType',
     'create_metrics_collector',
     'timer',
+    'PluginManager',
+    'BasePlugin',
+    'PluginState',
+    'create_plugin_manager',
+    
+    # Tools
+    'Tool',
+    'ToolResult',
+    'SimpleTool',
+    'ToolRegistry',
+    
+    # LLM
+    'LLMProviderFactory',
+    'LLMConfig',
+    
+    # Communication
+    'AgentMessenger',
+    'Message',
+    'MessageType',
+    'KnowledgeSharing',
+    'KnowledgePacket',
+    'GroupChatManager',
+    'ChatRole',
+    'AgentCollaboration',
+    'TaskType',
+    
+    # Kernel
+    'AgentOSKernel',
+    'KernelStats',
+    
+    # API
+    'AgentOSKernelAPI',
+    'run_server',
 ]

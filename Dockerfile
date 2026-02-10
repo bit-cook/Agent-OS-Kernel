@@ -1,30 +1,48 @@
-# Agent-OS-Kernel Dockerfile
+# Agent OS Kernel - Optimized Docker Image
 
-FROM python:3.11-slim
+# Build stage
+FROM python:3.11-slim-bookworm AS builder
 
-LABEL maintainer="bit-cook"
-LABEL description="AI Agent Operating System Kernel"
+WORKDIR /build
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# Production stage
+FROM python:3.11-slim-bookworm
 
 WORKDIR /app
 
-# Install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy installed packages
+COPY --from=builder /install /usr/local
 
 # Copy application
 COPY agent_os_kernel/ ./agent_os_kernel/
-COPY agent_os_kernel.py .
+COPY pyproject.toml README.md ./
 
-# Create non-root user for security
-RUN useradd --create-home --shell /bin/bash appuser && \
-    chown -R appuser:appuser /app
-USER appuser
+# Install package
+RUN pip install --no-cache-dir -e .
 
-EXPOSE 8080
+# Create non-root user
+RUN useradd --create-home --shell /bin/bash agent && \
+    chown -R agent:agent /app
+USER agent
+
+# Environment
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8080/health', timeout=5)" || exit 1
+    CMD python -c "import agent_os_kernel" || exit 1
 
-# Run the kernel
-CMD ["python", "agent_os_kernel.py", "--host", "0.0.0.0", "--port", "8080"]
+# Default command
+CMD ["python", "-m", "agent_os_kernel", "--demo", "basic"]
