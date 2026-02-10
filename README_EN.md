@@ -19,6 +19,24 @@
 
 ---
 
+## 📋 Table of Contents
+
+- [📖 Project Origin](#-project-origin)
+- [🎯 Core Insight](#-core-insight)
+- [📚 Project Documentation](#-project-documentation)
+- [🚀 Quick Start](#-quick-start)
+- [🏗️ Architecture](#-architecture)
+- [📁 Project Structure](#-project-structure)
+- [✨ Core Features](#-core-features)
+- [🇨🇳 Chinese Model Support](#-chinese-model-support)
+- [🔧 Common MCP Servers](#-common-mcp-servers)
+- [🏗️ AIOS Reference Architecture](#-aios-reference-architecture)
+- [🔗 Related Resources](#-related-resources)
+- [📊 Project Statistics](#-project-statistics)
+- [📄 License](#-license)
+
+---
+
 ## 📖 Project Origin
 
 In 2025, coding Agents exploded. Products like Claude Code and Manus demonstrated the amazing capabilities of AI Agents. But look closely, and you'll discover a startling fact: **their underlying operations are extremely "primitive".**
