@@ -33,6 +33,8 @@ from .core.enhanced_memory import EnhancedMemory, MemoryType, ShortTermMemory, L
 from .core.cost_tracker import CostTracker, CostLimit
 from .core.observability import Observability, Event as ObsEvent
 from .core.task_manager import TaskManager, TaskStatus
+from .core.task_queue import TaskQueue, TaskPriority, TaskStatus as QueueTaskStatus
+from .core.config_manager import ConfigManager
 from .core.workflow_engine import WorkflowEngine, Workflow, WorkflowNode
 from .core.event_bus import Event as CoreEvent
 from .core.circuit_breaker import CircuitBreaker, CircuitState, CircuitConfig
@@ -144,6 +146,9 @@ __all__ = [
     'ObsEvent',
     'TaskManager',
     'TaskStatus',
+    'TaskQueue',
+    'TaskPriority',
+    'ConfigManager',
     'CrewDefinition',
     
     # Advanced Core - Workflow

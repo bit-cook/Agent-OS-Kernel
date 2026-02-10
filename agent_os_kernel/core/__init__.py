@@ -126,3 +126,16 @@ __all__ += [
     'TaskDefinition',
     'CrewDefinition',
 ]
+
+# ========== Task Queue ==========
+from .task_queue import TaskQueue, TaskStatus, TaskPriority
+
+# ========== Config Manager ==========
+from .config_manager import ConfigManager
+
+__all__ += [
+    'TaskQueue',
+    'TaskStatus',
+    'TaskPriority',
+    'ConfigManager',
+]
