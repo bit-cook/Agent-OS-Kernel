@@ -280,7 +280,7 @@ factory = LLMProviderFactory()
 providers = [
     ("OpenAI", "gpt-4o"),
     ("DeepSeek", "deepseek-chat"),
-    ("Kimi", "moonshot-v1-32k"),
+    ("Kimi", "kimi-k2.5"),  # 或 moonshot-v1 系列
     ("Qwen", "qwen-turbo"),
     ("Ollama", "qwen2.5:7b"),  # 本地
     ("vLLM", "Llama-3.1-8B"),  # 本地
@@ -339,7 +339,7 @@ Agent OS Kernel 完整支持主流中国 AI 模型提供商：
 |----------|------|------|----------|
 | **DeepSeek** | deepseek-chat, deepseek-reasoner | 性价比高、推理能力强 | `{"provider": "deepseek", "model": "deepseek-chat"}` |
 | **Qwen (阿里)** | qwen-turbo, qwen-plus, qwen-max, qwen-long | 生态完善、API 稳定 | `{"provider": "qwen", "model": "qwen-turbo"}` |
-| **Kimi (Moonshot)** | kimi-k2.5, moonshot-v1-8k/32k/128k/200k | 强化推理、超长上下文 | `{"provider": "kimi", "model": "kimi-k2.5"}` |
+| **Kimi (Moonshot)** | kimi-k2 系列、moonshot-v1 系列 | 强化推理、超长上下文 (8K-200K) | `{"provider": "kimi", "model": "kimi-k2.5"}` |
 | **MiniMax** | abab6.5s-chat, abab6.5-chat | 快速响应、低延迟 | `{"provider": "minimax", "model": "abab6.5s-chat"}` |
 
 ### 配置方式
@@ -351,11 +351,9 @@ llms:
     - name: "deepseek-chat"
       provider: "deepseek"
       
-    - name: "kimi-k2.5"
+    - name: "kimi"
       provider: "kimi"
-      
-    - name: "moonshot-v1-32k"
-      provider: "kimi"
+      # 可选: model: kimi-k2.5 或 moonshot-v1 系列
       
     - name: "abab6.5s-chat"
       provider: "minimax"
@@ -375,16 +373,10 @@ provider = factory.create(LLMConfig(
     model="deepseek-chat"
 ))
 
-# 使用 Kimi (k2.5)
+# 使用 Kimi
 provider = factory.create(LLMConfig(
     provider="kimi",
-    model="kimi-k2.5"
-))
-
-# 或使用 moonshot-v1 系列
-provider = factory.create(LLMConfig(
-    provider="kimi",
-    model="moonshot-v1-32k"
+    model="kimi-k2.5"  # 或 moonshot-v1 系列
 ))
 
 # 使用 Qwen
