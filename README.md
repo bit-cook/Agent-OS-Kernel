@@ -480,14 +480,6 @@ Agent OS Kernel 深度参考 [AIOS](https://github.com/agiresearch/AIOS) (COLM 2
 - [A-Mem (arXiv:2502.12110)](https://arxiv.org/abs/2502.12110) - Agentic Memory for LLM Agents
 - [LiteCUA (arXiv:2505.18829)](https://arxiv.org/abs/2505.18829) - 学习 Agent 评估基准
 
-### 📚 项目文档
-
-> **提示**：新增文档请添加到这里
-
----
-
-## 📊 项目统计
-
 ---
 
 ## 📊 项目统计
