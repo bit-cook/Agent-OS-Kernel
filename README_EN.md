@@ -473,6 +473,7 @@ Agent OS Kernel is deeply inspired by [AIOS](https://github.com/agiresearch/AIOS
 - [AIOS_ANALYSIS.md](./AIOS_ANALYSIS.md) - AIOS deep analysis
 - [INSPIRATION.md](./INSPIRATION.md) - GitHub project inspiration collection
 - [Development Plans](development-docs/3DAY_PLAN.md) - Project development plans
+- [Best Practices](docs/best-practices.md) - Development best practices guide
 
 ---
 

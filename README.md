@@ -474,6 +474,7 @@ Agent OS Kernel 深度参考 [AIOS](https://github.com/agiresearch/AIOS) (COLM 2
 - [AIOS_ANALYSIS.md](./AIOS_ANALYSIS.md) - AIOS 深度分析文档
 - [INSPIRATION.md](./INSPIRATION.md) - GitHub 项目灵感收集
 - [Development Plans](development-docs/3DAY_PLAN.md) - 项目开发计划
+- [最佳实践](docs/best-practices.md) - 开发最佳实践指南
 
 ---
 
