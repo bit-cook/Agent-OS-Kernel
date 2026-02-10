@@ -482,12 +482,12 @@ Agent OS Kernel is deeply inspired by [AIOS](https://github.com/agiresearch/AIOS
 
 | Metric | Value |
 |--------|-------|
-| **Python Files** | 115+ |
-| **Core Modules** | 32+ |
-| **LLM Providers** | 9 |
-| **Test Files** | 14 |
-| **Examples** | 31+ |
-| **Documentation** | 12+ |
+| **Python Files** | 120+ |
+| **Core Modules** | 35+ |
+| **LLM Providers** | 11 |
+| **Test Files** | 16 |
+| **Examples** | 35+ |
+| **Documentation** | 14+ |
 
 ## 📄 License
 
