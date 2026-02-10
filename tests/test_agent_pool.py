@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+
+from abc import abstractmethod
 """测试 Agent Pool"""
 
 import pytest

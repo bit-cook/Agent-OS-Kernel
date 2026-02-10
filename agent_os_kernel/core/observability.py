@@ -4,6 +4,7 @@
 参考 AgentOps 设计，提供完整的可观测性功能
 """
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any, Callable
 from datetime import datetime
@@ -100,9 +101,10 @@ class Session:
 class CallbackHandler:
     """回调处理器基类"""
     
+    @abstractmethod
     def on_event(self, event: Event):
         """处理事件"""
-        raise NotImplementedError
+        pass
     
     def on_session_start(self, session: Session):
         """会话开始"""

@@ -1,4 +1,5 @@
 """测试工具系统"""
+from abc import abstractmethod
 
 import pytest
 from agent_os_kernel.tools.base import Tool, SimpleTool, ToolParameter
