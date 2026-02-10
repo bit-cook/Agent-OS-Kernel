@@ -67,6 +67,8 @@ Agents directly manipulate the file system and terminal, relying on a "trust mod
 - [Best Practices](docs/best-practices.md)
 - [Distributed Deployment](docs/distributed-deployment.md)
 - [Development Plans](development-docs/3DAY_PLAN.md)
+- [AIOS_ANALYSIS.md](./AIOS_ANALYSIS.md) - AIOS deep analysis
+- [INSPIRATION.md](./INSPIRATION.md) - GitHub project inspiration collection
 
 ---
 
@@ -470,10 +472,12 @@ Agent OS Kernel is deeply inspired by [AIOS](https://github.com/agiresearch/AIOS
 - [OSWorld](https://github.com/xlang-ai/OSWorld) - Computer use agent benchmark
 
 ### 📚 Project Documentation
-- [AIOS_ANALYSIS.md](./AIOS_ANALYSIS.md) - AIOS deep analysis
-- [INSPIRATION.md](./INSPIRATION.md) - GitHub project inspiration collection
-- [Development Plans](development-docs/3DAY_PLAN.md) - Project development plans
-- [Best Practices](docs/best-practices.md) - Development best practices guide
+
+> **Tip**: Add new documentation links here
+
+---
+
+## 📊 Project Statistics
 
 ---
 

@@ -67,6 +67,8 @@ Agent 直接操作文件系统和终端，依赖"信任模型"而非"隔离模�
 - [最佳实践](docs/best-practices.md)
 - [分布式部署](docs/distributed-deployment.md)
 - [Development Plans](development-docs/3DAY_PLAN.md)
+- [AIOS_ANALYSIS.md](./AIOS_ANALYSIS.md) - AIOS 深度分析文档
+- [INSPIRATION.md](./INSPIRATION.md) - GitHub 项目灵感收集
 
 ---
 
@@ -471,10 +473,11 @@ Agent OS Kernel 深度参考 [AIOS](https://github.com/agiresearch/AIOS) (COLM 2
 
 ### 📚 项目文档
 
-- [AIOS_ANALYSIS.md](./AIOS_ANALYSIS.md) - AIOS 深度分析文档
-- [INSPIRATION.md](./INSPIRATION.md) - GitHub 项目灵感收集
-- [Development Plans](development-docs/3DAY_PLAN.md) - 项目开发计划
-- [最佳实践](docs/best-practices.md) - 开发最佳实践指南
+> **提示**：新增文档请添加到这里
+
+---
+
+## 📊 项目统计
 
 ---
 
