@@ -13,7 +13,6 @@ from dataclasses import dataclass
 from .provider import (
     LLMProvider,
     LLMConfig,
-    Message,
     ChatMessage,
     StreamEvent,
     StreamEventType
@@ -38,9 +37,6 @@ class MockProvider(LLMProvider):
     def __init__(self, config: LLMConfig = None):
         """
         初始化 Mock Provider
-        
-        Args:
-            config: 配置 (可选)
         """
         self.config = config or LLMConfig(
             provider="mock",
@@ -49,7 +45,7 @@ class MockProvider(LLMProvider):
         )
         
         self._call_count = 0
-        self._delay = 0.1  # 默认延迟 100ms
+        self._delay = 0.1
         
         # 预设响应
         self._responses = {
@@ -97,17 +93,6 @@ class MockProvider(LLMProvider):
     ) -> Dict[str, Any]:
         """
         模拟聊天请求
-        
-        Args:
-            messages: 消息列表
-            model: 模型名称
-            max_tokens: 最大 token
-            temperature: 温度
-            stream: 是否流式
-            **kwargs: 其他参数
-        
-        Returns:
-            模拟响应
         """
         self._call_count += 1
         
@@ -148,22 +133,29 @@ class MockProvider(LLMProvider):
             "stop_reason": "stop"
         }
         
-        if stream:
-            # 模拟流式输出
-            words = content.split()
-            for i, word in enumerate(words):
-                yield StreamEvent(
-                    event_type=StreamEventType.CONTENT,
-                    data={"content": word + " "}
-                )
-                await asyncio.sleep(0.01)
-            
+        return result
+    
+    async def chat_stream(
+        self,
+        messages: List[ChatMessage],
+        model: Optional[str] = None,
+        **kwargs
+    ) -> AsyncIterator[StreamEvent]:
+        """流式聊天"""
+        result = await self.chat(messages, model=model, stream=False)
+        
+        words = result["content"].split()
+        for word in words:
             yield StreamEvent(
-                event_type=StreamEventType.DONE,
-                data={"finish_reason": "stop"}
+                event_type=StreamEventType.CONTENT,
+                data={"content": word + " "}
             )
-        else:
-            return result
+            await asyncio.sleep(0.01)
+        
+        yield StreamEvent(
+            event_type=StreamEventType.DONE,
+            data={"finish_reason": "stop"}
+        )
     
     async def embeddings(self, texts: List[str], model: str = "mock-embedding") -> List[List[float]]:
         """模拟嵌入"""
