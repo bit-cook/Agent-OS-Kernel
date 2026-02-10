@@ -85,7 +85,7 @@ class Checkpointer:
         expires_at = None
         ttl = ttl_hours or self.default_ttl_hours
         if ttl > 0:
-            expires_at = datetime.utcnow() + timedelta(hours=ttl)
+            expires_at = datetime.now() + timedelta(hours=ttl)
         
         checkpoint = Checkpoint(
             checkpoint_id=checkpoint_id,
