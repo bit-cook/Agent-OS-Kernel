@@ -19,190 +19,55 @@
 
 ---
 
-## 🇨🇳 中国模型支持
+## 🚀 快速开始
 
-Agent OS Kernel 完整支持主流中国 AI 模型提供商：
+### 安装
 
-| Provider | 模型 | 特点 | 示例 |
-|----------|------|------|------|
-| **DeepSeek** | deepseek-chat, deepseek-reasoner | 性价比高、推理强 | `"deepseek-chat"` |
-| **Kimi (Moonshot)** | moonshot-v1-8k, moonshot-v1-32k | 超长上下文 | `"moonshot-v1-32k"` |
-| **MiniMax** | abab6.5s-chat | 快速响应 | `"abab6.5s-chat"` |
-| **Qwen (阿里)** | qwen-turbo, qwen-plus, qwen-max | 生态完善 | `"qwen-turbo"` |
-
-### 快速配置
-
-```yaml
-# config.yaml
-api_keys:
-  deepseek: "${DEEPSEEK_API_KEY}"
-  kimi: "${KIMI_API_KEY}"
-  minimax: "${MINIMAX_API_KEY}"
-  qwen: "${DASHSCOPE_API_KEY}"
-
-llms:
-  models:
-    - name: "deepseek-chat"
-      provider: "deepseek"
-    - name: "moonshot-v1-32k"
-      provider: "kimi"
-    - name: "qwen-turbo"
-      provider: "qwen"
-
-default_model: "deepseek-chat"
+```bash
+pip install agent-os-kernel
 ```
+
+### 基础示例
+
+```python
+from agent_os_kernel import AgentOSKernel
+
+kernel = AgentOSKernel()
+
+# 创建 Agent
+agent_pid = kernel.spawn_agent(
+    name="CodeAssistant",
+    task="帮我写一个 Python 爬虫",
+    priority=30
+)
+
+# 运行内核
+kernel.run(max_iterations=10)
+
+# 查看系统状态
+kernel.print_status()
+```
+
+### 中国模型示例
 
 ```python
 from agent_os_kernel.llm import LLMProviderFactory, LLMConfig
 
-# 创建中国模型 Provider
 factory = LLMProviderFactory()
+
+# 使用 DeepSeek
 provider = factory.create(LLMConfig(
     provider="deepseek",
-    model="deepseek-chat"
+    model="deepseek-chat",
+    api_key="your-api-key"
 ))
-```
 
----
-
-## 🏗️ AIOS 参考架构
-
-Agent OS Kernel 深度参考 [AIOS](https://github.com/agiresearch/AIOS) (COLM 2025) 架构设计：
-
-### AIOS Core Reference
-
-```
-+----------------------------------------------------------------+
-|              [ Agent-OS-Kernel (AIOS-Inspired) ]              |
-+----------------------------------------------------------------+
-|  Kernel Layer                                                 |
-|  + LLM Core (Multi-Provider)                                 |
-|  + Context Manager (Virtual Memory)                           |
-|  + Memory Manager (Memory)                                    |
-|  + Storage Manager (Persistent)                               |
-|  + Tool Manager (Tools)                                        |
-|  + Scheduler (Process)                                        |
-+----------------------------------------------------------------+
-|  SDK Layer (Cerebrum-Style)                                  |
-|  + Agent Builder (Builder)                                    |
-|  + Tool Registry (Registry)                                    |
-|  + Plugin System (Plugins)                                    |
-+----------------------------------------------------------------+
-```
-
-### AIOS 关键特性实现
-
-| AIOS 特性 | Agent-OS-Kernel 支持 |
-|-----------|---------------------|
-| 多 LLM Provider | ✅ 9+ Providers |
-| Agent 调度 | ✅ 抢占式调度 |
-| 内存管理 | ✅ 虚拟内存式上下文 |
-| 工具管理 | ✅ MCP + Native CLI |
-| 部署模式 | ✅ 本地/远程 |
-| CLI 工具 | ✅ kernel-cli |
-
----
-
-## 🔧 MCP 协议支持
-
-完整支持 Model Context Protocol，连接 400+ MCP 服务器：
-
-### MCP 集成
-
-```python
-from agent_os_kernel.tools.mcp import init_mcp_registry
-
-# 初始化 MCP 注册表
-mcp_registry = init_mcp_registry(kernel.tool_registry)
-
-# 添加 MCP 服务器
-mcp_registry.add_server(
-    name="filesystem",
-    command="npx",
-    args=["@modelcontextprotocol/server-filesystem", "/tmp"]
-)
-
-# 发现并注册工具
-await mcp_registry.discover_tools()
-
-# Agent 自动使用 MCP 工具
-agent_pid = kernel.spawn_agent(
-    name="FileWorker",
-    task="使用 MCP 工具管理文件"
-)
-```
-
-### 常用 MCP 服务器
-
-```bash
-# 文件系统
-npx @modelcontextprotocol/server-filesystem /path
-
-# Git
-npx @modelcontextprotocol/server-git
-
-# 数据库
-npx @modelcontextprotocol/server-postgres
-
-# 网页浏览
-npx @playwright/mcp@latest --headless
-```
-
----
-
-## 📖 项目起源
-
-2025 年，编程 Agent 大爆发。Claude Code、Manus 等产品展示了 AI Agent 的惊人能力。但仔细观察，你会发现一个惊人的事实：**它们的底层操作极其 "原始"**。
-
-Agent 直接操作文件系统和终端，依赖"信任模型"而非"隔离模型"。这就像 **1980 年代的 DOS** ——没有内存保护，没有多任务，没有标准化的设备接口。
-
-**Agent OS Kernel 正是为了填补这个"缺失的内核"而生。**
-
----
-
-## 🎯 核心洞察：用操作系统理解 Agent 基础设施
-
-| 传统计算机 | Agent 世界 | 核心挑战 | Agent OS Kernel 解决方案 |
-|-----------|-----------|---------|------------------------|
-| **CPU** | **LLM** | 如何高效调度推理任务？ | 抢占式调度 + 资源配额管理 |
-| **RAM** | **Context Window** | 如何管理有限的上下文窗口？ | 虚拟内存式上下文管理 |
-| **Disk** | **Database** | 如何持久化状态？ | PostgreSQL 五重角色 |
-| **Process** | **Agent** | 如何管理生命周期？ | 真正的进程管理 |
-| **Device Driver** | **Tools** | 如何标准化工具调用？ | MCP + Agent-Native CLI |
-| **Security** | **Sandbox** | 如何保障安全？ | 沙箱 + 可观测性 + 审计 |
-
----
-
-## 🏗️ Architecture
-
-```
-+----------------------------------------------------------------+
-|                        Agent Applications                        |
-|        (CodeAssistant | ResearchAgent | DataAnalyst...)         |
-+----------------------------------------------------------------+
-                                |
-                                v
-+----------------------------------------------------------------+
-|                    [ Agent OS Kernel ]                          |
-|  +------------------+------------------+------------------+      |
-|  |     Context      |     Process     |       I/O        |      |
-|  |     Manager     |    Scheduler    |     Manager      |      |
-|  +------------------+------------------+------------------+      |
-|  +------------------------------------------------------------+ |
-|  |              Storage Layer (PostgreSQL)                      | |
-|  |      Memory | Storage | Vector | Audit                     | |
-|  +------------------------------------------------------------+ |
-|  +------------------------------------------------------------+ |
-|  |              Learning Layer (Self-Learning)                 | |
-|  |        Trajectory | Optimizer | Experience                  | |
-|  +------------------------------------------------------------+ |
-+----------------------------------------------------------------+
-                                |
-                                v
-+----------------------------------------------------------------+
-|                   [ Hardware Resources ]                          |
-|           LLM APIs | Vector DB | MCP Servers                   |
-+----------------------------------------------------------------+
+# 或使用 Kimi
+provider = factory.create(LLMConfig(
+    provider="kimi",
+    model="moonshot-v1-32k",
+    api_key="your-api-key"
+))
 ```
 
 ---
@@ -342,56 +207,191 @@ policy = SecurityPolicy(
 
 ---
 
-## 🚀 快速开始
+## 🏗️ Architecture
 
-### 安装
-
-```bash
-pip install agent-os-kernel
+```
++----------------------------------------------------------------+
+|                        Agent Applications                        |
+|        (CodeAssistant | ResearchAgent | DataAnalyst...)         |
++----------------------------------------------------------------+
+                                |
+                                v
++----------------------------------------------------------------+
+|                    [ Agent OS Kernel ]                          |
+|  +------------------+------------------+------------------+      |
+|  |     Context      |     Process     |       I/O        |      |
+|  |     Manager     |    Scheduler    |     Manager      |      |
+|  +------------------+------------------+------------------+      |
+|  +------------------------------------------------------------+ |
+|  |              Storage Layer (PostgreSQL)                      | |
+|  |      Memory | Storage | Vector | Audit                     | |
+|  +------------------------------------------------------------+ |
+|  +------------------------------------------------------------+ |
+|  |              Learning Layer (Self-Learning)                 | |
+|  |        Trajectory | Optimizer | Experience                 | |
+|  +------------------------------------------------------------+ |
++----------------------------------------------------------------+
+                                |
+                                v
++----------------------------------------------------------------+
+|                   [ Hardware Resources ]                          |
+|           LLM APIs | Vector DB | MCP Servers                   |
++----------------------------------------------------------------+
 ```
 
-### 基础示例
+---
 
-```python
-from agent_os_kernel import AgentOSKernel
+## 🇨🇳 中国模型支持
 
-kernel = AgentOSKernel()
+Agent OS Kernel 完整支持主流中国 AI 模型提供商：
 
-# 创建 Agent
-agent_pid = kernel.spawn_agent(
-    name="CodeAssistant",
-    task="帮我写一个 Python 爬虫",
-    priority=30
-)
+| Provider | 模型 | 特点 | 示例 |
+|----------|------|------|------|
+| **DeepSeek** | deepseek-chat, deepseek-reasoner | 性价比高、推理强 | `"deepseek-chat"` |
+| **Kimi (Moonshot)** | moonshot-v1-8k, moonshot-v1-32k | 超长上下文 | `"moonshot-v1-32k"` |
+| **MiniMax** | abab6.5s-chat | 快速响应 | `"abab6.5s-chat"` |
+| **Qwen (阿里)** | qwen-turbo, qwen-plus, qwen-max | 生态完善 | `"qwen-turbo"` |
 
-# 运行内核
-kernel.run(max_iterations=10)
+### 快速配置
 
-# 查看系统状态
-kernel.print_status()
+```yaml
+# config.yaml
+api_keys:
+  deepseek: "${DEEPSEEK_API_KEY}"
+  kimi: "${KIMI_API_KEY}"
+  minimax: "${MINIMAX_API_KEY}"
+  qwen: "${DASHSCOPE_API_KEY}"
+
+llms:
+  models:
+    - name: "deepseek-chat"
+      provider: "deepseek"
+    - name: "moonshot-v1-32k"
+      provider: "kimi"
+    - name: "qwen-turbo"
+      provider: "qwen"
+
+default_model: "deepseek-chat"
 ```
-
-### 中国模型示例
 
 ```python
 from agent_os_kernel.llm import LLMProviderFactory, LLMConfig
 
+# 创建中国模型 Provider
 factory = LLMProviderFactory()
-
-# 使用 DeepSeek
 provider = factory.create(LLMConfig(
     provider="deepseek",
-    model="deepseek-chat",
-    api_key="your-api-key"
-))
-
-# 或使用 Kimi
-provider = factory.create(LLMConfig(
-    provider="kimi",
-    model="moonshot-v1-32k",
-    api_key="your-api-key"
+    model="deepseek-chat"
 ))
 ```
+
+---
+
+## 🔧 MCP 协议支持
+
+完整支持 Model Context Protocol，连接 400+ MCP 服务器：
+
+### MCP 集成
+
+```python
+from agent_os_kernel.tools.mcp import init_mcp_registry
+
+# 初始化 MCP 注册表
+mcp_registry = init_mcp_registry(kernel.tool_registry)
+
+# 添加 MCP 服务器
+mcp_registry.add_server(
+    name="filesystem",
+    command="npx",
+    args=["@modelcontextprotocol/server-filesystem", "/tmp"]
+)
+
+# 发现并注册工具
+await mcp_registry.discover_tools()
+
+# Agent 自动使用 MCP 工具
+agent_pid = kernel.spawn_agent(
+    name="FileWorker",
+    task="使用 MCP 工具管理文件"
+)
+```
+
+### 常用 MCP 服务器
+
+```bash
+# 文件系统
+npx @modelcontextprotocol/server-filesystem /path
+
+# Git
+npx @modelcontextprotocol/server-git
+
+# 数据库
+npx @modelcontextprotocol/server-postgres
+
+# 网页浏览
+npx @playwright/mcp@latest --headless
+```
+
+---
+
+## 🏗️ AIOS 参考架构
+
+Agent OS Kernel 深度参考 [AIOS](https://github.com/agiresearch/AIOS) (COLM 2025) 架构设计：
+
+### AIOS Core Reference
+
+```
++----------------------------------------------------------------+
+|              [ Agent-OS-Kernel (AIOS-Inspired) ]              |
++----------------------------------------------------------------+
+|  Kernel Layer                                                 |
+|  + LLM Core (Multi-Provider)                                 |
+|  + Context Manager (Virtual Memory)                           |
+|  + Memory Manager (Memory)                                    |
+|  + Storage Manager (Persistent)                               |
+|  + Tool Manager (Tools)                                        |
+|  + Scheduler (Process)                                        |
++----------------------------------------------------------------+
+|  SDK Layer (Cerebrum-Style)                                  |
+|  + Agent Builder (Builder)                                    |
+|  + Tool Registry (Registry)                                    |
+|  + Plugin System (Plugins)                                    |
++----------------------------------------------------------------+
+```
+
+### AIOS 关键特性实现
+
+| AIOS 特性 | Agent-OS-Kernel 支持 |
+|-----------|---------------------|
+| 多 LLM Provider | ✅ 9+ Providers |
+| Agent 调度 | ✅ 抢占式调度 |
+| 内存管理 | ✅ 虚拟内存式上下文 |
+| 工具管理 | ✅ MCP + Native CLI |
+| 部署模式 | ✅ 本地/远程 |
+| CLI 工具 | ✅ kernel-cli |
+
+---
+
+## 📖 项目起源
+
+2025 年，编程 Agent 大爆发。Claude Code、Manus 等产品展示了 AI Agent 的惊人能力。但仔细观察，你会发现一个惊人的事实：**它们的底层操作极其 "原始"**。
+
+Agent 直接操作文件系统和终端，依赖"信任模型"而非"隔离模型"。这就像 **1980 年代的 DOS** ——没有内存保护，没有多任务，没有标准化的设备接口。
+
+**Agent OS Kernel 正是为了填补这个"缺失的内核"而生。**
+
+---
+
+## 🎯 核心洞察：用操作系统理解 Agent 基础设施
+
+| 传统计算机 | Agent 世界 | 核心挑战 | Agent OS Kernel 解决方案 |
+|-----------|-----------|---------|------------------------|
+| **CPU** | **LLM** | 如何高效调度推理任务？ | 抢占式调度 + 资源配额管理 |
+| **RAM** | **Context Window** | 如何管理有限的上下文窗口？ | 虚拟内存式上下文管理 |
+| **Disk** | **Database** | 如何持久化状态？ | PostgreSQL 五重角色 |
+| **Process** | **Agent** | 如何管理生命周期？ | 真正的进程管理 |
+| **Device Driver** | **Tools** | 如何标准化工具调用？ | MCP + Agent-Native CLI |
+| **Security** | **Sandbox** | 如何保障安全？ | 沙箱 + 可观测性 + 审计 |
 
 ---
 
@@ -411,7 +411,7 @@ Agent-OS-Kernel/
 │   │   └── learning/          # 自学习系统
 │   │       ├── trajectory.py   # 轨迹记录
 │   │       └── optimizer.py     # 策略优化
-│   ├── llm/                 # LLM Provider (新增!)
+│   ├── llm/                 # LLM Provider
 │   │   ├── provider.py       # 抽象层
 │   │   ├── factory.py        # 工厂模式
 │   │   ├── openai.py         # OpenAI
@@ -425,7 +425,7 @@ Agent-OS-Kernel/
 │   ├── tools/               # 工具系统
 │   │   ├── registry.py      # 工具注册表
 │   │   ├── base.py          # 工具基类
-│   │   └── mcp/             # MCP 协议 (新增!)
+│   │   └── mcp/             # MCP 协议
 │   │       ├── client.py
 │   │       └── registry.py
 │   └── api/                  # Web API
@@ -445,6 +445,9 @@ Agent-OS-Kernel/
 │   └── best-practices.md
 ├── scripts/                 # CLI 工具
 │   └── kernel-cli          # 交互式 CLI
+├── development-docs/       # 开发计划
+│   ├── 3DAY_PLAN.md
+│   └── ITERATION_PLAN.md
 ├── config.example.yaml      # 配置模板
 ├── Dockerfile
 ├── docker-compose.yml
@@ -458,13 +461,14 @@ Agent-OS-Kernel/
 
 | 指标 | 数值 |
 |------|------|
-| **总文件数** | 78+ |
+| **总文件数** | 95+ |
 | **核心代码** | 24+ Python 文件 |
 | **LLM Providers** | 9 个 |
 | **测试文件** | 9 个 |
 | **文档** | 14+ 份 |
-| **示例代码** | 13+ 个 |
+| **示例代码** | 18+ 个 |
 | **API 端点** | 20+ |
+| **Agent Communication** | 5 个文件 |
 
 ---
 
