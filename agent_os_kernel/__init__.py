@@ -41,6 +41,8 @@ from .core.pipeline import Pipeline, PipelineItem, PipelineStage
 from .core.cache_system import CacheSystem, CacheLevel, EvictionPolicy
 from .core.lock_manager import LockManager, LockType, async_lock
 from .core.state_machine import StateMachine, EventType
+from .core.monitoring import Monitor, HealthStatus
+from .core.worker import WorkerPool, WorkerStatus
 from .core.config_manager import ConfigManager
 from .core.workflow_engine import WorkflowEngine, Workflow, WorkflowNode
 from .core.event_bus import Event as CoreEvent
@@ -173,6 +175,10 @@ __all__ = [
     'LockType',
     'StateMachine',
     'EventType',
+    'Monitor',
+    'HealthStatus',
+    'WorkerPool',
+    'WorkerStatus',
     'CrewDefinition',
     
     # Advanced Core - Workflow
