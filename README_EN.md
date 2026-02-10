@@ -320,38 +320,6 @@ Agent OS Kernel fully supports major Chinese AI model providers:
 | **MiniMax** | abab6.5s-chat | Fast response | `"abab6.5s-chat"` |
 | **Qwen (Alibaba)** | qwen-turbo, qwen-plus, qwen-max | Complete ecosystem | `"qwen-turbo"` |
 
-### Quick Configuration
-
-```yaml
-# config.yaml
-api_keys:
-  deepseek: "${DEEPSEEK_API_KEY}"
-  kimi: "${KIMI_API_KEY}"
-  minimax: "${MINIMAX_API_KEY}"
-  qwen: "${DASHSCOPE_API_KEY}"
-
-llms:
-  models:
-    - name: "deepseek-chat"
-      provider: "deepseek"
-    - name: "moonshot-v1-32k"
-      provider: "kimi"
-    - name: "qwen-turbo"
-      provider: "qwen"
-
-default_model: "deepseek-chat"
-```
-
-```python
-from agent_os_kernel.llm import LLMProviderFactory, LLMConfig
-
-factory = LLMProviderFactory()
-provider = factory.create(LLMConfig(
-    provider="deepseek",
-    model="deepseek-chat"
-))
-```
-
 ---
 
 ## 🔧 Common MCP Servers

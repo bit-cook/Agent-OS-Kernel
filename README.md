@@ -320,39 +320,6 @@ Agent OS Kernel 完整支持主流中国 AI 模型提供商：
 | **MiniMax** | abab6.5s-chat | 快速响应 | `"abab6.5s-chat"` |
 | **Qwen (阿里)** | qwen-turbo, qwen-plus, qwen-max | 生态完善 | `"qwen-turbo"` |
 
-### 快速配置
-
-```yaml
-# config.yaml
-api_keys:
-  deepseek: "${DEEPSEEK_API_KEY}"
-  kimi: "${KIMI_API_KEY}"
-  minimax: "${MINIMAX_API_KEY}"
-  qwen: "${DASHSCOPE_API_KEY}"
-
-llms:
-  models:
-    - name: "deepseek-chat"
-      provider: "deepseek"
-    - name: "moonshot-v1-32k"
-      provider: "kimi"
-    - name: "qwen-turbo"
-      provider: "qwen"
-
-default_model: "deepseek-chat"
-```
-
-```python
-from agent_os_kernel.llm import LLMProviderFactory, LLMConfig
-
-# 创建中国模型 Provider
-factory = LLMProviderFactory()
-provider = factory.create(LLMConfig(
-    provider="deepseek",
-    model="deepseek-chat"
-))
-```
-
 ---
 
 ## 🔧 常用 MCP 服务器
