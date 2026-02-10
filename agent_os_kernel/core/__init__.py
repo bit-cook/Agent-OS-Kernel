@@ -57,3 +57,18 @@ __all__ = [
     'PluginState',
     'create_plugin_manager',
 ]
+
+# ========== Agent Pool ==========
+from .agent_pool import AgentPool, PooledAgent
+
+# ========== Rate Limiter ==========
+from .rate_limiter import RateLimiter, RateLimitConfig, MultiLimiter, get_global_limiter
+
+__all__ += [
+    'AgentPool',
+    'PooledAgent',
+    'RateLimiter',
+    'RateLimitConfig',
+    'MultiLimiter',
+    'get_global_limiter',
+]
