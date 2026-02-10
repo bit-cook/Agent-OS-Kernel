@@ -49,6 +49,8 @@ from .core.worker import WorkerPool, WorkerStatus
 from .core.config_manager import ConfigManager
 from .core.workflow_engine import WorkflowEngine, Workflow, WorkflowNode
 from .core.event_bus import Event as CoreEvent
+from .core.event_bus_enhanced import EnhancedEventBus, EventType, EventPriority
+from .core.storage_enhanced import EnhancedStorageManager, StorageRole
 from .core.circuit_breaker import CircuitBreaker, CircuitState, CircuitConfig
 from .core.agent_registry import AgentRegistry, AgentMetadata
 from .core.rate_limiter import RateLimiter, RateLimitConfig
@@ -70,6 +72,7 @@ from .tools.registry import ToolRegistry
 
 # ========== LLM ==========
 from .llm import LLMProviderFactory, LLMConfig
+from .llm.base_provider import BaseLLMProvider, ProviderMetrics
 
 # ========== Communication ==========
 from .agents.communication import (
@@ -118,6 +121,8 @@ __all__ = [
     'BasePlugin',
     'PluginState',
     'create_plugin_manager',
+    'BaseLLMProvider',
+    'ProviderMetrics',
     
     # Tools
     'Tool',
