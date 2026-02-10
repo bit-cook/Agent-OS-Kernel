@@ -6,7 +6,9 @@
 
 > 深受 [冯若航《AI Agent 的操作系统时刻》](https://vonng.com/db/agent-os/) 启发，试图填补 Agent 生态中"缺失的内核"
 
-**支持中国模型**: DeepSeek | Qwen | Kimi | MiniMax
+**支持本地模型**: Ollama | vLLM | Kimi | LocalAI ...
+
+**支持中国模型**: DeepSeek | Qwen | Kimi | MiniMax ...
 
 [![CI](https://github.com/bit-cook/Agent-OS-Kernel/actions/workflows/ci.yml/badge.svg)](https://github.com/bit-cook/Agent-OS-Kernel/actions)
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
