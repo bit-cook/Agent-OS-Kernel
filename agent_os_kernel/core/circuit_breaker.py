@@ -10,7 +10,7 @@ import logging
 import time
 from typing import Any, Callable, Optional
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta, timedelta
 from enum import Enum
 from abc import ABC, abstractmethod
 
@@ -97,7 +97,7 @@ class CircuitBreaker:
                 if elapsed >= self.config.timeout_seconds:
                     self._state = CircuitState.HALF_OPEN
                     self._metrics.state = CircuitState.HALF_OPEN
-                    self._metrics.state_changed_time = datetime.utcnow()
+                    self._metrics.state_changed_time = datetime.now(timezone.utc)
                     logger.info(f"CircuitBreaker {self.name}: OPEN -> HALF_OPEN")
         return self._state
     
@@ -141,7 +141,7 @@ class CircuitBreaker:
         """成功处理"""
         async with self._lock:
             self._metrics.successful_calls += 1
-            self._metrics.last_success_time = datetime.utcnow()
+            self._metrics.last_success_time = datetime.now(timezone.utc)
             self._metrics.current_concurrent -= 1
         
         if self._state == CircuitState.HALF_OPEN:
@@ -150,7 +150,7 @@ class CircuitBreaker:
             if self._half_open_successes >= self.config.success_threshold:
                 self._state = CircuitState.CLOSED
                 self._metrics.state = CircuitState.CLOSED
-                self._metrics.state_changed_time = datetime.utcnow()
+                self._metrics.state_changed_time = datetime.now(timezone.utc)
                 self._half_open_successes = 0
                 logger.info(f"CircuitBreaker {self.name}: HALF_OPEN -> CLOSED")
     
@@ -158,14 +158,14 @@ class CircuitBreaker:
         """失败处理"""
         async with self._lock:
             self._metrics.failed_calls += 1
-            self._metrics.last_failure_time = datetime.utcnow()
+            self._metrics.last_failure_time = datetime.now(timezone.utc)
             self._last_failure_time = time.time()
             self._metrics.current_concurrent -= 1
         
         if self._state == CircuitState.HALF_OPEN:
             self._state = CircuitState.OPEN
             self._metrics.state = CircuitState.OPEN
-            self._metrics.state_changed_time = datetime.utcnow()
+            self._metrics.state_changed_time = datetime.now(timezone.utc)
             self._half_open_successes = 0
             logger.warning(f"CircuitBreaker {self.name}: HALF_OPEN -> OPEN")
         
@@ -173,7 +173,7 @@ class CircuitBreaker:
             if self._metrics.failed_calls >= self.config.failure_threshold:
                 self._state = CircuitState.OPEN
                 self._metrics.state = CircuitState.OPEN
-                self._metrics.state_changed_time = datetime.utcnow()
+                self._metrics.state_changed_time = datetime.now(timezone.utc)
                 logger.warning(
                     f"CircuitBreaker {self.name}: CLOSED -> OPEN "
                     f"(failures: {self._metrics.failed_calls})"

@@ -12,7 +12,7 @@ import hashlib
 import time
 from typing import Any, Dict, List, Optional, Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from enum import Enum
 from collections import OrderedDict
 import threading
@@ -200,7 +200,7 @@ class EnhancedStorageManager:
                         meta['accessed'] = time.time()
                         
                         # 更新统计
-                        self._stats[r.value].last_access = datetime.utcnow()
+                        self._stats[r.value].last_access = datetime.now(timezone.utc)
                         
                         return self._storages[r][key]
                 

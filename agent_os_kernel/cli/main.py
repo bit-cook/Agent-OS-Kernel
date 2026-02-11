@@ -13,7 +13,7 @@ import argparse
 import sys
 import os
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class CLI:
@@ -159,7 +159,7 @@ class CLI:
     
     def _cmd_status(self, args):
         """显示状态"""
-        print(f"时间: {datetime.utcnow().isoformat()}")
+        print(f"时间: {datetime.now(timezone.utc).isoformat()}")
         print("内核: 运行中")
         return 0
 

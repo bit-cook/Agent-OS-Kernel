@@ -7,7 +7,7 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any
 from enum import Enum
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 
 class AgentStatus(Enum):
@@ -109,7 +109,7 @@ class AgentDefinition:
             tools=data.get("tools", []),
             constraints=constraints,
             metadata=data.get("metadata", {}),
-            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else datetime.utcnow(),
+            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else datetime.now(timezone.utc),
         )
     
     def __repr__(self) -> str:

@@ -8,7 +8,7 @@ import asyncio
 import logging
 from typing import Dict, List, Optional, Any, Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import json
 import importlib
 from pathlib import Path
@@ -75,7 +75,7 @@ class ToolMarket:
         tool = self._registry.get(tool_id)
         if not tool:
             return False
-        tool.installed_at = datetime.utcnow()
+        tool.installed_at = datetime.now(timezone.utc)
         logger.info(f"Installed tool: {tool_id}")
         return True
     

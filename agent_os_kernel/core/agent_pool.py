@@ -8,7 +8,7 @@ import asyncio
 import logging
 from typing import Dict, Optional
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from uuid import uuid4
 
 from .agent_definition import AgentDefinition
@@ -29,7 +29,7 @@ class PooledAgent:
     def mark_busy(self):
         """标记为忙碌"""
         self.is_busy = True
-        self.last_used = datetime.utcnow()
+        self.last_used = datetime.now(timezone.utc)
     
     def mark_idle(self):
         """标记为空闲"""
@@ -38,7 +38,7 @@ class PooledAgent:
     def increment_use(self):
         """增加使用计数"""
         self.use_count += 1
-        self.last_used = datetime.utcnow()
+        self.last_used = datetime.now(timezone.utc)
 
 
 class AgentPool:
@@ -160,7 +160,7 @@ class AgentPool:
             await asyncio.sleep(self.cleanup_interval)
             
             async with self._lock:
-                now = datetime.utcnow()
+                now = datetime.now(timezone.utc)
                 expired = []
                 
                 for agent_id, agent in self._agents.items():

@@ -8,7 +8,7 @@ import asyncio
 import logging
 from typing import Dict, Any, Optional, Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta, timedelta
 from enum import Enum
 import hashlib
 import json
@@ -46,11 +46,11 @@ class CacheEntry:
         """检查是否过期"""
         if self.ttl_seconds is None:
             return False
-        return (datetime.utcnow() - self.created_at).total_seconds() > self.ttl_seconds
+        return (datetime.now(timezone.utc) - self.created_at).total_seconds() > self.ttl_seconds
     
     def touch(self):
         """访问"""
-        self.accessed_at = datetime.utcnow()
+        self.accessed_at = datetime.now(timezone.utc)
         self.access_count += 1
 
 
@@ -213,7 +213,7 @@ class CacheSystem:
         
         elif self.eviction_policy == EvictionPolicy.TTL:
             # TTL: 淘汰过期的
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             expired = [
                 e for e in self._memory_cache.values()
                 if e.ttl_seconds and (now - e.created_at).total_seconds() > e.ttl_seconds

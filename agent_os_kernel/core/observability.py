@@ -7,7 +7,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any, Callable
-from datetime import datetime
+from datetime import datetime, timezone, timedelta, timezone
 from uuid import uuid4
 import logging
 from threading import Lock
@@ -215,7 +215,7 @@ class Observability:
         with self._lock:
             if self._session:
                 self._session.status = status
-                self._session.ended_at = datetime.utcnow()
+                self._session.ended_at = datetime.now(timezone.utc)
                 
                 for callback in self._callbacks:
                     callback.on_session_end(self._session)
@@ -245,7 +245,7 @@ class Observability:
             event = Event(
                 id=str(uuid4())[:8],
                 type=type,
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
                 agent_id=agent_id,
                 task_id=task_id,
                 data=data or {},

@@ -10,7 +10,7 @@ import psutil
 import time
 from typing import Dict, Any, Optional, Callable, List
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta, timedelta
 from enum import Enum
 import json
 
@@ -253,7 +253,7 @@ class Monitor:
             "message": message,
             "severity": severity,
             "details": details or {},
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
         
         self._alerts.append(alert)

@@ -8,7 +8,7 @@ import asyncio
 import logging
 from typing import Dict, Any, Optional, Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from enum import Enum
 from uuid import uuid4
 import multiprocessing
@@ -135,7 +135,7 @@ class WorkerPool:
             # 标记为忙碌
             worker.status = WorkerStatus.BUSY
             worker.current_task_id = task_id
-            worker.last_active = datetime.utcnow()
+            worker.last_active = datetime.now(timezone.utc)
             
             # 创建任务
             task = asyncio.create_task(

@@ -8,7 +8,7 @@ import asyncio
 import logging
 from typing import Dict, Any, Optional, Callable, List
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone, timedelta, timezone
 from enum import Enum
 from uuid import uuid4
 from collections import deque
@@ -151,7 +151,7 @@ class Pipeline:
                 logger.error(f"Pipeline stage {stage_name} failed: {e}")
                 break
         
-        item.completed_at = datetime.utcnow()
+        item.completed_at = datetime.now(timezone.utc)
         
         # 回调
         if "on_complete" in self._callbacks:

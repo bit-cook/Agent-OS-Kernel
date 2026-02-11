@@ -11,7 +11,7 @@ import json
 import hashlib
 from typing import Dict, Any, Optional, Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ class ConfigSection:
     
     def __post_init__(self):
         if self.updated_at is None:
-            self.updated_at = datetime.utcnow()
+            self.updated_at = datetime.now(timezone.utc)
 
 
 class ConfigManager:
@@ -140,7 +140,7 @@ class ConfigManager:
             
             self._configs[name].data[key] = value
             self._configs[name].version += 1
-            self._configs[name].updated_at = datetime.utcnow()
+            self._configs[name].updated_at = datetime.now(timezone.utc)
         
         await self._notify_change(name, self._configs[name])
     

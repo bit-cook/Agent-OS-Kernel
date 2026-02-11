@@ -8,7 +8,7 @@ import asyncio
 import logging
 from typing import Dict, Any, Optional, Callable, AsyncIterator
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from enum import Enum
 from collections import deque
 import json
@@ -153,7 +153,7 @@ class StreamHandler:
         return await self.write({
             "type": event_type,
             "payload": payload,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }, metadata)
     
     async def _auto_flush_loop(self):

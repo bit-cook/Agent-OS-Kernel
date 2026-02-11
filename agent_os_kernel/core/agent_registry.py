@@ -5,7 +5,7 @@ import asyncio
 import logging
 from typing import Dict, List, Optional
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta, timedelta
 import uuid
 
 logger = logging.getLogger(__name__)
@@ -74,7 +74,7 @@ class AgentRegistry:
     async def heartbeat(self, agent_id: str) -> bool:
         async with self._lock:
             if agent_id in self._agents:
-                self._agents[agent_id].heartbeat = datetime.utcnow()
+                self._agents[agent_id].heartbeat = datetime.now(timezone.utc)
                 return True
         return False
     
@@ -87,7 +87,7 @@ class AgentRegistry:
             return list(self._agents.values())
     
     async def list_active(self) -> List[AgentMetadata]:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         cutoff = now - timedelta(seconds=self.heartbeat_timeout)
         async with self._lock:
             return [a for a in self._agents.values() if a.heartbeat > cutoff]
@@ -96,13 +96,13 @@ class AgentRegistry:
         return {
             "total_agents": len(self._agents),
             "active_agents": len([a for a in self._agents.values() 
-                                 if a.heartbeat > datetime.utcnow() - timedelta(seconds=self.heartbeat_timeout)])
+                                 if a.heartbeat > datetime.now(timezone.utc) - timedelta(seconds=self.heartbeat_timeout)])
         }
     
     async def _cleanup_loop(self):
         while self._running:
             await asyncio.sleep(self.cleanup_interval)
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             cutoff = now - timedelta(seconds=self.heartbeat_timeout * 3)
             async with self._lock:
                 to_remove = [aid for aid, a in self._agents.items() if a.heartbeat < cutoff]

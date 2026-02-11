@@ -8,7 +8,7 @@ import asyncio
 import logging
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta, timedelta
 from enum import Enum
 import json
 import uuid
@@ -110,7 +110,7 @@ class MetricsCollector:
         key = self._make_key(name, labels)
         with self._lock:
             self._counters[key] = self._counters.get(key, 0) + value
-            self._timestamps[key] = datetime.utcnow()
+            self._timestamps[key] = datetime.now(timezone.utc)
     
     def gauge(
         self,
@@ -122,7 +122,7 @@ class MetricsCollector:
         key = self._make_key(name, labels)
         with self._lock:
             self._gauges[key] = value
-            self._timestamps[key] = datetime.utcnow()
+            self._timestamps[key] = datetime.now(timezone.utc)
     
     def histogram(
         self,
@@ -136,7 +136,7 @@ class MetricsCollector:
             self._histograms[key].append(value)
             if len(self._histograms[key]) > self.max_samples:
                 self._histograms[key] = self._histograms[key][-self.max_samples:]
-            self._timestamps[key] = datetime.utcnow()
+            self._timestamps[key] = datetime.now(timezone.utc)
     
     def timer(
         self,
@@ -156,7 +156,7 @@ class MetricsCollector:
         key = self._make_key(name, labels)
         with self._lock:
             self._gauges[key] = self._gauges.get(key, 0) + 1
-            self._timestamps[key] = datetime.utcnow()
+            self._timestamps[key] = datetime.now(timezone.utc)
     
     def gauge_decrement(
         self,
@@ -167,7 +167,7 @@ class MetricsCollector:
         key = self._make_key(name, labels)
         with self._lock:
             self._gauges[key] = self._gauges.get(key, 0) - 1
-            self._timestamps[key] = datetime.utcnow()
+            self._timestamps[key] = datetime.now(timezone.utc)
     
     def get_counter(self, name: str, labels: Dict[str, str] = None) -> float:
         """获取计数器值"""
@@ -212,7 +212,7 @@ class MetricsCollector:
                     }
                     for k, v in self._histograms.items()
                 },
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
     
     def reset(self):
@@ -227,7 +227,7 @@ class MetricsCollector:
     def export_prometheus(self) -> str:
         """导出 Prometheus 格式"""
         lines = ["# Agent-OS-Kernel Metrics"]
-        timestamp = int(datetime.utcnow().timestamp() * 1000)
+        timestamp = int(datetime.now(timezone.utc).timestamp() * 1000)
         
         with self._lock:
             # Counters

@@ -7,7 +7,7 @@
 import asyncio
 import logging
 from typing import Optional, Dict, Any, Callable
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from .base import BaseAgent, AgentConfig, AgentState
@@ -59,7 +59,7 @@ class AgentExecutor:
         self.event_bus.publish(EventType.AGENT_STARTED, {
             "agent_id": self.agent.agent_id,
             "agent_name": self.agent.config.name,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         })
         
         # 更新状态
@@ -79,7 +79,7 @@ class AgentExecutor:
         self.event_bus.publish(EventType.AGENT_STOPPED, {
             "agent_id": self.agent.agent_id,
             "reason": reason,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         })
         
         # 更新状态
@@ -110,14 +110,14 @@ class AgentExecutor:
         self._current_task = {
             "task": task,
             "context": context or {},
-            "started_at": datetime.utcnow().isoformat()
+            "started_at": datetime.now(timezone.utc).isoformat()
         }
         
         # 发送任务开始事件
         self.event_bus.publish(EventType.TASK_STARTED, {
             "agent_id": self.agent.agent_id,
             "task": task,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         })
         
         try:
@@ -139,7 +139,7 @@ class AgentExecutor:
                 "agent_id": self.agent.agent_id,
                 "task": task,
                 "result": "success",
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             })
             
             # 调用回调
@@ -156,7 +156,7 @@ class AgentExecutor:
                 "agent_id": self.agent.agent_id,
                 "task": task,
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             })
             
             raise
@@ -190,7 +190,7 @@ class AgentExecutor:
         messages = self._build_messages(task, context)
         
         # 发送 LLM 请求
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
         
         provider = self.agent.llm_provider
         
@@ -198,7 +198,7 @@ class AgentExecutor:
         response = await provider.chat(messages)
         
         # 计算成本
-        duration_ms = (datetime.utcnow() - start_time).total_seconds() * 1000
+        duration_ms = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
         
         # 记录可观测性
         self.observability.record_llm_call(

@@ -8,7 +8,7 @@ import asyncio
 import logging
 from typing import Dict, Any, Optional, Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta, timedelta
 from enum import Enum
 from uuid import uuid4
 import time
@@ -49,7 +49,7 @@ class Lock:
         """检查是否有效"""
         if self.expires_at is None:
             return self.status == LockStatus.LOCKED
-        return datetime.utcnow() < self.expires_at and self.status == LockStatus.LOCKED
+        return datetime.now(timezone.utc) < self.expires_at and self.status == LockStatus.LOCKED
 
 
 class LockManager:
@@ -132,7 +132,7 @@ class LockManager:
                 wait_task = asyncio.create_task(self._waiting[name].get())
             
             # 创建新锁
-            expires_at = datetime.utcnow() + timedelta(seconds=timeout) if timeout > 0 else None
+            expires_at = datetime.now(timezone.utc) + timedelta(seconds=timeout) if timeout > 0 else None
             
             lock = Lock(
                 lock_id=lock_id,

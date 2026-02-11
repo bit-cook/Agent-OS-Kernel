@@ -6,7 +6,7 @@
 
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from uuid import uuid4
 import logging
 from threading import Lock
@@ -234,7 +234,7 @@ class LongTermMemory:
                         )
                         if similarity >= self.similarity_threshold:
                             item.access_count += 1
-                            item.last_accessed = datetime.utcnow()
+                            item.last_accessed = datetime.now(timezone.utc)
                             results.append((item, similarity))
                 
                 # 按相似度排序
@@ -248,7 +248,7 @@ class LongTermMemory:
                 for item in self._memories.values():
                     if any(word in item.content.lower() for word in query_words):
                         item.access_count += 1
-                        item.last_accessed = datetime.utcnow()
+                        item.last_accessed = datetime.now(timezone.utc)
                         results.append(item)
                 
                 items = results[:limit]
@@ -352,11 +352,11 @@ class EntityMemory:
                 self._entities[entity_name] = {
                     "description": description,
                     "observations": [],
-                    "updated_at": datetime.utcnow(),
+                    "updated_at": datetime.now(timezone.utc),
                 }
             
             self._entities[entity_name]["observations"].extend(observations)
-            self._entities[entity_name]["updated_at"] = datetime.utcnow()
+            self._entities[entity_name]["updated_at"] = datetime.now(timezone.utc)
             
             logger.debug(f"Entity updated: {entity_name}")
     

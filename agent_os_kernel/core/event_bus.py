@@ -8,7 +8,7 @@ import asyncio
 import logging
 from typing import Any, Callable, Dict, List, Optional, Set
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from enum import Enum
 from uuid import uuid4
 
@@ -34,7 +34,7 @@ class Event:
     
     def __post_init__(self):
         if self.timestamp is None:
-            self.timestamp = datetime.utcnow()
+            self.timestamp = datetime.now(timezone.utc)
     
     @classmethod
     def create(cls, event_type: str, payload: Dict = None, **kwargs) -> "Event":

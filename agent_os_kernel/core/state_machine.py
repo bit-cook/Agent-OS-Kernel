@@ -8,7 +8,7 @@ import asyncio
 import logging
 from typing import Dict, Any, Optional, Callable, List
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone, timedelta, timezone
 from enum import Enum
 from uuid import uuid4
 
@@ -212,7 +212,7 @@ class StateMachine:
             "from": old_state.name,
             "to": to_state,
             "event": event,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         })
         
         # 退出旧状态

@@ -9,7 +9,7 @@ import logging
 from typing import Dict, List, Optional, Any, Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import uuid
 from collections import defaultdict
 
@@ -167,7 +167,7 @@ class WorkflowEngine:
         """
         workflow.context.update(context or {})
         workflow.status = WorkflowStatus.RUNNING
-        workflow.started_at = datetime.utcnow()
+        workflow.started_at = datetime.now(timezone.utc)
         
         completed = set()
         failed = set()
@@ -186,7 +186,7 @@ class WorkflowEngine:
             while pending and len(active_tasks) < self.max_concurrent:
                 node_id, node = pending.popitem()
                 node.status = NodeStatus.RUNNING
-                node.started_at = datetime.utcnow()
+                node.started_at = datetime.now(timezone.utc)
                 
                 task = asyncio.create_task(
                     self._execute_node(workflow, node, completed, failed)
@@ -205,7 +205,7 @@ class WorkflowEngine:
                         result = task.result()
                         workflow.nodes[node_id].result = result
                         workflow.nodes[node_id].status = NodeStatus.COMPLETED
-                        workflow.nodes[node_id].finished_at = datetime.utcnow()
+                        workflow.nodes[node_id].finished_at = datetime.now(timezone.utc)
                         completed.add(node_id)
                         
                         # 检查依赖此节点的新任务
@@ -224,7 +224,7 @@ class WorkflowEngine:
             WorkflowStatus.COMPLETED if not failed
             else WorkflowStatus.FAILED
         )
-        workflow.finished_at = datetime.utcnow()
+        workflow.finished_at = datetime.now(timezone.utc)
         
         logger.info(f"Workflow {workflow.name} completed: {workflow.status}")
         
