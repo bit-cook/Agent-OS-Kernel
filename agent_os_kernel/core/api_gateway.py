@@ -8,7 +8,8 @@ API Gateway Module - Agent-OS-Kernel API网关模块
 from typing import Dict, List, Optional, Callable, Any, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timezone, timedelta
 import time
 import re
 import hashlib
@@ -192,7 +193,7 @@ class AuthenticationMiddleware(Middleware):
                 return UnauthorizedError("Invalid token")
             
             # 检查令牌是否过期
-            if payload.get("exp") and datetime.fromtimestamp(payload["exp"]) < datetime.utcnow():
+            if payload.get("exp") and datetime.fromtimestamp(payload["exp"]) < datetime.now(timezone.utc):
                 return UnauthorizedError("Token expired")
             
             # 将用户信息添加到请求上下文
@@ -274,7 +275,7 @@ class RateLimitMiddleware(Middleware):
         max_requests, window_seconds = rate_limit
         client_id = self._get_client_id(request)
         
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         window_start = now - timedelta(seconds=window_seconds)
         
         with self.lock:

@@ -15,6 +15,7 @@ import uuid
 import threading
 import enum
 from datetime import datetime
+from datetime import timezone
 from typing import Dict, List, Optional, Any, Callable
 from dataclasses import dataclass, field, asdict
 from contextlib import contextmanager
@@ -87,7 +88,7 @@ class Span:
         """Add an event to the span"""
         event = {
             "name": name,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "attributes": attributes or {}
         }
         self.events.append(event)
@@ -103,7 +104,7 @@ class Span:
     
     def end(self, status: Optional[SpanStatus] = None) -> None:
         """End the span"""
-        self.end_time = datetime.utcnow()
+        self.end_time = datetime.now(timezone.utc)
         if status:
             self.status = status
     

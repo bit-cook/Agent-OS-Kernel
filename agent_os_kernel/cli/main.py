@@ -13,7 +13,8 @@ import argparse
 import sys
 import os
 from typing import Optional
-from datetime import datetime, timezone
+from datetime import datetime
+from datetime import timezone, timezone
 
 
 class CLI:

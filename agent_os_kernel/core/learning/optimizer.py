@@ -11,7 +11,7 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
+from datetime import timezone, datetime, timezone, timedelta
 import re
 
 logger = logging.getLogger(__name__)
@@ -192,7 +192,7 @@ class AgentOptimizer:
             'applied': True,
             'agent': agent_name,
             'suggestion': suggestion.description,
-            'timestamp': datetime.now(timezone.utc).isoformat()
+            'timestamp': lambda: datetime.now(timezone.utc).isoformat()
         }
     
     def batch_optimize(self, agent_name: str) -> Dict[str, Any]:
@@ -240,7 +240,7 @@ class AgentOptimizer:
         
         return {
             'agent_name': agent_name,
-            'generated_at': datetime.now(timezone.utc).isoformat(),
+            'generated_at': lambda: datetime.now(timezone.utc).isoformat(),
             'summary': {
                 'success_rate': f"{analysis.success_rate:.1%}",
                 'avg_tokens': f"{analysis.avg_tokens:.0f}",

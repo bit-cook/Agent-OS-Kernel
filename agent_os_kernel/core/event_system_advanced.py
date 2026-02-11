@@ -16,6 +16,7 @@ import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
+from datetime import timezone
 from enum import Enum, auto
 from typing import Any, Callable, Dict, List, Optional, Set, Union, Generic, TypeVar
 from collections import defaultdict, deque
@@ -183,7 +184,7 @@ class EventAggregator:
             buffer.append((event.timestamp, event))
             
             # Remove expired events
-            cutoff = datetime.utcnow()
+            cutoff = datetime.now(timezone.utc)
             while buffer and (cutoff - buffer[0][0]).total_seconds() > self.time_window:
                 buffer.popleft()
             
@@ -296,7 +297,7 @@ class EventTracer:
             return ""
         
         record = {
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now(timezone.utc).isoformat(),
             'event_id': event.event_id,
             'event_type': event.event_type.name,
             'priority': event.priority.name,

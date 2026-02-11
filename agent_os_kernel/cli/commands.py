@@ -20,7 +20,8 @@ import argparse
 import sys
 import json
 from typing import Optional, Dict, Any, List
-from datetime import datetime, timezone
+from datetime import datetime
+from datetime import timezone, timezone
 from pathlib import Path
 
 

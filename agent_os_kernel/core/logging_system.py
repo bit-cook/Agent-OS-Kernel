@@ -6,7 +6,8 @@ Logging System - 日志系统
 
 from dataclasses import dataclass, field
 from typing import Dict, Optional, List
-from datetime import datetime, timezone
+from datetime import datetime
+from datetime import timezone, timezone
 from enum import Enum
 import json
 import sys

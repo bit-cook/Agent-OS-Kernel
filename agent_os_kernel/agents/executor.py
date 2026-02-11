@@ -7,7 +7,8 @@
 import asyncio
 import logging
 from typing import Optional, Dict, Any, Callable
-from datetime import datetime, timezone
+from datetime import datetime
+from datetime import timezone, timezone
 from uuid import uuid4
 
 from .base import BaseAgent, AgentConfig, AgentState

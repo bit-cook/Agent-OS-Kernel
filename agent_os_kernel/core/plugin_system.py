@@ -304,6 +304,18 @@ class PluginManager:
     def plugin_count(self) -> int:
         """获取插件数量"""
         return len(self._plugins)
+
+    def get_stats(self) -> Dict[str, Any]:
+        """获取插件管理器统计信息"""
+        return {
+            "total_plugins": len(self._plugins),
+            "active_plugins": sum(1 for p in self._plugins.values() if p.is_loaded),
+            "total_events": len(self._event_history),
+            "total_messages": len(self._message_history),
+            "registered_events": len(self._event_handlers),
+            "message_channels": len(self._message_channels),
+        }
+
     
     def register_plugin(self, plugin: PluginBase) -> bool:
         """
