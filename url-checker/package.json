@@ -1,0 +1,7 @@
+{
+  "name": "url-checker",
+  "version": "1.0.0",
+  "description": "URL accessibility checker tool module",
+  "main": "__init__.py",
+  "dependencies": ["requests"]
+}
