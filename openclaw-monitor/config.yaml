@@ -1,0 +1,32 @@
+# OpenClaw Monitor Configuration
+# This file is read by app.py on startup
+
+# Server Configuration
+server:
+  host: "0.0.0.0"
+  port: 8888
+  
+# Monitoring Configuration
+monitoring:
+  # Cache duration in seconds
+  cache_duration: 5
+  # Frontend refresh interval in seconds
+  refresh_interval: 30
+  
+# OpenClaw CLI Configuration
+openclaw:
+  # Path to openclaw command (auto-detected if empty)
+  command: ""
+  # Command timeout in seconds
+  timeout: 30
+  
+# Logging Configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  
+# Optional Features
+features:
+  # Enable/disable certain UI elements
+  show_raw_output: false
+  show_debug_info: false

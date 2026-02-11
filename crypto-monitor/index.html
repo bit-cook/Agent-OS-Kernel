@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>加密货币价格监控</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 20px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #f7931a, #627eea, #0ecb81, #f3ba2f);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .last-updated {
+            color: #888;
+            font-size: 0.9rem;
+        }
+        
+        .countdown {
+            color: #627eea;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+        
+        .crypto-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            padding: 20px 0;
+        }
+        
+        .crypto-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 24px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .crypto-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .crypto-card.bitcoin {
+            border-left: 4px solid #f7931a;
+        }
+        
+        .crypto-card.ethereum {
+            border-left: 4px solid #627eea;
+        }
+        
+        .crypto-card.binancecoin {
+            border-left: 4px solid #f3ba2f;
+        }
+        
+        .crypto-card.solana {
+            border-left: 4px solid #0ecb81;
+        }
+        
+        .crypto-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .crypto-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+        
+        .bitcoin .crypto-icon {
+            background: #f7931a;
+        }
+        
+        .ethereum .crypto-icon {
+            background: #627eea;
+        }
+        
+        .binancecoin .crypto-icon {
+            background: #f3ba2f;
+            color: #1a1a2e;
+        }
+        
+        .solana .crypto-icon {
+            background: #0ecb81;
+        }
+        
+        .crypto-name {
+            font-size: 1.4rem;
+            font-weight: 600;
+        }
+        
+        .crypto-symbol {
+            color: #888;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+        }
+        
+        .price {
+            font-size: 2.2rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .stat-item {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 12px;
+            border-radius: 8px;
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            color: #888;
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        
+        .positive {
+            color: #0ecb81;
+        }
+        
+        .negative {
+            color: #ef4444;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+        
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+        
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #627eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 0.8rem;
+            margin-top: 40px;
+        }
+        
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.8rem;
+            }
+            
+            .price {
+                font-size: 1.8rem;
+            }
+            
+            .stats {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 加密货币价格监控</h1>
+            <p class="last-updated">实时价格来自 CoinGecko API</p>
+            <p class="countdown" id="countdown">下次更新: 60秒</p>
+        </header>
+        
+        <div id="crypto-container">
+            <div class="loading">
+                <div class="loading-spinner"></div>
+                <p>正在加载加密货币数据...</p>
+            </div>
+        </div>
+        
+        <footer>
+            <p>每 60 秒自动刷新 • 数据由 CoinGecko API 提供</p>
+        </footer>
+    </div>
+
+    <script>
+        const API_URL = 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,binancecoin,solana&vs_currencies=usd&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true';
+        const REFRESH_INTERVAL = 60000; // 60 seconds
+        const cryptoData = {
+            bitcoin: { name: 'Bitcoin', symbol: 'BTC', icon: '₿' },
+            ethereum: { name: 'Ethereum', symbol: 'ETH', icon: 'Ξ' },
+            binancecoin: { name: 'Binance Coin', symbol: 'BNB', icon: 'B' },
+            solana: { name: 'Solana', symbol: 'SOL', icon: '◎' }
+        };
+        
+        let countdownTimer;
+        let secondsUntilRefresh = REFRESH_INTERVAL / 1000;
+        
+        function formatNumber(num) {
+            if (num >= 1e12) return '$' + (num / 1e12).toFixed(2) + 'T';
+            if (num >= 1e9) return '$' + (num / 1e9).toFixed(2) + 'B';
+            if (num >= 1e6) return '$' + (num / 1e6).toFixed(2) + 'M';
+            if (num >= 1e3) return '$' + (num / 1e3).toFixed(2) + 'K';
+            return '$' + num.toFixed(2);
+        }
+        
+        function formatPrice(num) {
+            if (num >= 1000) {
+                return '$' + num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            } else if (num >= 1) {
+                return '$' + num.toFixed(2);
+            } else {
+                return '$' + num.toFixed(4);
+            }
+        }
+        
+        function getChangeClass(change) {
+            return change >= 0 ? 'positive' : 'negative';
+        }
+        
+        function getChangeIcon(change) {
+            return change >= 0 ? '📈' : '📉';
+        }
+        
+        function createCryptoCard(id, data) {
+            const crypto = cryptoData[id];
+            const change = data.usd_24h_change;
+            const changeClass = getChangeClass(change);
+            const changeIcon = getChangeIcon(change);
+            
+            return `
+                <div class="crypto-card ${id}">
+                    <div class="crypto-header">
+                        <div class="crypto-icon">${crypto.icon}</div>
+                        <div>
+                            <div class="crypto-name">${crypto.name}</div>
+                            <div class="crypto-symbol">${crypto.symbol}</div>
+                        </div>
+                    </div>
+                    <div class="price">${formatPrice(data.usd)}</div>
+                    <div class="stats">
+                        <div class="stat-item">
+                            <div class="stat-label">24小时涨跌</div>
+                            <div class="stat-value ${changeClass}">${changeIcon} ${change.toFixed(2)}%</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">市值</div>
+                            <div class="stat-value">${formatNumber(data.usd_market_cap)}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">24小时成交量</div>
+                            <div class="stat-value">${formatNumber(data.usd_24h_vol)}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">美元价格</div>
+                            <div class="stat-value">$${data.usd.toFixed(2)}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function createErrorCard(message) {
+            return `
+                <div class="error">
+                    <h3>⚠️ 数据加载错误</h3>
+                    <p>${message}</p>
+                    <p>30秒后重试...</p>
+                </div>
+            `;
+        }
+        
+        function createLoadingCard() {
+            return `
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <p>正在加载加密货币数据...</p>
+                </div>
+            `;
+        }
+        
+        function updateCountdown() {
+            const countdownEl = document.getElementById('countdown');
+            countdownEl.textContent = `下次更新: ${secondsUntilRefresh}秒`;
+            secondsUntilRefresh--;
+            
+            if (secondsUntilRefresh < 0) {
+                secondsUntilRefresh = REFRESH_INTERVAL / 1000;
+            }
+        }
+        
+        async function fetchCryptoData() {
+            const container = document.getElementById('crypto-container');
+            container.innerHTML = createLoadingCard();
+            
+            try {
+                const response = await fetch(API_URL);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                let html = '<div class="crypto-grid">';
+                
+                for (const [id, cryptoInfo] of Object.entries(cryptoData)) {
+                    if (data[id]) {
+                        html += createCryptoCard(id, data[id]);
+                    }
+                }
+                
+                html += '</div>';
+                container.innerHTML = html;
+                
+                // Reset countdown on successful fetch
+                secondsUntilRefresh = REFRESH_INTERVAL / 1000;
+                
+            } catch (error) {
+                console.error('Error fetching crypto data:', error);
+                container.innerHTML = createErrorCard('无法获取加密货币数据，请检查网络连接后重试。');
+            }
+        }
+        
+        // 初始加载
+        fetchCryptoData();
+        
+        // 每秒更新倒计时
+        countdownTimer = setInterval(updateCountdown, 1000);
+        
+        // 每60秒刷新数据
+        setInterval(fetchCryptoData, REFRESH_INTERVAL);
+    </script>
+</body>
+</html>

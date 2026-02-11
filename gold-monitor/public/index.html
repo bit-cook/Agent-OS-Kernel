@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>贵金属价格监控</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            padding: 40px 20px;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, #ffd700, #ffed4a, #ffd700);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #8892b0;
+            font-size: 1.1rem;
+        }
+
+        .last-updated {
+            color: #64ffda;
+            font-size: 0.9rem;
+            margin-top: 10px;
+            opacity: 0.8;
+        }
+
+        .metals-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            padding: 20px 0;
+        }
+
+        .metal-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metal-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .metal-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--card-color), transparent);
+        }
+
+        .metal-card.gold { --card-color: #ffd700; }
+        .metal-card.silver { --card-color: #c0c0c0; }
+        .metal-card.platinum { --card-color: #e5e4e2; }
+        .metal-card.palladium { --card-color: #ced4da; }
+
+        .metal-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .metal-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .metal-name {
+            font-size: 1.4rem;
+            font-weight: 600;
+        }
+
+        .metal-unit {
+            font-size: 0.85rem;
+            color: #8892b0;
+        }
+
+        .price-container {
+            margin: 25px 0;
+        }
+
+        .price {
+            font-size: 2.5rem;
+            font-weight: 700;
+            letter-spacing: -1px;
+        }
+
+        .price-currency {
+            font-size: 1.5rem;
+            opacity: 0.8;
+            margin-right: 5px;
+        }
+
+        .change {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 25px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            margin-top: 10px;
+        }
+
+        .change.positive {
+            background: rgba(100, 255, 218, 0.15);
+            color: #64ffda;
+        }
+
+        .change.negative {
+            background: rgba(255, 107, 107, 0.15);
+            color: #ff6b6b;
+        }
+
+        .change.neutral {
+            background: rgba(136, 146, 176, 0.15);
+            color: #8892b0;
+        }
+
+        .change-arrow {
+            font-size: 1.1rem;
+        }
+
+        .meta-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .meta-item {
+            text-align: center;
+        }
+
+        .meta-label {
+            font-size: 0.75rem;
+            color: #8892b0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .meta-value {
+            font-size: 1rem;
+            font-weight: 500;
+            color: #ccd6f6;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: #8892b0;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #ffd700;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 15px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: rgba(255, 107, 107, 0.1);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            color: #ff6b6b;
+            margin: 20px 0;
+        }
+
+        .refresh-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 12px 20px;
+            border-radius: 30px;
+            font-size: 0.85rem;
+            color: #8892b0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .refresh-indicator .dot {
+            width: 8px;
+            height: 8px;
+            background: #64ffda;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        footer {
+            text-align: center;
+            padding: 40px 20px;
+            color: #8892b0;
+            font-size: 0.9rem;
+        }
+
+        footer a {
+            color: #64ffda;
+            text-decoration: none;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.8rem;
+            }
+
+            .metal-card {
+                padding: 20px;
+            }
+
+            .price {
+                font-size: 2rem;
+            }
+
+            .metals-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💰 贵金属价格监控</h1>
+            <p class="subtitle">黄金、白银、铂金、钯金实时价格</p>
+            <p class="last-updated" id="lastUpdated">正在加载价格...</p>
+        </header>
+
+        <div id="pricesContainer">
+            <div class="loading">
+                <div class="spinner"></div>
+                <span>正在获取最新价格...</span>
+            </div>
+        </div>
+
+        <footer>
+            <p>每 2 分钟自动刷新价格</p>
+            <p style="margin-top: 10px; opacity: 0.7;">下次刷新时间: <span id="refreshTime"></span></p>
+        </footer>
+    </div>
+
+    <div class="refresh-indicator">
+        <div class="dot"></div>
+        <span>Auto-refresh: <span id="countdown">120</span>s</span>
+    </div>
+
+    <script>
+        // Configuration
+        const REFRESH_INTERVAL = 120000; // 2 minutes
+        const metals = [
+            { id: 'gold', name: 'Gold', symbol: 'XAU', unit: 'per ounce' },
+            { id: 'silver', name: 'Silver', symbol: 'XAG', unit: 'per ounce' },
+            { id: 'platinum', name: 'Platinum', symbol: 'XPT', unit: 'per ounce' },
+            { id: 'palladium', name: 'Palladium', symbol: 'XPD', unit: 'per ounce' }
+        ];
+
+        let countdown = REFRESH_INTERVAL / 1000;
+
+        // Demo data for fallback
+        function getDemoData() {
+            const baseTime = Date.now();
+            return {
+                gold: {
+                    price: 2034.50 + (Math.sin(baseTime / 1000000) * 50),
+                    change: 12.35,
+                    changePercent: 0.61,
+                    high: 2045.20,
+                    low: 2020.10,
+                    open: 2022.15
+                },
+                silver: {
+                    price: 22.85 + (Math.sin(baseTime / 1000000) * 2),
+                    change: 0.45,
+                    changePercent: 2.01,
+                    high: 23.20,
+                    low: 22.40,
+                    open: 22.40
+                },
+                platinum: {
+                    price: 985.30 + (Math.sin(baseTime / 1000000) * 30),
+                    change: -8.70,
+                    changePercent: -0.87,
+                    high: 998.50,
+                    low: 980.00,
+                    open: 994.00
+                },
+                palladium: {
+                    price: 1050.80 + (Math.sin(baseTime / 1000000) * 40),
+                    change: 15.20,
+                    changePercent: 1.47,
+                    high: 1068.40,
+                    low: 1035.60,
+                    open: 1035.60
+                }
+            };
+        }
+
+        function formatPrice(price, isGold = false) {
+            if (isGold) {
+                return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+            return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function getChangeClass(change) {
+            if (change > 0) return 'positive';
+            if (change < 0) return 'negative';
+            return 'neutral';
+        }
+
+        function getArrow(change) {
+            if (change > 0) return '▲';
+            if (change < 0) return '▼';
+            return '●';
+        }
+
+        function renderPrices(data) {
+            const container = document.getElementById('pricesContainer');
+            
+            let html = '<div class="metals-grid">';
+            
+            metals.forEach(metal => {
+                const metalData = data[metal.id];
+                const changeClass = getChangeClass(metalData.change);
+                
+                html += `
+                    <div class="metal-card ${metal.id}">
+                        <div class="metal-header">
+                            <div class="metal-icon">${metal.id === 'gold' ? '🥇' : metal.id === 'silver' ? '🥈' : metal.id === 'platinum' ? '⚪' : '🔩'}</div>
+                            <div>
+                                <div class="metal-name">${metal.name}</div>
+                                <div class="metal-unit">USD ${metal.unit}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="price-container">
+                            <div class="price">
+                                <span class="price-currency">$</span>
+                                ${formatPrice(metalData.price, metal.id === 'gold')}
+                            </div>
+                            <div class="change ${changeClass}">
+                                <span class="change-arrow">${getArrow(metalData.change)}</span>
+                                ${metalData.change > 0 ? '+' : ''}${metalData.change.toFixed(2)} 
+                                (${metalData.changePercent > 0 ? '+' : ''}${metalData.changePercent.toFixed(2)}%)
+                            </div>
+                        </div>
+                        
+                        <div class="meta-info">
+                            <div class="meta-item">
+                                <div class="meta-label">当日最高</div>
+                                <div class="meta-value">$${formatPrice(metalData.high)}</div>
+                            </div>
+                            <div class="meta-item">
+                                <div class="meta-label">当日最低</div>
+                                <div class="meta-value">$${formatPrice(metalData.low)}</div>
+                            </div>
+                            <div class="meta-item">
+                                <div class="meta-label">开盘价</div>
+                                <div class="meta-value">$${formatPrice(metalData.open)}</div>
+                            </div>
+                            <div class="meta-item">
+                                <div class="meta-label">代码</div>
+                                <div class="meta-value">${metal.symbol}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            container.innerHTML = html;
+
+            const now = new Date();
+            document.getElementById('lastUpdated').textContent = `最后更新: ${now.toLocaleTimeString()}`;
+            document.getElementById('refreshTime').textContent = new Date(now.getTime() + REFRESH_INTERVAL).toLocaleTimeString();
+        }
+
+        async function fetchPrices() {
+            try {
+                const response = await fetch('/api/prices');
+                if (!response.ok) throw new Error('API error');
+                const data = await response.json();
+                renderPrices(data);
+            } catch (error) {
+                console.log('使用模拟数据:', error.message);
+                renderPrices(getDemoData());
+                document.getElementById('lastUpdated').textContent = '使用模拟数据（API不可用）';
+            }
+        }
+
+        function updateCountdown() {
+            countdown--;
+            if (countdown <= 0) {
+                countdown = REFRESH_INTERVAL / 1000;
+                fetchPrices();
+            }
+            document.getElementById('countdown').textContent = countdown;
+        }
+
+        // Initial load
+        fetchPrices();
+        
+        // Auto-refresh countdown
+        setInterval(updateCountdown, 1000);
+    </script>
+</body>
+</html>

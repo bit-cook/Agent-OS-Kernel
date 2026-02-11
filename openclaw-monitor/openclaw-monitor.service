@@ -1,0 +1,16 @@
+[Unit]
+Description=OpenClaw Real-Time Monitoring Dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/.openclaw/workspace/openclaw-monitor
+ExecStart=/usr/bin/python3 /root/.openclaw/workspace/openclaw-monitor/app.py
+Restart=always
+RestartSec=10
+Environment=OPENCLAW_MONITOR_PORT=8888
+Environment=OPENCLAW_MONITOR_HOST=0.0.0.0
+
+[Install]
+WantedBy=multi-user.target

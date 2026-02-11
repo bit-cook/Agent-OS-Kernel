@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenClaw 监控面板 v2.0</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --accent-cyan: #58a6ff;
+            --accent-green: #3fb950;
+            --accent-yellow: #d29922;
+            --accent-red: #f85149;
+            --accent-purple: #a371f7;
+            --border-color: #30363d;
+            --card-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        }
+        
+        [data-theme="light"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f6f8fa;
+            --bg-tertiary: #e1e4e8;
+            --text-primary: #24292f;
+            --text-secondary: #57606a;
+            --accent-cyan: #0969da;
+            --accent-green: #1a7f37;
+            --accent-yellow: #9a6700;
+            --accent-red: #cf222e;
+            --accent-purple: #8250df;
+            --border-color: #d0d7de;
+            --card-shadow: 0 8px 24px rgba(0,0,0,0.1);
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+            transition: background 0.3s, color 0.3s;
+        }
+        
+        .container { max-width: 1400px; margin: 0 auto; }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        
+        .logo { display: flex; align-items: center; gap: 12px; }
+        
+        .logo h1 {
+            font-size: 1.5rem;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+        
+        .header-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        
+        .status-badge.healthy { background: rgba(63, 185, 80, 0.15); color: var(--accent-green); border: 1px solid rgba(63, 185, 80, 0.3); }
+        .status-badge.warning { background: rgba(210, 153, 34, 0.15); color: var(--accent-yellow); border: 1px solid rgba(210, 153, 34, 0.3); }
+        .status-badge.error { background: rgba(248, 81, 73, 0.15); color: var(--accent-red); border: 1px solid rgba(248, 81, 73, 0.3); }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-dot.healthy { background: var(--accent-green); }
+        .status-dot.warning { background: var(--accent-yellow); }
+        .status-dot.error { background: var(--accent-red); }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+        }
+        
+        .theme-btn, .refresh-btn {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        
+        .theme-btn:hover, .refresh-btn:hover {
+            background: var(--accent-cyan);
+            color: white;
+            border-color: var(--accent-cyan);
+        }
+        
+        .countdown {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            min-width: 60px;
+            text-align: center;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .stat-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--card-shadow);
+        }
+        
+        .stat-card h3 {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .stat-card .value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        
+        .stat-card .unit {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-left: 4px;
+        }
+        
+        .progress-container { margin-top: 12px; }
+        
+        .progress-bar {
+            height: 8px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+        
+        .progress-fill.low { background: var(--accent-green); }
+        .progress-fill.medium { background: var(--accent-yellow); }
+        .progress-fill.high { background: var(--accent-red); }
+        
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+        
+        .charts-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: linear-gradient(180deg, var(--accent-cyan), var(--accent-green));
+            border-radius: 2px;
+        }
+        
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 24px;
+        }
+        
+        .chart-container {
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 16px;
+            height: 250px;
+        }
+        
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+        
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--card-shadow);
+        }
+        
+        .card-title {
+            font-size: 1.1rem;
+            color: var(--accent-cyan);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .card-title::before {
+            content: '';
+            width: 4px;
+            height: 20px;
+            background: linear-gradient(180deg, var(--accent-cyan), var(--accent-green));
+            border-radius: 2px;
+        }
+        
+        .item-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+            transition: background 0.2s;
+        }
+        
+        .item:last-child { border-bottom: none; }
+        .item:hover { background: var(--bg-tertiary); }
+        
+        .item-info { display: flex; align-items: center; gap: 12px; }
+        
+        .item-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+        
+        .item-icon.enabled { background: rgba(63, 185, 80, 0.2); }
+        .item-icon.disabled { background: rgba(139, 148, 158, 0.2); }
+        
+        .item-name { font-weight: 600; }
+        .item-detail { font-size: 0.85rem; color: var(--text-secondary); }
+        
+        .item-status { display: flex; align-items: center; gap: 8px; }
+        
+        .status-tag {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .status-tag.ok { background: rgba(63, 185, 80, 0.15); color: var(--accent-green); }
+        .status-tag.warning { background: rgba(210, 153, 34, 0.15); color: var(--accent-yellow); }
+        .status-tag.error { background: rgba(248, 81, 73, 0.15); color: var(--accent-red); }
+        .status-tag.off { background: rgba(139, 148, 158, 0.15); color: var(--text-secondary); }
+        
+        .action-btn {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+            margin-left: 8px;
+        }
+        
+        .action-btn:hover {
+            background: var(--accent-cyan);
+            color: white;
+            border-color: var(--accent-cyan);
+        }
+        
+        .action-btn.danger:hover { background: var(--accent-red); border-color: var(--accent-red); }
+        
+        .alerts-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        
+        .alert-list { max-height: 300px; overflow-y: auto; }
+        
+        .alert-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            background: var(--bg-tertiary);
+        }
+        
+        .alert-item.critical { border-left: 4px solid var(--accent-red); }
+        .alert-item.warning { border-left: 4px solid var(--accent-yellow); }
+        
+        .alert-time {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            min-width: 150px;
+        }
+        
+        .alert-message { flex: 1; margin: 0 16px; }
+        
+        .alert-severity {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .alert-severity.critical { background: rgba(248, 81, 73, 0.15); color: var(--accent-red); }
+        .alert-severity.warning { background: rgba(210, 153, 34, 0.15); color: var(--accent-yellow); }
+        
+        .system-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            padding: 16px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .sys-item { text-align: center; }
+        .sys-label { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 4px; }
+        .sys-value { font-size: 1rem; font-weight: 600; color: var(--text-primary); }
+        
+        .quick-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+        
+        .quick-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+        
+        .quick-btn:hover {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green));
+            color: white;
+            border-color: transparent;
+        }
+        
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--accent-cyan);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        @media (max-width: 768px) {
+            header { flex-direction: column; align-items: flex-start; }
+            .header-right { width: 100%; justify-content: space-between; }
+            .charts-grid { grid-template-columns: 1fr; }
+            .cards-grid { grid-template-columns: 1fr; }
+        }
+        
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">🤖</div>
+                <h1>OpenClaw 监控面板 v2.0</h1>
+            </div>
+            <div class="header-right">
+                <span class="countdown" id="countdown">刷新: 30s</span>
+                <button class="refresh-btn" onclick="refreshData()">🔄 刷新</button>
+                <button class="theme-btn" onclick="toggleTheme()">🌓 主题</button>
+                <div class="status-badge" id="overallStatus">
+                    <div class="status-dot"></div>
+                    <span>加载中...</span>
+                </div>
+            </div>
+        </header>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>💻 CPU</h3>
+                <div class="value" id="cpuValue">--<span class="unit">%</span></div>
+                <div class="progress-container">
+                    <div class="progress-bar"><div class="progress-fill" id="cpuBar" style="width: 0%"></div></div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <h3>🧠 内存</h3>
+                <div class="value" id="memoryValue">--<span class="unit">%</span></div>
+                <div class="progress-container">
+                    <div class="progress-bar"><div class="progress-fill" id="memoryBar" style="width: 0%"></div></div>
+                    <div class="progress-label"><span id="memoryUsed">-- GB</span><span id="memoryTotal">/ -- GB</span></div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <h3>💿 磁盘</h3>
+                <div class="value" id="diskValue">--<span class="unit">%</span></div>
+                <div class="progress-container">
+                    <div class="progress-bar"><div class="progress-fill" id="diskBar" style="width: 0%"></div></div>
+                    <div class="progress-label"><span id="diskUsed">-- GB</span><span>/ -- GB</span></div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <h3>🤖 Agent</h3>
+                <div class="value" id="agentCount">--</div>
+                <div class="progress-label"><span>运行中</span></div>
+            </div>
+            <div class="stat-card">
+                <h3>💬 通道</h3>
+                <div class="value" id="channelCount">--</div>
+                <div class="progress-label"><span>已启用</span></div>
+            </div>
+            <div class="stat-card">
+                <h3>🌐 网关</h3>
+                <div class="value" id="gatewayLatency">--<span class="unit">ms</span></div>
+                <div class="progress-label"><span id="gatewayStatus">检测中...</span></div>
+            </div>
+            <div class="stat-card">
+                <h3>⏱️ 运行时间</h3>
+                <div class="value" id="uptime" style="font-size: 1.2rem;">--</div>
+                <div class="progress-label"><span id="bootTime">--</span></div>
+            </div>
+        </div>
+        
+        <div class="charts-section">
+            <div class="section-header">
+                <h2 class="section-title">📊 性能趋势</h2>
+            </div>
+            <div class="charts-grid">
+                <div class="chart-container"><canvas id="cpuChart"></canvas></div>
+                <div class="chart-container"><canvas id="memoryChart"></canvas></div>
+                <div class="chart-container"><canvas id="sessionsChart"></canvas></div>
+                <div class="chart-container"><canvas id="latencyChart"></canvas></div>
+            </div>
+        </div>
+        
+        <div class="cards-grid">
+            <div class="card">
+                <h2 class="card-title">🖥️ 系统信息</h2>
+                <div class="system-info" id="systemInfo">
+                    <div class="sys-item"><div class="sys-label">版本</div><div class="sys-value" id="version">--</div></div>
+                    <div class="sys-item"><div class="sys-label">OS</div><div class="sys-value" id="os">--</div></div>
+                    <div class="sys-item"><div class="sys-label">安全</div><div class="sys-value" id="security">--</div></div>
+                </div>
+                <div class="quick-actions">
+                    <button class="quick-btn" onclick="restartGateway()">🔄 重启网关</button>
+                    <button class="quick-btn" onclick="refreshData()">🔄 刷新</button>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2 class="card-title">📱 通道管理</h2>
+                <div class="item-list" id="channelList"><div class="loading"><div class="spinner"></div></div></div>
+            </div>
+            
+            <div class="card">
+                <h2 class="card-title">🤖 Agent 管理</h2>
+                <div class="item-list" id="agentList"><div class="loading"><div class="spinner"></div></div></div>
+            </div>
+        </div>
+        
+        <div class="alerts-section">
+            <div class="section-header">
+                <h2 class="section-title">🔔 告警中心</h2>
+                <button class="action-btn" onclick="showAlertsConfig()">⚙️ 配置</button>
+            </div>
+            <div class="alert-list" id="alertList"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+        
+        <div class="card">
+            <h2 class="card-title">✅ 诊断信息</h2>
+            <div id="diagnosisList"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+    </div>
+    
+    <script>
+        const REFRESH_INTERVAL = 30000;
+        let countdownTimer, refreshTimer;
+        let cpuChart, memoryChart, sessionsChart, latencyChart;
+        
+        function toggleTheme() {
+            const html = document.documentElement;
+            const current = html.getAttribute('data-theme');
+            const newTheme = current === 'light' ? 'dark' : 'light';
+            html.setAttribute('data-theme', newTheme);
+            document.cookie = `theme=${newTheme};path=/;max-age=31536000`;
+        }
+        
+        function loadTheme() {
+            const theme = document.cookie.match(/theme=(\w+)/)?.[1] || 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+        }
+        
+        function initCharts() {
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { color: 'rgba(139, 148, 158, 0.1)' }, ticks: { color: '#8b949e' } },
+                    y: { grid: { color: 'rgba(139, 148, 158, 0.1)' }, ticks: { color: '#8b949e' } }
+                },
+                elements: { line: { tension: 0.4 }, point: { radius: 0 } }
+            };
+            
+            cpuChart = new Chart(document.getElementById('cpuChart'), {
+                ...commonOptions,
+                data: { labels: [], datasets: [{ data: [], borderColor: '#58a6ff', backgroundColor: '#58a6ff20', fill: true }] }
+            });
+            memoryChart = new Chart(document.getElementById('memoryChart'), {
+                ...commonOptions,
+                data: { labels: [], datasets: [{ data: [], borderColor: '#a371f7', backgroundColor: '#a371f720', fill: true }] }
+            });
+            sessionsChart = new Chart(document.getElementById('sessionsChart'), {
+                ...commonOptions,
+                data: { labels: [], datasets: [{ data: [], borderColor: '#3fb950', backgroundColor: '#3fb95020', fill: true }] }
+            });
+            latencyChart = new Chart(document.getElementById('latencyChart'), {
+                ...commonOptions,
+                data: { labels: [], datasets: [{ data: [], borderColor: '#d29922', backgroundColor: '#d2992220', fill: true }] }
+            });
+        }
+        
+        async function updateCharts() {
+            try {
+                const res = await fetch('/api/history');
+                const data = await res.json();
+                const labels = data.timestamps?.map(t => new Date(t).toLocaleTimeString()) || [];
+                
+                [cpuChart, memoryChart, sessionsChart, latencyChart].forEach((chart, i) => {
+                    const keys = ['cpu', 'memory', 'sessions', 'gateway_latency'];
+                    chart.data.labels = labels;
+                    chart.data.datasets[0].data = data[keys[i]] || [];
+                    chart.update();
+                });
+            } catch (e) { console.error('Chart update failed:', e); }
+        }
+        
+        function getProgressColor(v) {
+            if (v < 60) return 'low';
+            if (v < 80) return 'medium';
+            return 'high';
+        }
+        
+        function formatUptime(s) {
+            const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+            if (d > 0) return d + 'd ' + h + 'h ' + m + 'm';
+            if (h > 0) return h + 'h ' + m + 'm';
+            return m + 'm';
+        }
+        
+        async function refreshData() {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+                const sys = data.system || {};
+                
+                // Status badge
+                const statusEl = document.getElementById('overallStatus');
+                const health = data.overall_health || 'warning';
+                statusEl.className = `status-badge ${health}`;
+                statusEl.innerHTML = `<div class="status-dot ${health}"></div><span>${data.status === 'running' ? '运行中' : data.status === 'degraded' ? '部分异常' : '错误'}</span>`;
+                
+                // Stats
+                document.getElementById('cpuValue').innerHTML = (sys.cpu_percent || 0) + '<span class="unit">%</span>';
+                const cpuBar = document.getElementById('cpuBar');
+                cpuBar.style.width = (sys.cpu_percent || 0) + '%';
+                cpuBar.className = 'progress-fill ' + getProgressColor(sys.cpu_percent || 0);
+                
+                document.getElementById('memoryValue').innerHTML = (sys.memory_percent || 0) + '<span class="unit">%</span>';
+                const memBar = document.getElementById('memoryBar');
+                memBar.style.width = (sys.memory_percent || 0) + '%';
+                memBar.className = 'progress-fill ' + getProgressColor(sys.memory_percent || 0);
+                document.getElementById('memoryUsed').textContent = (sys.memory_used_gb || 0) + ' GB';
+                document.getElementById('memoryTotal').textContent = '/ ' + (sys.memory_total_gb || 0) + ' GB';
+                
+                document.getElementById('diskValue').innerHTML = (sys.disk_percent || 0) + '<span class="unit">%</span>';
+                const diskBar = document.getElementById('diskBar');
+                diskBar.style.width = (sys.disk_percent || 0) + '%';
+                diskBar.className = 'progress-fill ' + getProgressColor(sys.disk_percent || 0);
+                document.getElementById('diskUsed').textContent = (sys.disk_used_gb || 0) + ' GB';
+                
+                document.getElementById('agentCount').textContent = data.agents?.length || 0;
+                document.getElementById('channelCount').textContent = data.channels?.filter(c => c.enabled).length || 0;
+                document.getElementById('gatewayLatency').innerHTML = (data.gateway_latency || '--') + '<span class="unit">ms</span>';
+                document.getElementById('gatewayStatus').textContent = data.gateway_reachable ? '已连接' : '断开';
+                document.getElementById('uptime').textContent = formatUptime(sys.uptime_seconds || 0);
+                document.getElementById('bootTime').textContent = new Date(sys.boot_time * 1000).toLocaleString('zh-CN');
+                
+                // System info
+                document.getElementById('version').textContent = data.version || '--';
+                document.getElementById('os').textContent = (data.os || '').split(' ')[0] || '--';
+                document.getElementById('security').textContent = data.security_status || '--';
+                
+                // Channels
+                const chList = document.getElementById('channelList');
+                if (data.channels?.length) {
+                    chList.innerHTML = data.channels.map(c => `
+                        <div class="item">
+                            <div class="item-info">
+                                <div class="item-icon ${c.enabled ? 'enabled' : 'disabled'}">${c.enabled ? '✅' : '❌'}</div>
+                                <div><div class="item-name">${c.name}</div><div class="item-detail">${c.detail || '无'}</div></div>
+                            </div>
+                            <div class="item-status">
+                                <span class="status-tag ${c.status}">${c.state || '未知'}</span>
+                                ${c.enabled ? '<button class="action-btn" onclick="restartChannel(\'' + c.name + '\')">重启</button>' : ''}
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    chList.innerHTML = '<div class="item"><span style="color: var(--text-secondary)">暂无通道</span></div>';
+                }
+                
+                // Agents
+                const agList = document.getElementById('agentList');
+                if (data.agents?.length) {
+                    agList.innerHTML = data.agents.map(a => `
+                        <div class="item">
+                            <div class="item-info">
+                                <div class="item-icon ${a.bootstrap === 'OK' ? 'enabled' : 'warning'}">${a.bootstrap === 'OK' ? '✅' : '⚠️'}</div>
+                                <div><div class="item-name">${a.name}</div><div class="item-detail">${a.sessions} 会话</div></div>
+                            </div>
+                            <div class="item-status">
+                                <span class="status-tag ${a.bootstrap === 'OK' ? 'ok' : 'warning'}">${a.bootstrap || '未知'}</span>
+                                <button class="action-btn" onclick="restartAgent('${a.name}')">重启</button>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    agList.innerHTML = '<div class="item"><span style="color: var(--text-secondary)">暂无 Agent</span></div>';
+                }
+                
+                // Alerts
+                const alRes = await fetch('/api/alerts');
+                const alData = await alRes.json();
+                const alList = document.getElementById('alertList');
+                if (alData.alerts?.length) {
+                    alList.innerHTML = alData.alerts.slice(-10).reverse().map(a => `
+                        <div class="alert-item ${a.severity}">
+                            <span class="alert-time">${new Date(a.time).toLocaleString('zh-CN')}</span>
+                            <span class="alert-message">${a.message}</span>
+                            <span class="alert-severity ${a.severity}">${a.severity === 'critical' ? '严重' : '警告'}</span>
+                        </div>
+                    `).join('');
+                } else {
+                    alList.innerHTML = '<div class="item"><span style="color: var(--text-secondary)">暂无告警</span></div>';
+                }
+                
+                // Diagnosis
+                const diagList = document.getElementById('diagnosisList');
+                if (data.diagnosis?.length) {
+                    diagList.innerHTML = '<div style="padding: 12px;">' + data.diagnosis.map(d => '<div style="padding: 8px 0; border-bottom: 1px solid var(--border-color);">✅ ' + d + '</div>').join('') + '</div>';
+                } else if (data.warnings?.length) {
+                    diagList.innerHTML = '<div style="padding: 12px;">' + data.warnings.map(w => '<div style="padding: 8px 0; color: var(--accent-yellow);">⚠️ ' + w + '</div>').join('') + '</div>';
+                } else {
+                    diagList.innerHTML = '<div class="item"><span style="color: var(--text-secondary)">诊断通过</span></div>';
+                }
+                
+            } catch (e) { console.error('Refresh failed:', e); }
+        }
+        
+        async function restartAgent(name) {
+            if (!confirm('重启 Agent ' + name + '?')) return;
+            try {
+                const res = await fetch('/api/actions/restart/agent/' + name);
+                const data = await res.json();
+                alert(data.success ? '重启请求已发送' : '重启失败: ' + data.stderr);
+            } catch (e) { alert('错误: ' + e); }
+        }
+        
+        async function restartChannel(name) {
+            if (!confirm('重启通道 ' + name + '?')) return;
+            try {
+                const res = await fetch('/api/actions/restart/channel/' + name);
+                const data = await res.json();
+                alert(data.success ? '重启请求已发送' : '重启失败: ' + data.stderr);
+            } catch (e) { alert('错误: ' + e); }
+        }
+        
+        async function restartGateway() {
+            if (!confirm('重启网关?')) return;
+            try {
+                const res = await fetch('/api/actions/restart/gateway');
+                const data = await res.json();
+                alert(data.success ? '重启请求已发送' : '重启失败: ' + data.stderr);
+            } catch (e) { alert('错误: ' + e); }
+        }
+        
+        function showAlertsConfig() {
+            alert('告警配置功能开发中...');
+        }
+        
+        function startCountdown() {
+            let remaining = REFRESH_INTERVAL / 1000;
+            document.getElementById('countdown').textContent = '刷新: ' + remaining + 's';
+            countdownTimer = setInterval(() => {
+                remaining--;
+                if (remaining <= 0) { remaining = REFRESH_INTERVAL / 1000; refreshData(); }
+                document.getElementById('countdown').textContent = '刷新: ' + remaining + 's';
+            }, 1000);
+        }
+        
+        loadTheme();
+        initCharts();
+        refreshData();
+        startCountdown();
+        setInterval(updateCharts, 10000);
+    </script>
+</body>
+</html>
