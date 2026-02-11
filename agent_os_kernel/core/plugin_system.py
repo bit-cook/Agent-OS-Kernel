@@ -94,6 +94,48 @@ class PluginInfo:
 
 
 @dataclass
+class BasePlugin:
+    """插件基类"""
+    plugin_id: str
+    name: str
+    version: str = "1.0.0"
+    description: str = ""
+    author: str = ""
+    state: PluginState = PluginState.UNLOADED
+    config: Dict[str, Any] = field(default_factory=dict)
+    
+    def initialize(self) -> bool:
+        """初始化插件"""
+        return True
+    
+    def enable(self) -> bool:
+        """启用插件"""
+        self.state = PluginState.ENABLED
+        return True
+    
+    def disable(self) -> True:
+        """禁用插件"""
+        self.state = PluginState.DISABLED
+        return True
+    
+    def shutdown(self) -> bool:
+        """关闭插件"""
+        self.state = PluginState.UNLOADED
+        return True
+    
+    def get_info(self) -> PluginInfo:
+        """获取插件信息"""
+        return PluginInfo(
+            plugin_id=self.plugin_id,
+            name=self.name,
+            version=self.version,
+            description=self.description,
+            author=self.author,
+            state=self.state,
+        )
+
+
+@dataclass
 class PluginMessage:
     """插件消息"""
     message_id: str
