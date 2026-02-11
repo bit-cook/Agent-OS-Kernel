@@ -18,7 +18,6 @@ class TestCircuitBreaker:
     def test_closed_state(self):
         """测试关闭状态"""
         cb = CircuitBreaker("test", CircuitConfig(
-            name="test",
             failure_threshold=3,
             success_threshold=2,
             timeout_seconds=60
@@ -29,11 +28,11 @@ class TestCircuitBreaker:
     def test_metrics(self):
         """测试指标"""
         cb = CircuitBreaker("test")
-        metrics = cb.get_metrics()
+        metrics = cb.metrics
         
-        assert hasattr(metrics, 'total_calls')
-        assert hasattr(metrics, 'failed_calls')
-        assert metrics.total_calls == 0
+        assert hasattr(metrics, 'total_requests')
+        assert hasattr(metrics, 'failed_requests')
+        assert metrics.total_requests == 0
     
     def test_reset(self):
         """测试重置"""
@@ -58,16 +57,14 @@ class TestCircuitConfig:
     
     def test_default_config(self):
         """测试默认配置"""
-        config = CircuitConfig(name="default")
+        config = CircuitConfig()
         
-        assert config.name == "default"
         assert config.failure_threshold == 5
-        assert config.timeout_seconds == 60.0
+        assert config.timeout_seconds == 30.0
     
     def test_custom_config(self):
         """测试自定义配置"""
         config = CircuitConfig(
-            name="custom",
             failure_threshold=10,
             success_threshold=5,
             timeout_seconds=120.0
