@@ -70,6 +70,27 @@ except ImportError:
     _HAS_VLLM = False
     VLLMProvider = None
 
+try:
+    from .ai21_provider import AI21Provider
+    _HAS_AI21 = True
+except ImportError:
+    _HAS_AI21 = False
+    AI21Provider = None
+
+try:
+    from .cerebras_provider import CerebrasProvider
+    _HAS_CEREBRAS = True
+except ImportError:
+    _HAS_CEREBRAS = False
+    CerebrasProvider = None
+
+try:
+    from .cloudflare_provider import CloudflareProvider
+    _HAS_CLOUDFLARE = True
+except ImportError:
+    _HAS_CLOUDFLARE = False
+    CloudflareProvider = None
+
 
 __all__ = [
     # Core
@@ -77,6 +98,7 @@ __all__ = [
     'LLMConfig',
     'ProviderType',
     'LLMProviderFactory',
+    'LLMResponse',
     
     # Mock (always available)
     'MockProvider',
@@ -94,6 +116,9 @@ __all__ = [
     'QwenProvider',
     'OllamaProvider',
     'VLLMProvider',
+    'AI21Provider',
+    'CerebrasProvider',
+    'CloudflareProvider',
 ]
 
 # Provider availability info
@@ -106,5 +131,8 @@ PROVIDER_AVAILABILITY = {
     'qwen': _HAS_QWEN,
     'ollama': _HAS_OLLAMA,
     'vllm': _HAS_VLLM,
+    'ai21': _HAS_AI21,
+    'cerebras': _HAS_CEREBRAS,
+    'cloudflare': _HAS_CLOUDFLARE,
     'mock': True,  # Always available
 }

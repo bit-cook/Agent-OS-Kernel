@@ -99,6 +99,27 @@ class LLMProviderFactory:
             requires_api_key=True,
             default_model="qwen-turbo"
         ),
+        "ai21": ProviderInfo(
+            type=ProviderType.AI21,
+            name="AI21 Labs",
+            description="Jurassic-2 (J2), J2-Core, J2-Ultra",
+            requires_api_key=True,
+            default_model="j2-ultra"
+        ),
+        "cerebras": ProviderInfo(
+            type=ProviderType.CEREBRAS,
+            name="Cerebras",
+            description="High-speed cloud inference (Llama 3.1, Qwen)",
+            requires_api_key=True,
+            default_model="llama-3.1-8b"
+        ),
+        "cloudflare": ProviderInfo(
+            type=ProviderType.CLOUDFLARE,
+            name="Cloudflare Workers AI",
+            description="Edge AI (Llama, Mistral, Embeddings)",
+            requires_api_key=True,
+            default_model="@cf/meta/llama-3-8b-instruct"
+        ),
     }
     
     def __init__(self):

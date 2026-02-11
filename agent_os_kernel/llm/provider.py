@@ -28,6 +28,9 @@ class ProviderType(Enum):
     KIMI = "kimi"
     MINIMAX = "minimax"
     QWEN = "qwen"
+    AI21 = "ai21"
+    CEREBRAS = "cerebras"
+    CLOUDFLARE = "cloudflare"
     CUSTOM = "custom"
     
     @classmethod
@@ -95,6 +98,16 @@ class ChatMessage(Message):
     """聊天消息"""
     name: Optional[str] = None
     function_call: Optional[Dict] = None
+
+
+@dataclass
+class LLMResponse:
+    """LLM 响应"""
+    content: str
+    model: str
+    usage: Dict[str, int]
+    finish_reason: str = "stop"
+    tool_calls: Optional[List[Dict]] = None
 
 
 @dataclass
@@ -191,7 +204,38 @@ class LLMProvider(ABC):
             self._metrics["total_tokens"] += tokens
         else:
             self._metrics["failed_requests"] += 1
-    
+
+    def _create_client(self) -> 'httpx.AsyncClient':
+        """创建 HTTP 客户端"""
+        import httpx
+        limits = httpx.Limits(max_keepalive_connections=5, max_connections=10)
+        return httpx.AsyncClient(
+            timeout=self.config.timeout,
+            limits=limits
+        )
+
+    async def _aretry_request(self, request_func):
+        """带重试的请求"""
+        import httpx
+        last_error = None
+        for attempt in range(self.config.max_retries + 1):
+            try:
+                return await request_func()
+            except httpx.RequestError as e:
+                last_error = e
+                logger.warning(f"Request failed (attempt {attempt + 1}): {e}")
+                if attempt < self.config.max_retries:
+                    import asyncio
+                    await asyncio.sleep(2 ** attempt)  # 指数退避
+        raise last_error or Exception("Request failed")
+
+    def _format_messages(self, messages: List[Message]) -> List[Dict[str, str]]:
+        """格式化消息列表"""
+        return [
+            {"role": msg.role, "content": msg.content}
+            for msg in messages
+        ]
+
     @abstractmethod
     async def chat(
         self,
