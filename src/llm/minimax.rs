@@ -2,7 +2,7 @@
 pub struct MiniMaxProvider;
 
 impl MiniMaxProvider {
-    pub async fn query(&self, prompt: String) -> Result<serde_json::Value, String> {
+    pub async fn query(&self, _prompt: String) -> Result<serde_json::Value, String> {
         Err("Not implemented".to_string())
     }
 }
