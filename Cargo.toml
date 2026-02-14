@@ -1,0 +1,67 @@
+[package]
+name = "agent-os-kernel"
+version = "0.2.0"
+edition = "2021"
+description = "AI Agent Operating System Kernel - Rust version"
+license = "MIT"
+repository = "https://github.com/bit-cook/Agent-OS-Kernel"
+keywords = ["agent", "os", "kernel", "llm", "ai"]
+categories = ["os", "ai", "asynchronous"]
+resolver = "2"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[features]
+default = ["postgres", "web", "cli"]
+full = ["postgres", "web", "cli"]  # 暂时禁用 llm-providers 特性，避免 async-openai 依赖问题
+postgres = ["sqlx/postgres", "sqlx/runtime-tokio-rustls"]
+web = ["axum", "tower-http"]
+cli = ["clap", "tabwriter", "colored"]
+llm-providers = []  # 暂时禁用 llm-providers
+
+[dependencies]
+# Core dependencies
+tokio = { version = "1.0", features = ["full"] }
+async-trait = "0.1"
+thiserror = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+uuid = { version = "0.8", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+log = "0.4"
+env_logger = "0.10"
+toml = "0.6"
+
+# Context management
+lru = "0.12"
+similar = "2.4"
+hashbrown = "0.14"
+
+# Storage
+sqlx = { version = "0.6", default-features = false, features = ["postgres", "runtime-tokio-rustls", "macros", "chrono", "uuid", "time"] }
+
+# Web API
+axum = { version = "0.6", optional = true, features = ["ws"] }
+tower-http = { version = "0.4", optional = true, features = ["cors"] }
+
+# CLI
+clap = { version = "3.0", optional = true, features = ["derive"] }
+tabwriter = { version = "1.2", optional = true }
+colored = { version = "2.1", optional = true }
+
+# Metrics
+prometheus = { version = "0.13", optional = true }
+opentelemetry = { version = "0.19", optional = true }
+
+# LLM integration (暂时禁用，避免 async-openai 依赖问题)
+# async-openai = { version = "0.19", optional = true }
+# reqwest = { version = "0.11", optional = true, features = ["json"] }
+
+# 锁定 getrandom 到与 Cargo 1.75 兼容的版本
+getrandom = "0.3.4"
+
+[dev-dependencies]
+tokio-test = "0.4"
+assert-json-diff = "2.0"
