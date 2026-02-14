@@ -40,7 +40,7 @@ similar = "2.4"
 hashbrown = "0.14"
 
 # Storage
-sqlx = { version = "0.6", default-features = false, features = ["postgres", "runtime-tokio-rustls", "macros", "chrono", "uuid", "time"] }
+sqlx = { version = "0.7", default-features = false, features = ["postgres", "runtime-tokio-rustls", "macros", "chrono", "uuid", "time"] }
 
 # Web API
 axum = { version = "0.6", optional = true, features = ["ws"] }

@@ -4,7 +4,8 @@
 // https://github.com/bit-cook/Agent-OS-Kernel
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
-#![warn(missing_docs)]
+#![allow(missing_docs)]
+#![allow(dead_code)]
 
 //! Agent OS Kernel 是 AI Agent 的操作系统内核，提供：
 //! - 虚拟内存式上下文管理（Context Manager）
