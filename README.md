@@ -4,24 +4,17 @@
 
 **AI Agent 的操作系统内核**
 
+[English](./README_EN.md) | [中文](./README.md) | [宣言](./MANIFESTO.md) | [文档](docs/) | [示例](./examples)
+
 > 受到[《AI Agent 的操作系统时刻》](https://vonng.com/db/agent-os/) 启发，尝试填补 Agent 生态中"缺失的内核"
-
-**支持本地模型**: Ollama | vLLM | LocalAI ...
-
-**支持中国模型**: DeepSeek | Qwen | Kimi | MiniMax ...
-
----
-
-🦀 **Rust 重构版本已上线** · [分支 `rust-refactor-v3`](https://github.com/bit-cook/Agent-OS-Kernel/tree/rust-refactor-v3) · [快速开始](#-rust-重构版本快速开始)
-
----
 
 [![CI](https://github.com/bit-cook/Agent-OS-Kernel/actions/workflows/ci.yml/badge.svg)](https://github.com/bit-cook/Agent-OS-Kernel/actions)
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
+[![Rust Version](https://img.shields.io/badge/rust-1.75%2B-orange)](https://www.rust-lang.org/)
 [![Version](https://img.shields.io/badge/version-1.0.0-green.svg)](https://github.com/bit-cook/Agent-OS-Kernel/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-[English](./README_EN.md) | [中文](./README.md) | [宣言](./MANIFESTO.md) | [文档](docs/) | [示例](./examples)
+🦀 **Rust 重构版本已上线** · [分支 `rust-refactor-v3`](https://github.com/bit-cook/Agent-OS-Kernel/tree/rust-refactor-v3) · [快速开始](#-rust-重构版本快速开始)
 
 </div>
 
@@ -554,33 +547,11 @@ cargo test --lib
 | 指标 | 数值 |
 |------|------|
 | **Python 文件** | 120+ |
-| **核心模块** | 35+ |
-| **LLM Providers** | 11 |
-| **测试文件** | 16 |
-| **示例代码** | 35+ |
-| **文档** | 14+ |
-
-## 📄 许可证
-
-MIT License © 2026 OpenClaw
-
----
-
-<div align="center">
-
-**给项目一个 ⭐ Star 支持我们！**
-
-[![Star History](https://api.star-history.com/svg?repos=bit-cook/Agent-OS-Kernel&type=Date)](https://star-history.com/#bit-cook/Agent-OS-Kernel&Date)
-
-</div>
-
-## 📊 项目统计
-
-- **核心模块**: 74个
-- **测试文件**: 59个  
-- **示例代码**: 48个
-- **文档**: 41个
-- **总提交**: 158+
+| **核心模块** | 74+ |
+| **LLM Providers** | 11+ |
+| **测试文件** | 59+ |
+| **示例代码** | 48+ |
+| **文档** | 41+ |
 
 ## 🚀 快速测试
 
@@ -602,3 +573,20 @@ python examples/comprehensive_system_demo.py
 - 熔断器响应: < 1ms
 - 消息队列吞吐: > 10K msg/s
 - 分布式锁延迟: < 5ms
+
+## 📄 许可证
+
+MIT License © 2026 BitCook - 自由使用和学习！
+
+---
+
+<div align="center">
+
+**给项目一个 ⭐ Star 支持我们！**
+
+[![Star History](https://api.star-history.com/svg?repos=bit-cook/Agent-OS-Kernel&type=Date)](https://star-history.com/#bit-cook/Agent-OS-Kernel&Date)
+
+</div>
+
+
+
