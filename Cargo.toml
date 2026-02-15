@@ -72,3 +72,8 @@ pyo3 = { version = "0.22", features = ["extension-module"] }
 
 # 启用 Python 绑定: cargo build --features python
 # 或者使用 maturin: maturin develop
+
+[[bin]]
+name = "agent-os-kernel"
+path = "src/cli/main.rs"
+required-features = ["cli"]
