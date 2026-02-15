@@ -43,7 +43,12 @@
   - [x] ReActAgent
   - [x] ExecutorAgent
   - [x] WorkflowAgent
-- [ ] 集成 MCP 协议
+- [x] MCP 协议集成 ✅
+  - [x] McpClient 结构体
+  - [x] McpTool 定义
+  - [x] MCP 服务器管理
+  - [x] Tool trait 集成
+  - [x] 3 个测试用例 (12/12 通过)
 - [ ] 添加上下文压缩模块
 
 ## 📊 今日目标
