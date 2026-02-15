@@ -27,8 +27,6 @@ pub use tools::*;
 pub use llm::*;
 pub use agents::*;
 pub use api::*;
-pub use cli::*;
-pub use utils::*;
 
 // 主入口点
 pub use core::kernel::AgentOSKernel;
