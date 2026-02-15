@@ -6,6 +6,9 @@
 pub mod cache;
 /// 指标收集
 pub mod metrics;
+/// 上下文压缩
+pub mod compression;
 
 pub use cache::*;
 pub use metrics::*;
+pub use compression::*;
