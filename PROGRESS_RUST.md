@@ -5,6 +5,12 @@
 
 ## ✅ 已完成
 
+### Python 绑定
+- [x] PyO3 方案调研
+- [x] 创建示例代码 src/python.rs
+- [x] 配置 Cargo.toml 依赖
+- [x] 编写调研报告 docs/PYTHON_BINDING_RESEARCH.md
+
 ### 编译优化
 - [x] cargo fix 修复 9 个警告 (174 → 165)
 - [x] 升级 sqlx 0.6.3 → 0.7.4
@@ -35,7 +41,10 @@
 - [x] 添加单元测试
 
 ### P1 - 重要
-- [ ] 验证 Python 绑定可行性
+- [x] 验证 Python 绑定可行性 ✅
+  - [x] PyO3 方案调研
+  - [x] 创建示例代码
+  - [x] 配置 Cargo.toml
 
 ### P2 - 可选
 - [x] 移植 Agent 类型 ✅
