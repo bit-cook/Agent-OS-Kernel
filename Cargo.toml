@@ -65,3 +65,10 @@ getrandom = "0.3.4"
 [dev-dependencies]
 tokio-test = "0.4"
 assert-json-diff = "2.0"
+
+# Python Bindings (可选, 需要 python3-dev)
+[target.'cfg(feature = "python")'.dependencies]
+pyo3 = { version = "0.22", features = ["extension-module"] }
+
+# 启用 Python 绑定: cargo build --features python
+# 或者使用 maturin: maturin develop
