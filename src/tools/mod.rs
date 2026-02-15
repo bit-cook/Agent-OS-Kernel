@@ -8,7 +8,10 @@ pub mod base;
 pub mod registry;
 /// 内置工具
 pub mod builtin;
+/// MCP 协议客户端
+pub mod mcp;
 
 pub use base::*;
 pub use registry::*;
 pub use builtin::*;
+pub use mcp::*;
