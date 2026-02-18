@@ -94,9 +94,14 @@ class MemoryStorage(StorageInterface):
                 }
                 self._stats.last_modify = datetime.now()
                 self._stats.total_keys = len(self._data)
+                # 逻辑风险提示：total_size_bytes 这里是累加。
+                # - 若同一个 key 被反复覆盖写入，旧值占用的 size 并未扣除，会导致统计不断膨胀。
+                # - 如果该统计用于“资源配额/监控告警”，会产生误报。
                 self._stats.total_size_bytes += size
                 return True
             except Exception:
+                # 逻辑风险提示：这里吞掉所有异常并返回 False，会让上层只能看到“失败”但不知道原因。
+                # 对关键路径（持久化/审计/检查点）建议至少记录日志或抛出更明确异常。
                 return False
     
     def retrieve(self, key: str) -> Optional[Any]:
@@ -179,6 +184,8 @@ class FileStorage(StorageInterface):
                 with open(path, 'w', encoding='utf-8') as f:
                     json.dump(value, f, ensure_ascii=False, indent=2)
                 self._stats.last_modify = datetime.now()
+                # 逻辑风险提示：total_keys 这里简单 +1。
+                # - 若 key 对应文件已存在（覆盖写），该统计会偏大。
                 self._stats.total_keys += 1
                 return True
             except Exception:
@@ -196,6 +203,8 @@ class FileStorage(StorageInterface):
                 self._stats.miss_count += 1
                 return None
             except Exception:
+                # 逻辑风险提示：这里返回 None 既可能表示“没找到 key”，也可能表示“数据库异常”。
+                # 会让上层逻辑无法区分，导致错误处理分支混乱。
                 return None
     
     def delete(self, key: str) -> bool:
@@ -227,6 +236,9 @@ class FileStorage(StorageInterface):
                         full_hash = os.path.basename(root) + key_hash
                         try:
                             # 这里简化处理，实际应该维护映射
+                            # 逻辑风险提示：由于文件名使用 hash，且没有维护 hash<->原始 key 的映射，
+                            # 这里无法恢复真实 key，只能返回“拼出来的 hash”。
+                            # 这会导致 list_keys() 的接口语义基本不成立（调用方拿到 key 也无法 retrieve）。
                             keys.append(full_hash)
                         except Exception:
                             pass
@@ -280,6 +292,8 @@ class PostgreSQLStorage(StorageInterface):
             )
             self._init_schema()
         except ImportError:
+            # 逻辑风险提示：psycopg2 缺失时直接将 _pool 置空并静默降级。
+            # 上层若以为已经启用 PostgreSQL 后端，会出现“看似正常但实际上没持久化”的风险。
             self._pool = None
     
     def _init_schema(self):
@@ -358,6 +372,9 @@ class PostgreSQLStorage(StorageInterface):
                 self._pool.putconn(conn)
                 return True
             except Exception:
+                # 逻辑风险提示：这里吞掉所有异常并返回 False。
+                # - 上层无法区分“写入失败原因”（连接断开/权限/序列化失败/SQL 错误）。
+                # - 如果该写入承担检查点/审计等关键职责，静默失败会造成“看似运行但无法恢复/无法追溯”。
                 return False
     
     def retrieve(self, key: str) -> Optional[Any]:
@@ -377,6 +394,8 @@ class PostgreSQLStorage(StorageInterface):
                     return json.loads(row[0])
                 return None
             except Exception:
+                # 逻辑风险提示：返回 None 既可能表示“key 不存在”，也可能是“数据库异常”。
+                # 如果上层用 exists/retrieve 组合实现逻辑判断，可能会误判并进入错误分支。
                 return None
     
     def delete(self, key: str) -> bool:
@@ -468,6 +487,8 @@ class PostgreSQLStorage(StorageInterface):
             self._pool.putconn(conn)
             return True
         except Exception:
+            # 逻辑风险提示：检查点保存失败会直接返回 False；
+            # 若上层未显式处理该 False，可能导致“已创建检查点”的假象，最终无法恢复。
             return False
     
     def save_audit_log(self, log_data: dict) -> bool:
@@ -493,6 +514,7 @@ class PostgreSQLStorage(StorageInterface):
             self._pool.putconn(conn)
             return True
         except Exception:
+            # 逻辑风险提示：审计日志写入失败被静默吞掉，会让“可观测性/审计”形同虚设。
             return False
     
     def save_vector(self, key: str, content: str, embedding: bytes, metadata: dict = None) -> bool:
@@ -510,6 +532,8 @@ class PostgreSQLStorage(StorageInterface):
             self._pool.putconn(conn)
             return True
         except Exception:
+            # 逻辑风险提示：向量写入失败同样被吞掉。
+            # 如果上层依赖语义检索作为关键能力，需确保失败可被观测并触发降级策略。
             return False
     
     def search_vectors(self, query_embedding: bytes, limit: int = 10) -> List[dict]:
