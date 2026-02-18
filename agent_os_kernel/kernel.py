@@ -118,12 +118,20 @@ class AgentOSKernel:
         logger.info("Initializing five subsystems...")
         
         # 1. 存储层（必须先初始化，供其他子系统使用）
+        # 逻辑风险提示：
+        # - storage_backend 允许为 Optional[StorageBackend]，但 StorageManager.__init__ 更像期待一个枚举值。
+        #   这里传 None 时虽然可能会走到 MemoryStorage 兜底，但 self.storage._backend 会变成 None，
+        #   进而影响后续诸如 “if self._backend == StorageBackend.POSTGRESQL” 的逻辑判断语义。
         self.storage = StorageManager(storage_backend)
         logger.info("[1/5] Storage Layer ready (PostgreSQL Five Roles)")
         
         # 2. 上下文管理器（虚拟内存）
         self.context_manager = ContextManager(
             max_context_tokens=max_context_tokens,
+            # 逻辑风险提示：
+            # - ContextManager 的 storage_backend 参数名容易让人误解：
+            #   它到底应该是 StorageManager 实例/接口，还是 StorageBackend 枚举？
+            # - 这里传入 self.storage._backend（枚举/None）可能导致后续 swap in/out 时调用存储接口失败。
             storage_backend=self.storage._backend
         )
         logger.info("[2/5] Context Manager ready (Virtual Memory)")
@@ -297,6 +305,9 @@ class AgentOSKernel:
                 if page:
                     context_pages.append(page.to_dict())
                     # 将页面写回存储
+                    # 逻辑风险提示：这里调用 self.storage.save_context_page(page)。
+                    # 但在 core/storage.py 的 StorageManager 中未必实现了该方法（可能存在接口不一致/多版本代码混用）。
+                    # 若缺失会在 checkpoint 过程中直接抛 AttributeError，导致“优雅退出/崩溃恢复”承诺落空。
                     self.storage.save_context_page(page)
             
             logger.info("✓ Created checkpoint %s... for agent %s... (%d pages)",
@@ -317,6 +328,8 @@ class AgentOSKernel:
             新的 Agent PID
         """
         # 1. 加载检查点
+        # 逻辑风险提示：这里依赖 self.storage.load_checkpoint(checkpoint_id)。
+        # 若 StorageManager 未实现该方法或其行为与 PostgreSQLStorage.save_checkpoint 不对齐，会导致恢复失败。
         checkpoint = self.storage.load_checkpoint(checkpoint_id)
         if not checkpoint:
             logger.error("Checkpoint %s... not found", checkpoint_id[:8])
@@ -368,6 +381,9 @@ class AgentOSKernel:
         )
         
         # 3. 检查资源配额
+        # 逻辑风险提示：tokens_needed 使用 split()*2 的方式粗略估计。
+        # - 这会让配额管理与真实模型 token 计费差异很大（中文/代码/工具 schema 尤其明显）。
+        # - 如果将来要做“可观测性/成本控制”，需要统一 token 计数策略（如 tiktoken 等）。
         tokens_needed = len(context.split()) * 2  # 粗略估计
         if not self.scheduler.request_resources(process.pid, tokens_needed):
             return {'success': False, 'error': 'Resource quota exceeded', 'done': False}
@@ -380,6 +396,9 @@ class AgentOSKernel:
         reasoning = f"Processing task: {process.context.get('task', 'unknown')}"
         
         # 6. 记录审计日志（可观测性）
+        # 逻辑风险提示：这里调用 self.storage.log_action(...)。
+        # 但 core/storage.py 中展示的接口是 log_audit / save_audit_log 等，
+        # log_action 是否存在取决于 StorageManager 的实际实现（同样存在接口不一致风险）。
         self.storage.log_action(
             agent_pid=process.pid,
             action_type="reasoning",
