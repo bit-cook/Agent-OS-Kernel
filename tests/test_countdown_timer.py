@@ -89,8 +89,8 @@ class TestTimerAlert:
         assert alert.should_trigger(4.0) is True
         assert alert._trigger_count == 2
         
-触发
-        assert        # 第三次 alert.should_trigger(6.0) is True
+        # 第三次触发
+        assert alert.should_trigger(6.0) is True
         assert alert._trigger_count == 3
         
         # 达到最大重复次数，不再触发
