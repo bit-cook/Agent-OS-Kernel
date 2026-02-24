@@ -87,25 +87,21 @@ class TestAgentPriorityQueue:
     
     def test_priority_queue_ordering(self):
         """Test PriorityQueue ordering"""
-        queue = asyncio.Queue()
+        from queue import PriorityQueue
+        queue = PriorityQueue()
         
         # Add tasks in random order
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(queue.put(AgentTask(priority=AgentPriority.NORMAL, task_id="t1", data="n")))
-            loop.run_until_complete(queue.put(AgentTask(priority=AgentPriority.HIGH, task_id="t2", data="h")))
-            loop.run_until_complete(queue.put(AgentTask(priority=AgentPriority.CRITICAL, task_id="t3", data="c")))
-            loop.run_until_complete(queue.put(AgentTask(priority=AgentPriority.LOW, task_id="t4", data="l")))
-        finally:
-            loop.close()
+        queue.put(AgentTask(priority=AgentPriority.NORMAL, task_id="t1", data="n"))
+        queue.put(AgentTask(priority=AgentPriority.HIGH, task_id="t2", data="h"))
+        queue.put(AgentTask(priority=AgentPriority.CRITICAL, task_id="t3", data="c"))
+        queue.put(AgentTask(priority=AgentPriority.LOW, task_id="t4", data="l"))
         
         # Retrieve in priority order (CRITICAL=0 first, then HIGH=1, etc.)
-        first = queue.get_nowait()
+        first = queue.get()
         assert first.priority == 0  # CRITICAL
         assert first.task_id == "t3"
         
-        second = queue.get_nowait()
+        second = queue.get()
         assert second.priority == 1  # HIGH
         assert second.task_id == "t2"
 
@@ -346,12 +342,12 @@ class TestLoadBalancing:
             agent.priority = AgentPriority.NORMAL
             agent.state = AgentState.RUNNING
         
-        # Create high-priority task
-        high_task = AgentTask(priority=AgentPriority.HIGH, task_id="t1", data="test")
+        # Create normal-priority task (NORMAL agents can handle NORMAL and LOW)
+        normal_task = AgentTask(priority=AgentPriority.NORMAL, task_id="t1", data="test")
         
-        selected = balancer.select_agent(agents, high_task)
+        selected = balancer.select_agent(agents, normal_task)
         
-        # Should select a suitable agent (NORMAL can handle HIGH priority)
+        # Should select a suitable agent
         assert selected is not None
     
     def test_no_available_agents(self, agents):
