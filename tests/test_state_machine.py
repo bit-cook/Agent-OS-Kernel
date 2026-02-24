@@ -177,6 +177,8 @@ class TestStateMachine:
         sm.add_transition("idle", "running", "start")
         
         sm.start()
+        # Trigger transition to running state
+        sm.trigger_event("start")
         assert len(enter_calls) == 1
         
         sm.stop()

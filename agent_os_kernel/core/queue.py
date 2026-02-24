@@ -369,7 +369,8 @@ class PriorityQueue(Generic[T]):
                         raise RuntimeError("Queue is closed")
             
             # Create priority item and add to heap
-            priority_item = PriorityItem(priority=priority_value, item=item)
+            # Negate priority so higher values come first (ascending sort)
+            priority_item = PriorityItem(priority=-priority_value, item=item)
             self._queue.append(priority_item)
             self._queue.sort()  # Maintain heap property
             

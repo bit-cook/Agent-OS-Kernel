@@ -121,11 +121,22 @@ class StateMachine:
         with self._lock:
             self._states.add(state)
             self._transitions[state] = []
-            self._callbacks[state] = StateCallbacks(
-                on_enter=on_enter,
-                on_exit=on_exit,
-                on_update=on_update
-            )
+            
+            # Preserve existing callbacks if state already exists
+            existing = self._callbacks.get(state)
+            if existing:
+                # Merge: new callbacks override existing ones
+                self._callbacks[state] = StateCallbacks(
+                    on_enter=on_enter if on_enter is not None else existing.on_enter,
+                    on_exit=on_exit if on_exit is not None else existing.on_exit,
+                    on_update=on_update if on_update is not None else existing.on_update
+                )
+            else:
+                self._callbacks[state] = StateCallbacks(
+                    on_enter=on_enter,
+                    on_exit=on_exit,
+                    on_update=on_update
+                )
     
     def add_transition(
         self,
@@ -221,7 +232,7 @@ class StateMachine:
                 if transition.event == event:
                     # 检查条件守卫
                     if transition.guard is not None and not transition.guard():
-                        return False
+                        continue  # Try next transition with same event
                     
                     # 执行状态退出回调
                     self._execute_callback(self._current_state, 'on_exit')
@@ -248,7 +259,15 @@ class StateMachine:
         if callbacks:
             callback = getattr(callbacks, callback_type, None)
             if callback:
-                callback()
+                # Try to call with instance if available (for decorator-bound methods)
+                if hasattr(self, '_instance'):
+                    try:
+                        callback(self._instance)
+                    except TypeError:
+                        # Fallback: call without instance if it doesn't need it
+                        callback()
+                else:
+                    callback()
     
     def start(self) -> None:
         """启动状态机"""
@@ -391,9 +410,9 @@ class ParallelStateMachine(StateMachine):
         initial_states: List[str],
         name: str = "ParallelStateMachine"
     ):
-        super().__init__(initial_states[0] if initial_states else "", name)
-        self._active_states: Set[str] = set(initial_states)
         self._initial_states = initial_states
+        self._active_states: Set[str] = set(initial_states)
+        super().__init__(initial_states[0] if initial_states else "", name)
     
     @property
     def current_states(self) -> Set[str]:

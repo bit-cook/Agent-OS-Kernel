@@ -65,8 +65,8 @@ class TestTokenBucket:
         """Test resetting the bucket."""
         bucket = TokenBucket(capacity=10, refill_rate=1.0)
         
-        bucket.consume(8)
-        result = bucket.consume(1)
+        bucket.consume(9)
+        result = bucket.consume(2)
         assert result.allowed is False
         
         bucket.reset()
@@ -83,7 +83,8 @@ class TestTokenBucket:
         
         bucket.consume(3)
         
-        assert bucket.available_tokens == 7
+        # Allow small floating point difference due to time-based refill
+        assert abs(bucket.available_tokens - 7) < 0.1
     
     def test_max_capacity(self):
         """Test that tokens don't exceed capacity."""
