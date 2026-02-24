@@ -18,6 +18,16 @@ from .benchmark import (
     generate_report,
 )
 
+from .message_queue import (
+    Message,
+    MessagePriority,
+    MessageStatus,
+    PriorityMessageQueue,
+    MessageBroker,
+    Subscription,
+    create_message_broker,
+)
+
 from .optimizer import (
     PoolConfig,
     CacheConfig,
@@ -36,6 +46,61 @@ from .optimizer import (
     create_batch_processor,
 )
 
+from .service_mesh import (
+    CircuitState,
+    LoadBalancingStrategy,
+    ServiceInstance,
+    ServiceInfo,
+    CircuitBreaker,
+    CircuitBreakerOpen,
+    ServiceRegistry,
+    LoadBalancer,
+    ServiceClient,
+    ServiceNotFound,
+    NoHealthyInstance,
+    ServiceMesh,
+    create_service_mesh,
+    create_service_registry,
+    create_load_balancer,
+    create_circuit_breaker,
+)
+
+from .workflow_engine import (
+    WorkflowEngine,
+    Workflow,
+    Task,
+    TaskConfig,
+    TaskStatus,
+    WorkflowStatus,
+    TaskResult,
+    create_workflow_engine,
+)
+
+from .distributed_lock import (
+    LockType,
+    LockState,
+    LockOwner,
+    LockAcquireError,
+    LockRenewalError,
+    LockTimeoutError,
+    DistributedLockBackend,
+    InMemoryLockBackend,
+    ReadWriteLockBackend,
+    DistributedLock,
+    ReadWriteLock,
+    create_distributed_lock,
+    create_read_write_lock,
+)
+
+from .config_hot_reload import (
+    ConfigChangeType,
+    ConfigChange,
+    ConfigSchema,
+    ConfigValidator,
+    ConfigHotReload,
+    create_config_hot_reload,
+)
+
 __all__ = [
     # Benchmark exports
     "LatencyResult",
@@ -50,6 +115,14 @@ __all__ = [
     "measure_throughput",
     "monitor_resources",
     "generate_report",
+    # Message Queue exports
+    "Message",
+    "MessagePriority",
+    "MessageStatus",
+    "PriorityMessageQueue",
+    "MessageBroker",
+    "Subscription",
+    "create_message_broker",
     # Optimizer exports
     "PoolConfig",
     "CacheConfig",
@@ -66,4 +139,51 @@ __all__ = [
     "create_memory_pool",
     "create_concurrency_limiter",
     "create_batch_processor",
+    # Service Mesh exports
+    "CircuitState",
+    "LoadBalancingStrategy",
+    "ServiceInstance",
+    "ServiceInfo",
+    "CircuitBreaker",
+    "CircuitBreakerOpen",
+    "ServiceRegistry",
+    "LoadBalancer",
+    "ServiceClient",
+    "ServiceNotFound",
+    "NoHealthyInstance",
+    "ServiceMesh",
+    "create_service_mesh",
+    "create_service_registry",
+    "create_load_balancer",
+    "create_circuit_breaker",
+    # Workflow Engine exports
+    "WorkflowEngine",
+    "Workflow",
+    "Task",
+    "TaskConfig",
+    "TaskStatus",
+    "WorkflowStatus",
+    "TaskResult",
+    "create_workflow_engine",
+    # Distributed Lock exports
+    "LockType",
+    "LockState",
+    "LockOwner",
+    "LockAcquireError",
+    "LockRenewalError",
+    "LockTimeoutError",
+    "DistributedLockBackend",
+    "InMemoryLockBackend",
+    "ReadWriteLockBackend",
+    "DistributedLock",
+    "ReadWriteLock",
+    "create_distributed_lock",
+    "create_read_write_lock",
+    # Config Hot Reload exports
+    "ConfigChangeType",
+    "ConfigChange",
+    "ConfigSchema",
+    "ConfigValidator",
+    "ConfigHotReload",
+    "create_config_hot_reload",
 ]

@@ -242,6 +242,7 @@ class Agent:
     def can_handle_priority(self, task_priority: int) -> bool:
         """Check if agent can handle a task with given priority"""
         # Lower priority number = higher priority
+        # Agent can handle tasks with priority >= its own (i.e., equal or lower priority number)
         agent_prio_num = self.priority.value if isinstance(self.priority, AgentPriority) else self.priority
         return task_priority >= agent_prio_num
     
@@ -409,7 +410,19 @@ class AgentPool:
         with self._lock:
             if agent_id in self._agents:
                 agent = self._agents[agent_id]
-                asyncio.run(agent.stop())
+                # Try to stop the agent, but handle if event loop is running
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        # Create a new event loop for stopping
+                        new_loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(new_loop)
+                        new_loop.run_until_complete(agent.stop())
+                        new_loop.close()
+                    else:
+                        loop.run_until_complete(agent.stop())
+                except RuntimeError:
+                    asyncio.run(agent.stop())
                 del self._agents[agent_id]
                 logger.info(f"Agent {agent_id} removed from pool (size: {self.size})")
                 return True
