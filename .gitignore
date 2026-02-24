@@ -1,0 +1,54 @@
+# Virtual environment
+.venv
+venv
+ENV/
+env/
+env.bak/
+*.venv
+
+# Temporary files
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.swp
+*.swo
+*~
+*.DS_Store
+
+# Log files
+*.log
+*.err
+*.out
+
+# Configuration files
+*.env
+.env.*
+!.env.example
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# IDE files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# OS files
+Thumbs.db
+
+# Test files
+.pytest_cache/
+.coverage
+htmlcov/
+.pytest*
+
+# Progress files
+progress.log
+*.txt
