@@ -100,7 +100,7 @@ impl SecurityPolicy {
                 SecurityOperation::FileAccess(_) => SecurityViolationType::PathAccess,
                 SecurityOperation::SystemCall(_) => SecurityViolationType::SystemCall,
             },
-            message: format!("All operations are blocked in restricted mode"),
+            message: "All operations are blocked in restricted mode".to_string(),
             severity: SecuritySeverity::Critical,
         })
     }
@@ -109,11 +109,10 @@ impl SecurityPolicy {
         let normalized_path = Path::new(path).to_str().unwrap_or(path);
         
         for (pattern, permission) in &self.filesystem_permissions {
-            if normalized_path.starts_with(pattern) {
-                if permission.can_read() {
+            if normalized_path.starts_with(pattern)
+                && permission.can_read() {
                     return Ok(());
                 }
-            }
         }
 
         warn!("Path access violation: {}", normalized_path);
@@ -138,6 +137,12 @@ impl SecurityPolicy {
 /// 安全策略构建器
 pub struct SecurityPolicyBuilder {
     policy: SecurityPolicy,
+}
+
+impl Default for SecurityPolicyBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SecurityPolicyBuilder {
@@ -274,6 +279,12 @@ impl SecuritySeverity {
 pub struct SandboxManager {
     sandboxes: Arc<RwLock<HashMap<AgentPid, SandboxConfig>>>,
     audit_log: Arc<Mutex<Vec<AuditLogEntry>>>,
+}
+
+impl Default for SandboxManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SandboxManager {

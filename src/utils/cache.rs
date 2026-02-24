@@ -11,6 +11,12 @@ pub struct SimpleCache {
     cache: HashMap<String, serde_json::Value>,
 }
 
+impl Default for SimpleCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SimpleCache {
     pub fn new() -> Self {
         Self { cache: HashMap::new() }

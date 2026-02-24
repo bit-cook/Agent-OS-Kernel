@@ -52,6 +52,7 @@ impl Default for SchedulerConfig {
 
 /// 调度器状态
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct SchedulerState {
     /// 就绪队列
     pub ready_queue: VecDeque<AgentPid>,
@@ -65,17 +66,6 @@ pub struct SchedulerState {
     pub resource_usage: HashMap<AgentPid, ResourceUsage>,
 }
 
-impl Default for SchedulerState {
-    fn default() -> Self {
-        Self {
-            ready_queue: VecDeque::new(),
-            running_queue: Vec::new(),
-            waiting_queue: VecDeque::new(),
-            processes: HashMap::new(),
-            resource_usage: HashMap::new(),
-        }
-    }
-}
 
 /// 资源使用情况
 #[derive(Debug, Clone)]

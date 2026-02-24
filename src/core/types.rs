@@ -47,20 +47,17 @@ impl Default for ResourceQuota {
 /// 安全策略级别
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum PermissionLevel {
     /// 受限沙箱模式
     Restricted,
     /// 标准模式
+    #[default]
     Standard,
     /// 完全访问模式
     Unrestricted,
 }
 
-impl Default for PermissionLevel {
-    fn default() -> Self {
-        Self::Standard
-    }
-}
 
 /// 安全策略
 #[derive(Debug, Clone, Serialize, Deserialize)]

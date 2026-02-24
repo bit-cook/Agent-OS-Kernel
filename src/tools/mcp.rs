@@ -68,6 +68,12 @@ pub struct McpClient {
     pub tools: HashMap<String, McpTool>,
 }
 
+impl Default for McpClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl McpClient {
     /// Create new MCP client
     pub fn new() -> Self {

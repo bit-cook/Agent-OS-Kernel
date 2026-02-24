@@ -12,6 +12,12 @@ pub struct MetricsCollector {
     gauges: HashMap<String, f64>,
 }
 
+impl Default for MetricsCollector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MetricsCollector {
     /// 创建新的指标收集器
     pub fn new() -> Self {
