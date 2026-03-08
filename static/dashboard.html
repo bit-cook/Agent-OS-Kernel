@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent OS Kernel Dashboard</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0e17;--card:#111827;--border:#1e293b;--accent:#06b6d4;--accent2:#8b5cf6;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--text:#e2e8f0;--text2:#94a3b8;--glow:0 0 20px rgba(6,182,212,0.3)}
+body{font-family:'SF Mono',Monaco,Consolas,monospace;background:var(--bg);color:var(--text);min-height:100vh}
+.header{background:linear-gradient(135deg,#0f172a,#1e1b4b);border-bottom:1px solid var(--border);padding:20px 30px;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--glow)}
+.header h1{font-size:24px;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:2px}
+.header .status{display:flex;align-items:center;gap:10px}
+.status-dot{width:10px;height:10px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(16,185,129,0.7)}50%{opacity:0.8;box-shadow:0 0 0 8px rgba(16,185,129,0)}}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;padding:20px 30px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;transition:all 0.3s}
+.card:hover{border-color:var(--accent);box-shadow:var(--glow)}
+.card .label{font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:1px}
+.card .value{font-size:28px;font-weight:bold;margin-top:6px;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.card .sub{font-size:11px;color:var(--text2);margin-top:4px}
+.section{padding:10px 30px}
+.section h2{font-size:16px;color:var(--accent);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+table{width:100%;border-collapse:collapse;background:var(--card);border-radius:12px;overflow:hidden;border:1px solid var(--border)}
+th{background:#1e293b;padding:12px 16px;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--text2)}
+td{padding:10px 16px;border-top:1px solid var(--border);font-size:13px}
+tr:hover td{background:rgba(6,182,212,0.05)}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:bold}
+.badge.running{background:rgba(16,185,129,0.2);color:var(--green)}
+.badge.waiting{background:rgba(245,158,11,0.2);color:var(--yellow)}
+.badge.stopped{background:rgba(239,68,68,0.2);color:var(--red)}
+.btn{padding:6px 14px;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit;transition:all 0.2s}
+.btn-danger{background:rgba(239,68,68,0.2);color:var(--red);border:1px solid var(--red)}
+.btn-danger:hover{background:var(--red);color:white}
+.btn-primary{background:rgba(6,182,212,0.2);color:var(--accent);border:1px solid var(--accent)}
+.btn-primary:hover{background:var(--accent);color:white}
+.form-row{display:flex;gap:10px;padding:10px 30px;flex-wrap:wrap}
+.form-row input,.form-row select{background:var(--card);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:8px;font-family:inherit;font-size:13px;outline:none}
+.form-row input:focus,.form-row select:focus{border-color:var(--accent)}
+.form-row input{flex:1;min-width:150px}
+.footer{text-align:center;padding:20px;color:var(--text2);font-size:11px;border-top:1px solid var(--border);margin-top:20px}
+@media(max-width:768px){.grid{grid-template-columns:1fr 1fr}.header h1{font-size:16px}.form-row{flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="header">
+<h1>⚡ AGENT OS KERNEL DASHBOARD</h1>
+<div class="status"><span class="status-dot"></span><span id="state">Connecting...</span><span style="color:var(--text2);font-size:12px" id="version"></span></div>
+</div>
+
+<div class="grid">
+<div class="card"><div class="label">⏱ Uptime</div><div class="value" id="uptime">—</div><div class="sub" id="start_time">—</div></div>
+<div class="card"><div class="label">🤖 Total Agents</div><div class="value" id="total_agents">0</div><div class="sub" id="active_agents">0 active</div></div>
+<div class="card"><div class="label">🪙 Tokens Processed</div><div class="value" id="total_tokens">0</div><div class="sub" id="api_calls">0 API calls</div></div>
+<div class="card"><div class="label">📊 Context Window</div><div class="value" id="context">128K</div><div class="sub" id="cache_hit">— cache hit</div></div>
+</div>
+
+<div class="section"><h2>🧪 Create Agent</h2></div>
+<div class="form-row">
+<input type="text" id="agent_name" placeholder="Agent Name">
+<input type="text" id="agent_task" placeholder="Task Description">
+<select id="agent_priority"><option value="90">Critical (90)</option><option value="70">High (70)</option><option value="50" selected>Normal (50)</option><option value="30">Low (30)</option><option value="10">Background (10)</option></select>
+<button class="btn btn-primary" onclick="createAgent()">+ Create Agent</button>
+</div>
+
+<div class="section"><h2>📋 Agent Processes</h2>
+<table>
+<thead><tr><th>PID</th><th>Name</th><th>Task</th><th>Priority</th><th>Status</th><th>Tokens</th><th>Actions</th></tr></thead>
+<tbody id="agents_table"><tr><td colspan="7" style="text-align:center;color:var(--text2)">No agents running</td></tr></tbody>
+</table>
+</div>
+
+<div class="section" style="margin-top:20px"><h2>⚙️ Scheduler</h2></div>
+<div class="grid">
+<div class="card"><div class="label">Policy</div><div class="value" style="font-size:20px" id="sched_policy">—</div></div>
+<div class="card"><div class="label">Ready Queue</div><div class="value" id="sched_ready">0</div></div>
+<div class="card"><div class="label">Running Queue</div><div class="value" id="sched_running">0</div></div>
+<div class="card"><div class="label">Waiting Queue</div><div class="value" id="sched_waiting">0</div></div>
+</div>
+
+<div class="footer">Agent OS Kernel v0.3.0 — Built with Rust + Axum — © 2026 bit-cook</div>
+
+<script>
+const API='';
+function fmt(s){if(s>86400)return(s/86400).toFixed(1)+'d';if(s>3600)return(s/3600).toFixed(1)+'h';if(s>60)return(s/60).toFixed(1)+'m';return s.toFixed(0)+'s'}
+function fmtN(n){if(n>=1e9)return(n/1e9).toFixed(1)+'B';if(n>=1e6)return(n/1e6).toFixed(1)+'M';if(n>=1e3)return(n/1e3).toFixed(1)+'K';return n.toString()}
+
+async function refresh(){
+  try{
+    const [sr,ar,mr,scr]=await Promise.all([
+      fetch(API+'/api/status').then(r=>r.json()),
+      fetch(API+'/api/agents').then(r=>r.json()),
+      fetch(API+'/api/metrics').then(r=>r.json()),
+      fetch(API+'/api/scheduler').then(r=>r.json())
+    ]);
+    const s=sr.data;
+    document.getElementById('state').textContent=s.state;
+    document.getElementById('version').textContent='v'+s.version;
+    document.getElementById('uptime').textContent=fmt(s.uptime_secs);
+    document.getElementById('start_time').textContent='Since '+new Date(s.start_time).toLocaleString();
+    document.getElementById('total_agents').textContent=s.total_agents;
+    document.getElementById('active_agents').textContent=s.active_agents+' active';
+    document.getElementById('total_tokens').textContent=fmtN(s.total_tokens);
+    document.getElementById('api_calls').textContent=fmtN(s.total_api_calls)+' API calls';
+    document.getElementById('context').textContent=fmtN(s.max_context_tokens);
+
+    const m=mr.data;
+    document.getElementById('cache_hit').textContent=(m.cache_hit_rate*100).toFixed(0)+'% cache hit';
+
+    const agents=ar.data;
+    const tb=document.getElementById('agents_table');
+    if(agents.length===0){tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text2)">No agents running</td></tr>';}
+    else{tb.innerHTML=agents.map(a=>`<tr>
+      <td style="font-size:11px;color:var(--text2)">${a.pid.substring(0,14)}...</td>
+      <td><strong>${a.name}</strong></td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.task}</td>
+      <td>${a.priority}</td>
+      <td><span class="badge ${a.status}">${a.status}</span></td>
+      <td>${fmtN(a.tokens_used)}</td>
+      <td><button class="btn btn-danger" onclick="killAgent('${a.pid}')">Kill</button></td>
+    </tr>`).join('');}
+
+    const sc=scr.data;
+    document.getElementById('sched_policy').textContent=sc.policy;
+    document.getElementById('sched_ready').textContent=sc.ready_queue;
+    document.getElementById('sched_running').textContent=sc.running_queue;
+    document.getElementById('sched_waiting').textContent=sc.waiting_queue;
+  }catch(e){document.getElementById('state').textContent='Disconnected';}
+}
+
+async function createAgent(){
+  const name=document.getElementById('agent_name').value||'Untitled';
+  const task=document.getElementById('agent_task').value||'No task';
+  const priority=parseInt(document.getElementById('agent_priority').value);
+  await fetch(API+'/api/agents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,task,priority})});
+  document.getElementById('agent_name').value='';
+  document.getElementById('agent_task').value='';
+  refresh();
+}
+
+async function killAgent(pid){
+  await fetch(API+'/api/agents/'+pid,{method:'DELETE'});
+  refresh();
+}
+
+refresh();
+setInterval(refresh,3000);
+</script>
+</body>
+</html>
