@@ -19,10 +19,17 @@ enum Commands {
     Ps,
     /// 显示状态
     Status,
+    /// 启动 Web API 服务器
+    Serve {
+        /// 监听端口
+        #[clap(long, default_value = "9090")]
+        port: u16,
+    },
 }
 
 #[tokio::main]
 async fn main() {
+    env_logger::init();
     let cli = Cli::parse();
 
     match cli.command {
@@ -30,5 +37,12 @@ async fn main() {
         Commands::Stop => println!("⏹️ 停止内核..."),
         Commands::Ps => println!("📋 进程列表"),
         Commands::Status => println!("✅ 运行中"),
+        Commands::Serve { port } => {
+            println!("🚀 启动 Web API 服务器...");
+            if let Err(e) = agent_os_kernel::api::server::start_server(port).await {
+                eprintln!("❌ 服务器启动失败: {}", e);
+                std::process::exit(1);
+            }
+        }
     }
 }

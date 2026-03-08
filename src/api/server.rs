@@ -265,7 +265,6 @@ pub async fn start_server(port: u16) -> Result<(), Box<dyn std::error::Error>> {
     info!("📊 Dashboard: http://0.0.0.0:{}/", port);
     info!("📡 API: http://0.0.0.0:{}/api/status", port);
 
-    let _listener = tokio::net::TcpListener::bind(addr).await?;
     let server = axum::Server::bind(&addr).serve(app.into_make_service());
     server.await?;
     Ok(())

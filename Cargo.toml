@@ -13,6 +13,10 @@ resolver = "2"
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
+[lib]
+name = "agent_os_kernel"
+path = "src/lib.rs"
+
 [features]
 default = ["postgres", "web", "cli"]
 full = ["postgres", "web", "cli"]  # 暂时禁用 llm-providers 特性，避免 async-openai 依赖问题
