@@ -28,6 +28,13 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
 import jsonschema
 
+# 逻辑风险提示：
+# - 本模块依赖 watchdog/jsonschema（以及后续的 PyYAML），但它们未必在项目的基础依赖中声明。
+#   如果用户仅安装最小依赖，导入该模块就可能触发 ImportError。
+# - 建议：
+#   1) 将其加入 requirements/pyproject optional-dependencies；或
+#   2) 将 import 放入函数内部并给出明确提示，使其成为可选能力。
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -162,6 +169,7 @@ class ConfigValidator:
                     import yaml
                     config = yaml.safe_load(content)
                 except ImportError:
+                    # 逻辑风险提示：yaml 依赖缺失时返回错误字符串，但上层可能不一定处理该错误。
                     return False, "Neither JSON nor YAML parsing available", None
                 except yaml.YAMLError as e:
                     return False, f"YAML parsing error: {str(e)}", None
@@ -685,6 +693,8 @@ class ConfigHotReload:
             try:
                 callback(change)
             except Exception as e:
+                # 逻辑风险提示：回调异常会被吞掉（仅日志），
+                # 可能导致外部系统以为已收到变更通知，但实际上 callback 内部失败。
                 logger.error(f"[ConfigHotReload] Callback error: {e}")
     
     def _load_all_configs(self) -> None:

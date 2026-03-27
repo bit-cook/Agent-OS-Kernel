@@ -16,6 +16,11 @@ from typing import Optional
 from datetime import datetime
 from datetime import timezone, timezone
 
+# 逻辑风险提示：
+# - 这里出现重复导入（timezone, timezone），属于明显的代码瑕疵；通常不会影响运行，但会影响静态检查与可维护性。
+# - 本文件实现的 CLI 与 agent_os_kernel/__main__.py 的“demo runner”入口存在职责冲突：
+#   如果对外 console_scripts 绑定到 __main__.py，这里这些命令实际不会被用户用到。
+
 
 class CLI:
     """命令行接口"""
@@ -137,6 +142,9 @@ class CLI:
         """列出 Agent"""
         from ..core import AgentOSKernel
         kernel = AgentOSKernel()
+        # 逻辑风险提示：这里调用了 kernel.list_agents()。
+        # 但在当前主内核实现（agent_os_kernel/kernel.py）中未看到该方法定义，
+        # 如果两者未对齐，运行 list 命令会直接抛 AttributeError。
         agents = kernel.list_agents()
         print(f"{'ID':<8} {'Name':<20} {'Status':<12}")
         for a in agents:
@@ -145,6 +153,9 @@ class CLI:
     
     def _cmd_delete(self, args):
         """删除 Agent"""
+        # 逻辑风险提示：当前 delete/demo/serve/status 多数为占位实现（仅 print），
+        # 并未真正调用内核/存储层做状态变更。
+        # 如果文档对外宣称这些命令可用，用户会遇到“看似成功但什么也没发生”的逻辑落差。
         print(f"删除 Agent: {args.agent_id}")
         return 0
     
@@ -155,6 +166,8 @@ class CLI:
     
     def _cmd_serve(self, args):
         """启动服务器"""
+        # 逻辑风险提示：这里未真正启动 FastAPI/uvicorn（当前仅输出），
+        # 与 requirements.txt 中包含 fastapi/uvicorn 的预期不一致。
         print(f"启动服务器: {args.host}:{args.port}")
         return 0
     

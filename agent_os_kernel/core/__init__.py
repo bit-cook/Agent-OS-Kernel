@@ -3,6 +3,15 @@
 Agent-OS-Kernel Core Module
 """
 
+# 逻辑风险提示：
+# 本文件聚合导出非常多的类型/类，且存在大量“同名符号”从不同模块重复导入的情况。
+# 在 Python 中，后导入会覆盖先导入的同名变量（例如 AgentState、AgentPool、EventBus 等）。
+# 这会导致：
+# - from agent_os_kernel.core import AgentState 得到的到底是哪一个版本不稳定；
+# - 状态机/枚举比较可能失效（同名不同类）；
+# - 对外公共 API 语义模糊，使用者难以排错。
+# 如需对外提供稳定 API，建议对外导出时进行命名去重（或显式别名），并减少“星爆式聚合导出”。
+
 # === agent_definition ===
 from .agent_definition import (
     AgentStatus,
