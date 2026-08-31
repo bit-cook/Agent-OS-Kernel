@@ -103,6 +103,7 @@ venv.bak/
 # MkDocs output is normally ignored. This repository's hand-authored
 # GitHub Pages source intentionally lives in /site.
 /site/*
+!/site/.nojekyll
 !/site/index.html
 !/site/assets/
 !/site/assets/**

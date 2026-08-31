@@ -15,7 +15,7 @@
 
 [English](./README_EN.md) | [中文](./README.md) | [Manifesto](./MANIFESTO.md) | [Docs](docs/) | [Examples](./examples)
 
-**[Visit the project website](https://bit-cook.github.io/Agent-OS-Kernel/)** · **[Read the full audit and optimization plan](https://bit-cook.github.io/Agent-OS-Kernel/audit/)**
+**[Visit the project website](https://osome.work/Agent-OS-Kernel/)** · **[Read the full audit and optimization plan](https://osome.work/Agent-OS-Kernel/audit/)**
 
 </div>
 
