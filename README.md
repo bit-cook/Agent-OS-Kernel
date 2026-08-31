@@ -6,6 +6,8 @@
 
 [English](./README_EN.md) | [中文](./README.md) | [宣言](./MANIFESTO.md) | [文档](docs/) | [示例](./examples)
 
+**[访问项目主页](https://bit-cook.github.io/Agent-OS-Kernel/)** · **[阅读全面审查与极限优化计划](https://bit-cook.github.io/Agent-OS-Kernel/audit/)**
+
 > 受到[《AI Agent 的操作系统时刻》](https://vonng.com/db/agent-os/) 启发，尝试填补 Agent 生态中"缺失的内核"
 
 [![CI](https://github.com/bit-cook/Agent-OS-Kernel/actions/workflows/ci.yml/badge.svg)](https://github.com/bit-cook/Agent-OS-Kernel/actions)
@@ -587,6 +589,4 @@ MIT License © 2026 BitCook - 自由使用和学习！
 [![Star History](https://api.star-history.com/svg?repos=bit-cook/Agent-OS-Kernel&type=Date)](https://star-history.com/#bit-cook/Agent-OS-Kernel&Date)
 
 </div>
-
-
 

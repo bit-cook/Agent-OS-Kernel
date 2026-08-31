@@ -100,8 +100,14 @@ venv.bak/
 # Rope project settings
 .ropeproject
 
-# mkdocs documentation
-/site
+# MkDocs output is normally ignored. This repository's hand-authored
+# GitHub Pages source intentionally lives in /site.
+/site/*
+!/site/index.html
+!/site/assets/
+!/site/assets/**
+!/site/audit/
+!/site/audit/**
 
 # mypy
 .mypy_cache/
