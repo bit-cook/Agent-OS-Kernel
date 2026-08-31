@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Agent OS Kernel 全面审查、目标架构与极限优化计划。">
+  <title>Agent OS Kernel · 全面审查与优化路线</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='27' fill='%23fffdf5' stroke='%232f9b68' stroke-width='7'/%3E%3Ccircle cx='32' cy='32' r='12' fill='%23ffca3a' stroke='%2317332d' stroke-width='5'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到正文</a>
+
+  <header class="topbar">
+    <a class="wordmark" href="#top" aria-label="返回页面顶部">
+      <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="16"/><circle cx="20" cy="20" r="9"/><path d="M20 4v7M36 20h-7M20 36v-7M4 20h7"/></svg>
+      <span>Agent OS Kernel <small>Review / 2026</small></span>
+    </a>
+    <button class="menu-button" type="button" aria-expanded="false" aria-controls="mobile-nav">目录</button>
+    <div class="audit-header-actions"><a class="home-back" href="../">项目主页</a><div class="status-chip"><span></span>计划已完成 · 执行待批准</div></div>
+  </header>
+
+  <nav id="mobile-nav" class="mobile-nav" aria-label="移动端章节导航">
+    <a href="#verdict">判断</a><a href="#baseline">基线</a><a href="#risks">风险</a>
+    <a href="#architecture">架构</a><a href="#roadmap">路线</a><a href="#gate">批准闸门</a>
+  </nav>
+
+  <div class="page-shell" id="top">
+    <aside class="rail" aria-label="章节导航">
+      <p class="rail-label">阅读路径</p>
+      <ol>
+        <li><a href="#verdict"><span>01</span>核心判断</a></li>
+        <li><a href="#baseline"><span>02</span>事实基线</a></li>
+        <li><a href="#risks"><span>03</span>风险地形</a></li>
+        <li><a href="#architecture"><span>04</span>目标架构</a></li>
+        <li><a href="#roadmap"><span>05</span>优化路线</a></li>
+        <li><a href="#validation"><span>06</span>验证体系</a></li>
+        <li><a href="#gate"><span>07</span>批准闸门</a></li>
+        <li><a href="#sources"><span>08</span>方法来源</a></li>
+      </ol>
+      <div class="rail-meta">
+        <p>审查快照</p><code>97b25ea</code>
+        <p>日期</p><code>2026-08-31</code>
+      </div>
+    </aside>
+
+    <main id="main">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy reveal">
+          <p class="eyebrow">Deep technical review · Read-only</p>
+          <h1 id="hero-title">把宽广的概念原型，<br>收敛为可信的 <em>Agent Runtime</em></h1>
+          <p class="lede">Agent OS Kernel 值得继续做。下一步不是再增加模块，而是建立少量、稳定、默认安全、可在故障中证明的内核语义。</p>
+          <div class="hero-actions">
+            <a class="primary-link" href="#roadmap">查看完整路线</a>
+            <a class="text-link" href="report.md">阅读 Markdown 文档 <span aria-hidden="true">↗</span></a>
+          </div>
+          <dl class="snapshot-line">
+            <div><dt>仓库</dt><dd>bit-cook/Agent-OS-Kernel</dd></div>
+            <div><dt>主线</dt><dd><code>97b25eab</code></dd></div>
+            <div><dt>边界</dt><dd>未改源码 / 未提交 / 未发布</dd></div>
+          </dl>
+        </div>
+
+        <div class="orbit" aria-label="从概念原型向可信内核收敛的示意图" role="img">
+          <svg viewBox="0 0 560 560" aria-hidden="true">
+            <circle class="orbit-ring ring-1" cx="280" cy="280" r="218"/>
+            <circle class="orbit-ring ring-2" cx="280" cy="280" r="166"/>
+            <circle class="orbit-ring ring-3" cx="280" cy="280" r="112"/>
+            <path class="orbit-path" d="M83 357 C148 501 359 505 470 366 C558 256 468 90 313 67"/>
+            <circle class="orbit-node n1" cx="92" cy="374" r="9"/>
+            <circle class="orbit-node n2" cx="210" cy="478" r="9"/>
+            <circle class="orbit-node n3" cx="394" cy="439" r="9"/>
+            <circle class="orbit-node n4" cx="493" cy="292" r="9"/>
+            <circle class="orbit-node n5" cx="405" cy="115" r="9"/>
+            <circle class="orbit-node final" cx="313" cy="67" r="13"/>
+          </svg>
+          <div class="kernel-core"><strong>Kernel</strong><span>process semantics</span></div>
+          <p class="orbit-note note-a">事实一致</p><p class="orbit-note note-b">默认安全</p>
+          <p class="orbit-note note-c">可恢复</p><p class="orbit-note note-d">可度量</p>
+        </div>
+      </section>
+
+      <section id="verdict" class="section verdict">
+        <header class="section-head reveal">
+          <p class="section-index">01 / 核心判断</p>
+          <h2>最大的问题不是缺功能，<br>而是承诺面大于证明面。</h2>
+        </header>
+        <div class="verdict-grid">
+          <blockquote class="thesis reveal">
+            <p>“像内核”不等于拥有很多以操作系统命名的模块。它意味着：语义少而稳定，边界默认封闭，崩溃后行为可重放，每次 effect 都可追溯。</p>
+          </blockquote>
+          <div class="findings-list">
+            <article class="finding-line reveal"><span>01</span><div><h3>黄金路径没有闭环</h3><p>README import、CLI、API、checkpoint contract 与主 Kernel 之间存在硬断点。</p></div></article>
+            <article class="finding-line reveal"><span>02</span><div><h3>安全 fallback 会误导</h3><p>无 Docker 时不是隔离，而是用 <code>shell=True</code> 在宿主执行。</p></div></article>
+            <article class="finding-line reveal"><span>03</span><div><h3>宽度超过维护能力</h3><p>基础 / enhanced / advanced 平行实现扩大状态空间，也让公共 API 无法稳定。</p></div></article>
+            <article class="finding-line reveal"><span>04</span><div><h3>差异化需要下沉</h3><p>不再造 graph DSL；聚焦 Agent Process ABI、durability、capability 与调度治理。</p></div></article>
+          </div>
+        </div>
+      </section>
+
+      <section id="baseline" class="section baseline">
+        <header class="section-head reveal">
+          <p class="section-index">02 / 事实基线</p>
+          <h2>很多代码，很多想法。<br>现在需要一条可信主线。</h2>
+          <p>数字不是成绩单，而是收敛决策的口径。统计来自固定仓库快照与 GitHub 一手状态。</p>
+        </header>
+        <div class="measure-board reveal" aria-label="项目基线统计">
+          <div class="measure major"><strong>42,779</strong><span>Python 实现行数</span><small>133 个模块</small></div>
+          <div class="measure"><strong>10,015</strong><span>测试代码行数</span><small>58 个 test 文件</small></div>
+          <div class="measure"><strong>130</strong><span>Python 示例</span><small>大量直连内部模块</small></div>
+          <div class="measure alert"><strong>20 / 20</strong><span>近期可见 CI 失败</span><small>test / docs / docker 全红</small></div>
+          <div class="measure"><strong>3</strong><span>版本叙事</span><small>0.2.0 / 1.0.0 / Rust release</small></div>
+          <div class="measure"><strong>0</strong><span>分支保护</span><small>失败门禁不能阻断主线</small></div>
+        </div>
+        <div class="baseline-note reveal"><strong>可确认：</strong>全部 Python 模块语法编译通过。<strong>不可声称：</strong>本地完整测试通过；审查环境未预装项目依赖与 pytest。</div>
+      </section>
+
+      <section id="risks" class="section risks">
+        <header class="section-head reveal">
+          <p class="section-index">03 / 风险地形</p>
+          <h2>先处理会伤害用户的，<br>再处理会拖慢团队的。</h2>
+        </header>
+        <div class="risk-toolbar reveal" role="group" aria-label="按严重度筛选风险">
+          <button class="filter active" data-filter="all" type="button">全部</button>
+          <button class="filter" data-filter="p0" type="button">P0 阻断</button>
+          <button class="filter" data-filter="p1" type="button">P1 高</button>
+          <button class="filter" data-filter="p2" type="button">P2 中</button>
+        </div>
+        <div class="risk-list">
+          <article class="risk-item p0 reveal" data-severity="p0">
+            <div class="risk-rank"><span>P0</span><strong>01</strong></div>
+            <div class="risk-body"><h3>宿主执行边界不安全</h3><p>文件读写未限定 workspace；Python 工具直跑宿主；sandbox 失败后静默降级为宿主 <code>shell=True</code>。</p><details><summary>证据与退出标准</summary><div><p><b>证据：</b><code>tools/builtin.py:171–347</code>；<code>core/security.py:123–299</code>。</p><p><b>退出：</b>所有 effect 经过 capability executor；危险工具无 sandbox 时 fail closed；路径、网络、进程与 secrets 红队矩阵全过。</p></div></details></div>
+          </article>
+          <article class="risk-item p0 reveal" data-severity="p0">
+            <div class="risk-rank"><span>P0</span><strong>02</strong></div>
+            <div class="risk-body"><h3>Checkpoint / Restore 契约断裂</h3><p>Scheduler、Storage、Kernel 在参数、方法名与上下文持久化上互不匹配；默认 checkpoint 仍在内存。</p><details><summary>证据与退出标准</summary><div><p><b>证据：</b><code>scheduler.py:467–527</code>；<code>storage.py:653–733</code>；<code>kernel.py:267–346</code>。</p><p><b>退出：</b>event history + deterministic replay；100 次随机 crash/retry 无重复 effect、无状态倒退。</p></div></details></div>
+          </article>
+          <article class="risk-item p0 reveal" data-severity="p0">
+            <div class="risk-rank"><span>P0</span><strong>03</strong></div>
+            <div class="risk-body"><h3>安装后的第一条路径会断</h3><p>README 顶层 import 未导出；CLI 从错误模块导入；API 调用不存在的方法并返回占位成功。</p><details><summary>证据与退出标准</summary><div><p><b>证据：</b><code>__init__.py:8–22</code>；<code>cli/main.py:128–140</code>；<code>api/server.py:93–244</code>。</p><p><b>退出：</b>wheel 空目录 smoke、README code test、CLI/OpenAPI contract 全绿。</p></div></details></div>
+          </article>
+          <article class="risk-item p0 reveal" data-severity="p0">
+            <div class="risk-rank"><span>P0</span><strong>04</strong></div>
+            <div class="risk-body"><h3>无认证 API 默认公开监听</h3><p>API 与 CLI serve 默认绑定 <code>0.0.0.0</code>，变更型 endpoints 没有认证授权、配额或审计门禁。</p><details><summary>证据与退出标准</summary><div><p><b>证据：</b><code>api/server.py:82, 114–283</code>；<code>cli/main.py:80–83</code>。</p><p><b>退出：</b>默认 loopback；公开监听显式授权；匿名变更请求统一 401/403。</p></div></details></div>
+          </article>
+          <article class="risk-item p1 reveal" data-severity="p1">
+            <div class="risk-rank"><span>P1</span><strong>05</strong></div>
+            <div class="risk-body"><h3>公共命名空间被重复实现覆盖</h3><p><code>core/__init__.py</code> 逾千行，基础与 enhanced 类型重名覆盖；scheduler、event、storage、metrics 多套平行实现。</p></div>
+          </article>
+          <article class="risk-item p1 reveal" data-severity="p1">
+            <div class="risk-rank"><span>P1</span><strong>06</strong></div>
+            <div class="risk-body"><h3>主 Kernel 仍是同步模拟循环</h3><p>默认 agent step 是 <code>sleep + 固定文本</code>，没有接入仓库内任一 LLM Provider contract，done 永远为 false。</p></div>
+          </article>
+          <article class="risk-item p1 reveal" data-severity="p1">
+            <div class="risk-rank"><span>P1</span><strong>07</strong></div>
+            <div class="risk-body"><h3>CI 与 Release 不能提供可信门禁</h3><p>CI 调用未安装的 lint/docs 命令；版本、Python 支持窗口、制品语言彼此不一致；main 无保护。</p></div>
+          </article>
+          <article class="risk-item p1 reveal" data-severity="p1">
+            <div class="risk-rank"><span>P1</span><strong>08</strong></div>
+            <div class="risk-body"><h3>Python / Rust 产品战略未决</h3><p>主线是 Python，latest Release 宣称 Rust，tag 同时包含两套实现，Rust LLM providers 又处于禁用状态。</p></div>
+          </article>
+          <article class="risk-item p2 reveal" data-severity="p2">
+            <div class="risk-rank"><span>P2</span><strong>09</strong></div>
+            <div class="risk-body"><h3>可观测性 vocabulary 不可互操作</h3><p>多套内存 metrics / JSONL trace 并存，未采用 OpenTelemetry GenAI/MCP semantic conventions。</p></div>
+          </article>
+          <article class="risk-item p2 reveal" data-severity="p2">
+            <div class="risk-rank"><span>P2</span><strong>10</strong></div>
+            <div class="risk-body"><h3>性能优化早于可信 benchmark</h3><p>cache、pool、batch、optimized scheduler 很多，但缺少固定 workload、噪声口径与 keep/revert 记录。</p></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="architecture" class="section architecture">
+        <header class="section-head reveal">
+          <p class="section-index">04 / 目标架构</p>
+          <h2>不与 Agent 框架竞争。<br>成为它们之下的运行时。</h2>
+          <p>行业对标显示 graph、HITL、streaming、sandbox 已是基线。可守住的差异化是 Agent Process Semantics。</p>
+        </header>
+        <div class="architecture-stack reveal" aria-label="六层目标架构">
+          <div class="arch-layer frontend"><span>06</span><div><strong>Frontend adapters</strong><small>LangGraph · OpenAI SDK · ADK · ReAct</small></div></div>
+          <div class="arch-layer kernel"><span>05</span><div><strong>Durable kernel</strong><small>Run · Process · Scheduler · Signals · Replay</small></div></div>
+          <div class="arch-layer effects"><span>04</span><div><strong>Effect boundary</strong><small>LLM · Tool · File · Network · Clock · Random</small></div></div>
+          <div class="arch-layer policy"><span>03</span><div><strong>Capability data plane</strong><small>Isolation · Quota · Admission · Multi-tenancy</small></div></div>
+          <div class="arch-layer interop"><span>02</span><div><strong>Interoperability</strong><small>MCP · Storage · Provider · Sandbox adapters</small></div></div>
+          <div class="arch-layer control"><span>01</span><div><strong>OTel-native control plane</strong><small>Telemetry · Audit · API · CLI · Migrations</small></div></div>
+        </div>
+        <div class="architecture-principles reveal">
+          <p><b>唯一事实源</b><span>append-only Event History；snapshot 只是加速。</span></p>
+          <p><b>效果隔离</b><span>所有非确定性 I/O 都有 effect id 与幂等键。</span></p>
+          <p><b>默认拒绝</b><span>缺少 capability 或 sandbox 时不执行，不静默降级。</span></p>
+          <p><b>可嵌入</b><span>上层 framework 产生 Commands，Kernel 不负责 reasoning。</span></p>
+        </div>
+      </section>
+
+      <section id="roadmap" class="section roadmap">
+        <header class="section-head reveal">
+          <p class="section-index">05 / 极限优化路线</p>
+          <h2>九个阶段，九次可验证的<br>向上收敛。</h2>
+          <p>每个阶段都能独立审查与回滚。建议首次只批准 Phase 0–1。</p>
+        </header>
+        <div class="roadmap-track" aria-label="九阶段路线图">
+          <article class="roadmap-step reveal"><div class="step-marker"><span>0</span></div><div class="step-copy"><p>3–5 天</p><h3>冻结承诺与基线</h3><p>统一版本与产品边界；建立 capability inventory、风险登记和四份 ADR。</p><strong>退出：所有公开声明只描述真实能力。</strong></div></article>
+          <article class="roadmap-step reveal"><div class="step-marker"><span>1</span></div><div class="step-copy"><p>1–2 周</p><h3>可信构建与黄金路径</h3><p>修复 pyproject/CI/exports/CLI/API facade；收敛五条 CI 执行的示例。</p><strong>退出：连续三次主线全绿，wheel 空目录可运行。</strong></div></article>
+          <article class="roadmap-step reveal"><div class="step-marker hot"><span>2</span></div><div class="step-copy"><p>2–3 周 · P0</p><h3>默认安全的 effect runtime</h3><p>Capability、sandbox、rooted filesystem、egress、secrets、API auth。</p><strong>退出：红队矩阵全过，危险工具无隔离时 fail closed。</strong></div></article>
+          <article class="roadmap-step reveal"><div class="step-marker hot"><span>3</span></div><div class="step-copy"><p>3–5 周 · P0</p><h3>Durable Kernel v1</h3><p>Event history、snapshot、effect journal、replay、signals 与 schema migration。</p><strong>退出：随机 crash/retry 无重复 effect、无状态倒退。</strong></div></article>
+          <article class="roadmap-step reveal"><div class="step-marker"><span>4</span></div><div class="step-copy"><p>2–4 周</p><h3>调度、背压与租户治理</h3><p>Admission、bounded queue、lease、fairness、quota、overload 与 drain。</p><strong>退出：过载内存有界，低优先级不永久饥饿。</strong></div></article>
+          <article class="roadmap-step reveal"><div class="step-marker"><span>5</span></div><div class="step-copy"><p>2–3 周</p><h3>Provider、MCP 与适配层</h3><p>一个 provider protocol、一套 error taxonomy、一个上层 framework adapter。</p><strong>退出：conformance suite + 2 个真实 provider contract。</strong></div></article>
+          <article class="roadmap-step reveal"><div class="step-marker"><span>6</span></div><div class="step-copy"><p>1–2 周</p><h3>OTel-native 运维面</h3><p>统一 run/process/step/effect identity，SLO、health 与诊断 bundle。</p><strong>退出：一次 run 可追到每个 LLM/tool effect 与 checkpoint。</strong></div></article>
+          <article class="roadmap-step reveal"><div class="step-marker conditional"><span>7</span></div><div class="step-copy"><p>2–4 周 · 条件触发</p><h3>性能剖析与选择性 Rust</h3><p>先 profile 与算法优化；只有被证明的热路径进入 Rust。</p><strong>退出：收益有置信区间，跨语言 conformance 无回归。</strong></div></article>
+          <article class="roadmap-step reveal"><div class="step-marker final"><span>8</span></div><div class="step-copy"><p>1–2 周</p><h3>Beta 发布与治理</h3><p>兼容策略、签名制品、SBOM/provenance、升级回滚、72h soak。</p><strong>退出：可验证、可升级、可回滚、文档无超前承诺。</strong></div></article>
+        </div>
+      </section>
+
+      <section id="validation" class="section validation">
+        <header class="section-head reveal">
+          <p class="section-index">06 / 验证体系</p>
+          <h2>不是“有测试”，<br>而是每个承诺都有证据。</h2>
+        </header>
+        <div class="validation-table reveal" role="table" aria-label="验证体系">
+          <div class="validation-row header" role="row"><span>层</span><span>验证什么</span><span>完成信号</span></div>
+          <div class="validation-row" role="row"><b>Contract</b><span>Python API · CLI · OpenAPI · Provider · MCP</span><small>Schema snapshot + compatibility</small></div>
+          <div class="validation-row" role="row"><b>Property</b><span>Replay · Queue · Scheduler · Idempotency</span><small>随机序列不破坏 invariant</small></div>
+          <div class="validation-row" role="row"><b>Fault</b><span>Worker / DB / Network crash · Duplicate</span><small>无状态倒退 / 无重复 effect</small></div>
+          <div class="validation-row" role="row"><b>Security</b><span>FS · Network · Process · Secrets · Auth</span><small>Deny-by-default + 全审计</small></div>
+          <div class="validation-row" role="row"><b>Performance</b><span>6 workload × 3 并发档</span><small>p95/p99 · Memory · Fairness · RTO</small></div>
+          <div class="validation-row" role="row"><b>Release</b><span>Wheel · Container · Binary · SBOM</span><small>空环境安装 + 签名 provenance</small></div>
+        </div>
+        <aside class="pause-list reveal">
+          <p class="eyebrow">暂缓清单</p>
+          <h3>正确性稳定前，停止扩大状态空间。</h3>
+          <p>更多 provider、更多 cache/pool/strategy、service mesh、自学习 optimizer、GPU manager、复杂 dashboard、A2A 扩展与全面 Rust rewrite，全部推迟到 Phase 4 之后重新评估。</p>
+        </aside>
+      </section>
+
+      <section id="gate" class="section approval">
+        <div class="approval-panel reveal">
+          <div>
+            <p class="section-index">07 / 批准闸门</p>
+            <h2>计划停在这里。<br>下一步由你决定。</h2>
+            <p>建议第一次只批准 Phase 0–1：事实一致性、ADR、CI、顶层 API 与一条 deterministic golden path。完成独立审查后，再单独批准 P0 安全重构。</p>
+          </div>
+          <ol>
+            <li><span>01</span>创建工作分支，不直接改 main</li>
+            <li><span>02</span>能力盘点 + 4 份 ADR 草案</li>
+            <li><span>03</span>统一版本、依赖与 CI</li>
+            <li><span>04</span>Wheel / README / CLI smoke</li>
+            <li><span>05</span>一条真实可运行的 golden path</li>
+          </ol>
+          <p class="hold-line"><span></span><strong>当前未执行任何源码修改、提交、推送或发布。</strong></p>
+        </div>
+      </section>
+
+      <section id="sources" class="section sources">
+        <header class="section-head reveal">
+          <p class="section-index">08 / 方法与来源</p>
+          <h2>结论可回到代码，<br>方向可回到一手资料。</h2>
+        </header>
+        <div class="source-columns reveal">
+          <div><h3>项目证据</h3><a href="https://github.com/bit-cook/Agent-OS-Kernel">GitHub Repository</a><a href="https://github.com/bit-cook/Agent-OS-Kernel/commit/97b25eab8617adaad6f204e98f4d248b5f107b08">审查 Commit</a><a href="https://github.com/bit-cook/Agent-OS-Kernel/actions/runs/22356930858">最新审查 CI</a><a href="https://github.com/bit-cook/Agent-OS-Kernel/releases/tag/v0.2.0">v0.2.0 Release</a></div>
+          <div><h3>行业一手资料</h3><a href="https://docs.langchain.com/oss/python/langgraph/overview">LangGraph</a><a href="https://github.com/microsoft/agent-framework">Microsoft Agent Framework</a><a href="https://openai.github.io/openai-agents-python/">OpenAI Agents SDK</a><a href="https://google.github.io/adk-docs/runtime/">Google ADK</a><a href="https://docs.temporal.io/workflow-execution">Temporal</a><a href="https://github.com/open-telemetry/semantic-conventions-genai">OpenTelemetry GenAI</a></div>
+          <div><h3>交付文件</h3><a href="report.md">详细审查与计划</a><a href="design.md">网页设计规范</a><a href="research-brief.md">研究简报</a><a href="industry-evidence.md">行业对标证据</a></div>
+        </div>
+      </section>
+
+      <footer>
+        <p>Agent OS Kernel · Audit & Optimization Blueprint</p>
+        <p>审查完成于 2026-08-31 · Source unchanged</p>
+        <a href="#top">返回顶部 ↑</a>
+      </footer>
+    </main>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>

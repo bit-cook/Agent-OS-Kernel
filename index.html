@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Agent OS Kernel：面向 AI Agent 的 OS-inspired 运行时基础设施。探索调度、上下文、持久执行、工具与安全边界。">
+  <meta name="theme-color" content="#fffdf5">
+  <meta property="og:title" content="Agent OS Kernel · The missing runtime layer for AI agents">
+  <meta property="og:description" content="把 Agent 当作可调度、可恢复、可隔离、可审计的进程。">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://bit-cook.github.io/Agent-OS-Kernel/">
+  <meta property="og:image" content="https://bit-cook.github.io/Agent-OS-Kernel/assets/social-preview.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>Agent OS Kernel · AI Agent 的运行时内核</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='27' fill='%23fffdf5' stroke='%232f9b68' stroke-width='7'/%3E%3Ccircle cx='32' cy='32' r='12' fill='%23ffca3a' stroke='%2317332d' stroke-width='5'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="assets/home.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到正文</a>
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="Agent OS Kernel 首页">
+      <svg viewBox="0 0 42 42" aria-hidden="true"><circle cx="21" cy="21" r="17"/><circle cx="21" cy="21" r="8"/><path d="M21 4v7M38 21h-7M21 38v-7M4 21h7"/></svg>
+      <span>Agent OS Kernel<small>open runtime research</small></span>
+    </a>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">导航</button>
+    <nav id="site-nav" class="site-nav" aria-label="主导航">
+      <a href="#idea">理念</a>
+      <a href="#architecture">架构</a>
+      <a href="#roadmap">演进</a>
+      <a href="audit/">审查报告</a>
+      <a href="https://github.com/bit-cook/Agent-OS-Kernel" class="github-link">GitHub <span aria-hidden="true">↗</span></a>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top">
+      <div class="hero-copy reveal">
+        <div class="alpha-line"><span class="pulse"></span>Alpha · 正在公开演进</div>
+        <p class="eyebrow">The missing runtime layer for AI agents</p>
+        <h1><span class="hero-line">Agent 不只需要能力。</span><span class="hero-line">它更需要被</span><span class="hero-line hero-accent">调度、恢复与信任。</span></h1>
+        <p class="hero-lede">Agent OS Kernel 把操作系统五十年的经验带进 Agent 基础设施：将 LLM 看作计算资源、Context 看作内存、Agent 看作进程、Tool 看作设备。</p>
+        <div class="hero-actions">
+          <a class="primary-action" href="https://github.com/bit-cook/Agent-OS-Kernel">在 GitHub 探索源码 <span aria-hidden="true">↗</span></a>
+          <a class="secondary-action" href="#architecture">理解架构 ↓</a>
+        </div>
+        <div class="principle-line"><span>定位 / 不是另一个 Agent 框架</span><span>而是框架之下的运行时探索</span></div>
+      </div>
+
+      <div class="solar-kernel reveal" role="img" aria-label="以 Agent 进程语义为中心，连接调度、上下文、持久执行、效果、安全策略和可观测性的六层内核示意图">
+        <svg viewBox="0 0 620 620" aria-hidden="true">
+          <defs>
+            <filter id="soft-shadow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#17332d" flood-opacity=".15"/></filter>
+          </defs>
+          <circle class="sun-halo" cx="310" cy="310" r="118"/>
+          <circle class="orbit orbit-a" cx="310" cy="310" r="174"/>
+          <circle class="orbit orbit-b" cx="310" cy="310" r="238"/>
+          <path class="growth-path" d="M70 371 C123 531 333 596 489 471 C611 373 552 162 388 92"/>
+          <g class="satellite s1"><circle cx="82" cy="403" r="14"/><path d="M95 397l39-20"/></g>
+          <g class="satellite s2"><circle cx="207" cy="535" r="14"/><path d="M214 522l21-37"/></g>
+          <g class="satellite s3"><circle cx="430" cy="512" r="14"/><path d="M421 499l-23-35"/></g>
+          <g class="satellite s4"><circle cx="550" cy="334" r="14"/><path d="M535 333l-41-2"/></g>
+          <g class="satellite s5"><circle cx="456" cy="122" r="14"/><path d="M446 134l-27 31"/></g>
+          <g class="satellite s6"><circle cx="235" cy="85" r="14"/><path d="M240 99l14 39"/></g>
+          <circle class="kernel-disc" cx="310" cy="310" r="88" filter="url(#soft-shadow)"/>
+        </svg>
+        <div class="kernel-label"><span>Agent</span><strong>PROCESS</strong><small>semantics</small></div>
+        <div class="orbit-label l1"><b>01</b> Scheduler</div>
+        <div class="orbit-label l2"><b>02</b> Context</div>
+        <div class="orbit-label l3"><b>03</b> Durability</div>
+        <div class="orbit-label l4"><b>04</b> Effects</div>
+        <div class="orbit-label l5"><b>05</b> Policy</div>
+        <div class="orbit-label l6"><b>06</b> Telemetry</div>
+      </div>
+    </section>
+
+    <section class="manifesto" id="idea">
+      <div class="section-kicker reveal">01 / 一个简单但重要的映射</div>
+      <div class="manifesto-grid">
+        <div class="manifesto-title reveal">
+          <h2>Agent 生态不缺应用。<br>它缺少一个<span>内核层。</span></h2>
+          <p>今天的 Agent 可以调用模型、操作文件和连接工具，但资源如何分配、状态如何恢复、权限如何约束，仍常常散落在每个应用自己的循环里。</p>
+        </div>
+        <blockquote class="manifesto-quote reveal">“真正的基础设施，不是替 Agent 思考；而是让它的每一次运行都有边界、有状态、有证据。”</blockquote>
+      </div>
+
+      <div class="mapping-table reveal" role="table" aria-label="传统操作系统与 Agent 运行时的映射">
+        <div class="mapping-row mapping-head" role="row"><span>传统系统</span><span>Agent 世界</span><span>运行时问题</span></div>
+        <div class="mapping-row" role="row"><strong>CPU</strong><b>LLM</b><span>推理请求如何排队、限额与公平调度？</span></div>
+        <div class="mapping-row" role="row"><strong>RAM</strong><b>Context</b><span>有限窗口如何分页、换入与保留重要信息？</span></div>
+        <div class="mapping-row" role="row"><strong>Process</strong><b>Agent</b><span>生命周期如何暂停、恢复、取消和迁移？</span></div>
+        <div class="mapping-row" role="row"><strong>Device</strong><b>Tool / MCP</b><span>外部效果如何隔离、授权、重试与审计？</span></div>
+        <div class="mapping-row" role="row"><strong>Disk</strong><b>State Store</b><span>事件、检查点与记忆如何可靠持久化？</span></div>
+        <div class="mapping-row" role="row"><strong>Kernel policy</strong><b>Capability</b><span>不可信 Agent 如何在默认拒绝的边界内行动？</span></div>
+      </div>
+    </section>
+
+    <section class="architecture" id="architecture">
+      <header class="section-header reveal">
+        <p class="section-kicker">02 / 目标运行时切面</p>
+        <h2>上层自由创造，<br>底层负责<span>确定性。</span></h2>
+        <p>Agent OS Kernel 的长期方向，不是锁定某种 prompt 或 graph，而是为不同 Agent 前端提供一致的进程语义与效果边界。</p>
+      </header>
+      <div class="layer-stack reveal" aria-label="Agent OS Kernel 六层目标架构">
+        <div class="layer layer-frontend"><span>06</span><div><strong>Agent frontends</strong><small>ReAct · Graph · Handoff · Custom SDK</small></div><p>自由定义 reasoning</p></div>
+        <div class="layer layer-runtime"><span>05</span><div><strong>Durable runtime</strong><small>Run · Process · Signal · Replay</small></div><p>稳定生命周期</p></div>
+        <div class="layer layer-effect"><span>04</span><div><strong>Effect boundary</strong><small>LLM · Tool · File · Network</small></div><p>幂等与可恢复</p></div>
+        <div class="layer layer-policy"><span>03</span><div><strong>Capability policy</strong><small>Isolation · Quota · Admission</small></div><p>默认拒绝</p></div>
+        <div class="layer layer-interop"><span>02</span><div><strong>Open adapters</strong><small>MCP · Provider · Storage · Sandbox</small></div><p>生态可替换</p></div>
+        <div class="layer layer-control"><span>01</span><div><strong>Observable control plane</strong><small>Trace · Metric · Audit · Migration</small></div><p>每一步有证据</p></div>
+      </div>
+    </section>
+
+    <section class="why-now">
+      <header class="section-header reveal">
+        <p class="section-kicker">03 / 从 Agent loop 到 Agent process</p>
+        <h2>可靠性不是最后补上的功能。<br>它是运行时的<span>第一原则。</span></h2>
+      </header>
+      <div class="evolution-flow">
+        <article class="evolution-step reveal"><span>现在</span><h3>能运行</h3><p>模型、上下文与工具被拼进一个循环，成功路径足以演示。</p></article>
+        <div class="flow-arrow" aria-hidden="true">→</div>
+        <article class="evolution-step reveal"><span>接下来</span><h3>可恢复</h3><p>运行拥有身份、事件历史、检查点、幂等效果和明确取消语义。</p></article>
+        <div class="flow-arrow" aria-hidden="true">→</div>
+        <article class="evolution-step reveal"><span>目标</span><h3>可托付</h3><p>资源有界、权限最小、故障可演练，每个发布承诺都有证据。</p></article>
+      </div>
+    </section>
+
+    <section class="roadmap" id="roadmap">
+      <div class="roadmap-copy reveal">
+        <p class="section-kicker">04 / 开放演进</p>
+        <h2>我们选择把问题放在阳光下。</h2>
+        <p>项目已经完成一次深入的只读审查，并形成从事实一致性、可信构建、安全边界到 Durable Kernel 的分阶段计划。审查不是终点，而是一条更清晰的起跑线。</p>
+        <a class="report-link" href="audit/"><span>阅读完整审查与极限优化计划</span><b>进入报告 →</b></a>
+      </div>
+      <div class="roadmap-list reveal">
+        <div><span>01</span><strong>先恢复可信基线</strong><p>统一版本、公共入口、依赖和 CI，让一条黄金路径可重复。</p></div>
+        <div><span>02</span><strong>再封闭危险边界</strong><p>所有 effect 经过 capability 与 sandbox，失败时默认拒绝。</p></div>
+        <div><span>03</span><strong>然后证明可恢复</strong><p>用事件历史、幂等效果和故障注入兑现 durability。</p></div>
+        <div><span>04</span><strong>最后追求极限性能</strong><p>先 profile，再选择性用 Rust 加速被证明的热路径。</p></div>
+      </div>
+    </section>
+
+    <section class="explore" id="explore">
+      <header class="section-header reveal">
+        <p class="section-kicker">05 / 从这里开始</p>
+        <h2>选一条路径，开始探索。</h2>
+      </header>
+      <div class="explore-links reveal">
+        <a href="https://github.com/bit-cook/Agent-OS-Kernel"><span>01</span><div><strong>查看源码</strong><small>Python 主线与 Rust 实验分支</small></div><b>↗</b></a>
+        <a href="https://github.com/bit-cook/Agent-OS-Kernel/blob/main/docs/architecture.md"><span>02</span><div><strong>理解架构</strong><small>Context、Scheduler、Storage 与 Security</small></div><b>↗</b></a>
+        <a href="https://github.com/bit-cook/Agent-OS-Kernel/tree/main/examples"><span>03</span><div><strong>浏览示例</strong><small>从基础模块到集成实验</small></div><b>↗</b></a>
+        <a href="audit/"><span>04</span><div><strong>参与演进</strong><small>审查、目标架构与阶段计划</small></div><b>→</b></a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div><strong>Agent OS Kernel</strong><p>Like a kernel, not another framework.</p></div>
+    <div class="footer-status"><span></span>Alpha · actively evolving</div>
+    <nav aria-label="页脚导航"><a href="https://github.com/bit-cook/Agent-OS-Kernel">GitHub</a><a href="audit/">Audit</a><a href="https://github.com/bit-cook/Agent-OS-Kernel/blob/main/LICENSE">MIT License</a></nav>
+  </footer>
+  <script src="assets/home.js"></script>
+</body>
+</html>
