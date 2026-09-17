@@ -32,7 +32,7 @@ code { font-family: var(--mono); font-size: .88em; color: #184f78; background: v
 :focus-visible { outline: 3px solid var(--sky); outline-offset: 3px; }
 
 .topbar { height: 72px; position: sticky; top: 0; z-index: 30; display: flex; align-items: center; justify-content: space-between; padding: 0 34px; background: rgba(255,253,245,.92); border-bottom: 1px solid var(--line); backdrop-filter: blur(14px); }
-.wordmark { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink-900); font-weight: 700; letter-spacing: -.01em; line-height: 1.1; }
+.wordmark { min-height: 44px; display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink-900); font-weight: 700; letter-spacing: -.01em; line-height: 1.1; }
 .wordmark svg { width: 34px; fill: none; stroke: var(--leaf); stroke-width: 2.2; }
 .wordmark small { display: block; margin-top: 3px; color: var(--ink-500); font-family: var(--mono); font-weight: 400; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
 .status-chip { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 700; color: var(--ink-900); }
@@ -64,7 +64,7 @@ h1 em::after { content: ""; position: absolute; height: 8px; left: 2px; right: -
 .hero-actions { display: flex; align-items: center; gap: 26px; margin: 0 0 48px; }
 .primary-link { display: inline-flex; min-height: 48px; align-items: center; padding: 0 22px; color: #fff; background: var(--leaf); text-decoration: none; font-weight: 700; box-shadow: 5px 5px 0 var(--sun); transition: transform .18s ease, box-shadow .18s ease; }
 .primary-link:hover { transform: translate(-2px,-2px); box-shadow: 8px 8px 0 var(--sun); }
-.text-link { color: var(--ink-900); text-underline-offset: 5px; font-weight: 600; }
+.text-link { min-height: 44px; display: inline-flex; align-items: center; color: var(--ink-900); text-underline-offset: 5px; font-weight: 600; }
 .snapshot-line { display: flex; flex-wrap: wrap; gap: 22px 36px; margin: 0; padding-top: 20px; border-top: 1px solid var(--line); }
 .snapshot-line div { display: grid; gap: 2px; }
 .snapshot-line dt { color: var(--ink-500); font-size: 11px; font-family: var(--mono); text-transform: uppercase; }
@@ -167,7 +167,7 @@ details p { margin: 6px 0; }
 
 .source-columns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 50px; }
 .source-columns h3 { margin: 0 0 20px; color: var(--ink-900); font-family: var(--display); font-size: 25px; }
-.source-columns a { display: block; padding: 9px 0; border-bottom: 1px solid var(--line); color: var(--sky); text-underline-offset: 4px; font-size: 14px; }
+.source-columns a { display: block; min-height: 44px; padding: 9px 0; border-bottom: 1px solid var(--line); color: var(--sky); text-underline-offset: 4px; font-size: 14px; }
 footer { display: flex; justify-content: space-between; gap: 24px; padding: 34px clamp(36px, 7vw, 110px); color: var(--ink-500); font-size: 12px; }
 footer a { min-height: 44px; display: inline-flex; align-items: center; color: var(--ink-900); font-weight: 700; }
 
