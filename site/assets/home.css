@@ -53,7 +53,7 @@ h1 .hero-accent::after { content: ""; position: absolute; z-index: -1; left: 0; 
 .hero-actions { display: flex; align-items: center; gap: 28px; margin-bottom: 45px; }
 .primary-action { min-height: 50px; display: inline-flex; align-items: center; gap: 18px; padding: 0 20px; color: #fff; background: var(--leaf); border: 1px solid var(--ink); box-shadow: 5px 5px 0 var(--sun); text-decoration: none; font-weight: 800; transition: transform .18s ease, box-shadow .18s ease; }
 .primary-action:hover { transform: translate(-2px,-2px); box-shadow: 8px 8px 0 var(--sun); }
-.secondary-action { color: var(--ink); font-weight: 700; text-underline-offset: 6px; }
+.secondary-action { min-height: 44px; display: inline-flex; align-items: center; color: var(--ink); font-weight: 700; text-underline-offset: 6px; }
 .principle-line { display: flex; gap: 24px; padding-top: 19px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
 .principle-line span:first-child { color: var(--leaf-dark); font-weight: 800; }
 
