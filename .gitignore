@@ -200,3 +200,6 @@ Thumbs.db
 tmp/
 temp/
 *.tmp
+
+# Playwright CLI session artifacts
+.playwright-cli/
