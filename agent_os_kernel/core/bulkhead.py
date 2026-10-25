@@ -122,7 +122,7 @@ class SemaphoreBulkhead(BulkheadBase):
         self._semaphore = threading.Semaphore(self.config.max_concurrent)
         self._state = BulkheadState()
         self._lock = threading.RLock()
-        self._isolation_lock = threading.Lock()
+        self._isolation_lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
     
     def execute(self, func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
         """

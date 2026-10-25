@@ -50,11 +50,11 @@ class PluginEventType(Enum):
 @dataclass
 class PluginInfo:
     """插件元信息"""
-    plugin_id: str
-    name: str
-    version: str
-    author: str
-    description: str
+    plugin_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    name: str = ""
+    version: str = ""
+    author: str = ""
+    description: str = ""
     dependencies: List[str] = field(default_factory=list)
     entry_point: str = "main"
     state: PluginState = PluginState.UNLOADED
@@ -93,36 +93,66 @@ class PluginInfo:
         )
 
 
-@dataclass
 class BasePlugin:
-    """插件基类"""
-    plugin_id: str
-    name: str
-    version: str = "1.0.0"
-    description: str = ""
-    author: str = ""
-    state: PluginState = PluginState.UNLOADED
-    config: Dict[str, Any] = field(default_factory=dict)
-    
-    def initialize(self) -> bool:
-        """初始化插件"""
+    """插件基类
+
+    普通类（非 dataclass）：子类可以自由地用 property 覆写
+    name/version/description，且允许无参构造（plugin_id 自动生成）。
+    契约见 tests/test_plugin_manager.py::TestBasePlugin。
+    """
+
+    def __init__(self,
+                 plugin_id: Optional[str] = None,
+                 name: str = "",
+                 version: str = "1.0.0",
+                 description: str = "",
+                 author: str = "",
+                 config: Optional[Dict[str, Any]] = None):
+        self._name = name
+        self._version = version
+        self._description = description
+        self.plugin_id = plugin_id or str(uuid.uuid4())
+        self.author = author
+        self.state = PluginState.UNLOADED
+        self.config: Dict[str, Any] = config or {}
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def version(self) -> str:
+        return self._version
+
+    @property
+    def description(self) -> str:
+        return self._description
+
+    def initialize(self, config: Optional[Dict[str, Any]] = None) -> bool:
+        """初始化插件（config 可选）"""
+        if config:
+            self.config.update(config)
         return True
-    
+
     def enable(self) -> bool:
         """启用插件"""
         self.state = PluginState.ENABLED
         return True
-    
-    def disable(self) -> True:
+
+    def disable(self) -> bool:
         """禁用插件"""
         self.state = PluginState.DISABLED
         return True
-    
+
     def shutdown(self) -> bool:
         """关闭插件"""
         self.state = PluginState.UNLOADED
         return True
-    
+
+    def cleanup(self) -> bool:
+        """清理资源（默认无操作）"""
+        return True
+
     def get_info(self) -> PluginInfo:
         """获取插件信息"""
         return PluginInfo(
@@ -305,11 +335,19 @@ class PluginManager:
         """获取插件数量"""
         return len(self._plugins)
 
+    def list_loaded(self) -> List[str]:
+        """列出已加载（is_loaded）的插件 ID"""
+        return [pid for pid, p in self._plugins.items() if getattr(p, 'is_loaded', False)]
+
     def get_stats(self) -> Dict[str, Any]:
         """获取插件管理器统计信息"""
+        loaded = sum(1 for p in self._plugins.values() if p.is_loaded)
+        enabled = sum(1 for p in self._plugins.values() if getattr(p, 'is_enabled', False))
         return {
             "total_plugins": len(self._plugins),
-            "active_plugins": sum(1 for p in self._plugins.values() if p.is_loaded),
+            "loaded": loaded,
+            "enabled": enabled,
+            "active_plugins": loaded,  # 兼容旧键
             "total_events": len(self._event_history),
             "total_messages": len(self._message_history),
             "registered_events": len(self._event_handlers),

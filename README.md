@@ -4,7 +4,7 @@
 
 **AI Agent 的操作系统内核**
 
-[English](./README_EN.md) | [中文](./README.md) | [宣言](./MANIFESTO.md) | [文档](docs/) | [示例](./examples)
+[English](./README_EN.md) | [中文](./README.md) | [宣言](./docs/MANIFESTO.md) | [文档](docs/) | [示例](./examples)
 
 **[访问项目主页](https://osome.work/Agent-OS-Kernel/)** · **[阅读全面审查与极限优化计划](https://osome.work/Agent-OS-Kernel/audit/)**
 
@@ -13,7 +13,7 @@
 [![CI](https://github.com/bit-cook/Agent-OS-Kernel/actions/workflows/ci.yml/badge.svg)](https://github.com/bit-cook/Agent-OS-Kernel/actions)
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![Rust Version](https://img.shields.io/badge/rust-1.75%2B-orange)](https://www.rust-lang.org/)
-[![Version](https://img.shields.io/badge/version-1.0.0-green.svg)](https://github.com/bit-cook/Agent-OS-Kernel/releases)
+[![Version](https://img.shields.io/badge/version-0.2.0--alpha-green.svg)](https://github.com/bit-cook/Agent-OS-Kernel/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 🦀 **Rust 重构版本已上线** · [分支 `rust-refactor-v3`](https://github.com/bit-cook/Agent-OS-Kernel/tree/rust-refactor-v3) · [快速开始](#-rust-重构版本快速开始)
@@ -71,7 +71,7 @@ Agent 直接操作文件系统和终端，依赖"信任模型"而非"隔离模�
 - [分布式部署](docs/distributed-deployment.md)
 - [Development Plans](development-docs/3DAY_PLAN.md)
 - [AIOS 分析](research/analysis/AIOS_ANALYSIS.md) - AIOS 深度分析文档
-- [INSPIRATION.md](./INSPIRATION.md) - GitHub 项目灵感收集
+- [INSPIRATION.md](./docs/INSPIRATION.md) - GitHub 项目灵感收集
 
 ---
 

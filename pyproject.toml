@@ -17,12 +17,11 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "psutil>=5.9.0",
     "pyyaml>=6.0",
@@ -30,9 +29,26 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# 质量门禁：CI 唯一安装来源（原 dev extra 缺 black/mypy/ruff 导致 CI exit 127）
 dev = [
     "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.1.0",
+    "pytest-timeout>=2.2.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0",
+]
+# API 服务器
+api = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0",
+]
+# 文档检查
+docs = [
+    "linkify-it-py>=2.0.0",
 ]
 
 [project.urls]
@@ -41,7 +57,7 @@ Repository = "https://github.com/bit-cook/Agent-OS-Kernel"
 Issues = "https://github.com/bit-cook/Agent-OS-Kernel/issues"
 
 [project.scripts]
-agent-os-kernel = "agent_os_kernel.__main__:main"
+agent-os-kernel = "agent_os_kernel.cli.main:main"
 
 [tool.setuptools.packages.find]
 include = ["agent_os_kernel*"]
@@ -54,3 +70,22 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
+# 单测试 60s 超时：防止锁死锁类缺陷让套件无限挂起
+timeout = 60
+timeout_method = "thread"
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+# 分阶段 ratchet：先修核心模块，再逐步收紧
+[[tool.mypy.overrides]]
+module = "agent_os_kernel.kernel"
+disallow_untyped_defs = false

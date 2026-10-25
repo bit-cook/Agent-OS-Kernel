@@ -264,17 +264,72 @@ class AgentOSKernel:
         
         return process.pid
     
+    def get_agent(self, agent_pid: str) -> Optional[Dict[str, Any]]:
+        """
+        获取 Agent 信息
+        
+        Args:
+            agent_pid: Agent PID
+            
+        Returns:
+            Agent 信息字典，不存在返回 None
+        """
+        process = self.scheduler.processes.get(agent_pid)
+        if not process:
+            return None
+        
+        info = process.to_dict()
+        info['task'] = process.context.get('task', '')
+        info['context_pages'] = len(self.context_manager.agent_pages.get(agent_pid, []))
+        return info
+    
+    def list_agents(self) -> List[Dict[str, Any]]:
+        """
+        列出所有 Agent
+        
+        Returns:
+            Agent 信息字典列表（按创建时间排序）
+        """
+        agents = [self.get_agent(pid) for pid in self.scheduler.processes]
+        return [a for a in agents if a is not None]
+    
+    def terminate_agent(self, agent_pid: str, reason: str = "terminated") -> bool:
+        """
+        终止 Agent（类比操作系统 kill）
+        
+        Args:
+            agent_pid: Agent PID
+            reason: 终止原因
+            
+        Returns:
+            是否成功终止
+        """
+        if agent_pid not in self.scheduler.processes:
+            return False
+        
+        self.scheduler.terminate_process(agent_pid, reason)
+        logger.info("✓ Terminated agent %s... (%s)", agent_pid[:8], reason)
+        return True
+    
+    def stop(self, timeout: float = 30.0):
+        """停止内核（shutdown 的别名，兼容 API/上层调用）"""
+        return self.shutdown(timeout=timeout)
+    
     def create_checkpoint(self, agent_pid: str, 
                          description: str = "") -> Optional[str]:
         """
         创建检查点（状态持久化）
-        
+
         这是实现可靠 Agent 的关键：即使系统崩溃，也能从检查点恢复。
-        
+
+        检查点内容（唯一契约，与 StorageManager.save_checkpoint 对齐）：
+            checkpoint_id / agent_pid / agent_name / process_state /
+            context_pages / description / created_at
+
         Args:
             agent_pid: Agent PID
             description: 检查点描述
-        
+
         Returns:
             检查点 ID
         """
@@ -282,37 +337,38 @@ class AgentOSKernel:
         if not process:
             logger.error("Agent %s... not found", agent_pid[:8])
             return None
-        
-        # 1. 挂起进程
-        checkpoint_id = self.scheduler.suspend_process(agent_pid, create_checkpoint=True)
-        
+
+        # 1. 收集该 Agent 的全部上下文页面（内存 + 已换出）
+        page_ids = self.context_manager.agent_pages.get(agent_pid, [])
+        context_pages = []
+        for page_id in page_ids:
+            page = self.context_manager.pages_in_memory.get(page_id) or \
+                   self.context_manager.swapped_pages.get(page_id)
+            if page:
+                context_pages.append(page.to_dict())
+                # 将页面写回存储（长期记忆）
+                self.storage.save_context_page(page)
+
+        # 2. 挂起进程并保存完整检查点（含上下文页面）
+        checkpoint_id = self.scheduler.suspend_process(
+            agent_pid,
+            create_checkpoint=True,
+            context_pages=context_pages
+        )
+
         if checkpoint_id:
-            # 2. 保存上下文页面到存储
-            page_ids = self.context_manager.agent_pages.get(agent_pid, [])
-            context_pages = []
-            
-            for page_id in page_ids:
-                page = self.context_manager.pages_in_memory.get(page_id) or \
-                       self.context_manager.swapped_pages.get(page_id)
-                if page:
-                    context_pages.append(page.to_dict())
-                    # 将页面写回存储
-                    self.storage.save_context_page(page)
-            
             logger.info("✓ Created checkpoint %s... for agent %s... (%d pages)",
                        checkpoint_id[:8], agent_pid[:8], len(context_pages))
-            
             return checkpoint_id
-        
         return None
-    
+
     def restore_checkpoint(self, checkpoint_id: str) -> Optional[str]:
         """
         从检查点恢复 Agent
-        
+
         Args:
             checkpoint_id: 检查点 ID
-        
+
         Returns:
             新的 Agent PID
         """
@@ -321,28 +377,30 @@ class AgentOSKernel:
         if not checkpoint:
             logger.error("Checkpoint %s... not found", checkpoint_id[:8])
             return None
-        
+
         # 2. 恢复进程状态
-        old_pid = checkpoint['agent_pid']
+        old_pid = checkpoint.get('agent_pid', '')
         process = AgentProcess.from_dict(checkpoint['process_state'])
         process.pid = str(uuid.uuid4())  # 分配新 PID
         process.state = AgentState.READY
         process.checkpoint_id = checkpoint_id
-        
+
         # 3. 恢复上下文页面
+        restored_pages = 0
         for page_data in checkpoint.get('context_pages', []):
             page = ContextPage.from_dict(page_data)
             # 标记为 swapped，需要时自动换入
             page.status = PageStatus.SWAPPED
             self.context_manager.swapped_pages[page.page_id] = page
             self.context_manager.agent_pages[process.pid].append(page.page_id)
-        
+            restored_pages += 1
+
         # 4. 加入调度队列
         self.scheduler.add_process(process)
-        
-        logger.info("✓ Restored agent %s... from checkpoint %s... (new PID: %s...)",
-                   old_pid[:8], checkpoint_id[:8], process.pid[:8])
-        
+
+        logger.info("✓ Restored agent %s... from checkpoint %s... (new PID: %s..., %d pages)",
+                   old_pid[:8], checkpoint_id[:8], process.pid[:8], restored_pages)
+
         return process.pid
     
     def execute_agent_step(self, process: AgentProcess) -> Dict[str, Any]:
@@ -380,13 +438,17 @@ class AgentOSKernel:
         reasoning = f"Processing task: {process.context.get('task', 'unknown')}"
         
         # 6. 记录审计日志（可观测性）
-        self.storage.log_action(
-            agent_pid=process.pid,
-            action_type="reasoning",
-            input_data={'context_length': len(context)},
-            output_data={'reasoning': reasoning},
-            reasoning=reasoning
-        )
+        self.storage.log_audit({
+            'agent_pid': process.pid,
+            'action': 'reasoning',
+            'resource': 'llm',
+            'details': {
+                'context_length': len(context),
+                'reasoning': reasoning,
+            },
+            'result': 'success',
+            'duration_ms': 0.0,
+        })
         
         # 7. 执行后置钩子
         for hook in self.post_step_hooks:

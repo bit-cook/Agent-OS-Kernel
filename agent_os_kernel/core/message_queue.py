@@ -85,7 +85,13 @@ class Message:
         data = copy.deepcopy(data)
         data['timestamp'] = datetime.fromisoformat(data['timestamp'])
         data['priority'] = MessagePriority[data['priority']]
-        data['status'] = MessageStatus[data['status']]
+        # to_dict 写的是 status.value（如 "processing"），按值查；
+        # 兼容旧数据按名称查（"PROCESSING"）
+        status = data['status']
+        try:
+            data['status'] = MessageStatus(status)
+        except ValueError:
+            data['status'] = MessageStatus[status.upper()]
         return cls(**data)
 
 
@@ -154,9 +160,13 @@ class PriorityMessageQueue:
         return priority.value
     
     def _get_message_key(self, message: Message) -> tuple:
-        """Generate a key for heap ordering: (priority, timestamp, id)"""
+        """Generate a key for heap ordering: (-priority, timestamp, id, message)
+
+        第 4 位携带 message 本身；id 唯一保证堆比较永远不会触到
+        不可排序的 Message 对象（pop/peek 按 4 元组解包）。
+        """
         priority_level = self._get_priority_level(message.priority)
-        return (-priority_level, message.timestamp, self._get_next_id())
+        return (-priority_level, message.timestamp, self._get_next_id(), message)
     
     def push(self, message: Message) -> str:
         """
@@ -314,6 +324,7 @@ class MessageBroker:
         self._subscriptions: Dict[str, List[Subscription]] = defaultdict(list)
         self._subscriber_ids: Set[str] = set()
         self._lock = threading.RLock()
+        self._acking_lock = threading.RLock()
         self._pending_acks: Dict[str, Message] = {}  # Messages awaiting acknowledgment
         
         # Create persistence directory if needed
@@ -424,25 +435,8 @@ class MessageBroker:
         start_time = time.time()
         
         while True:
-            # Try to get message from topic queue
-            queue = self._queues.get(topic)
-            if queue and not queue.is_empty():
-                message = queue.pop()
-                if message:
-                    message.subscriber_id = subscriber_id
-                    message.status = MessageStatus.PROCESSING
-                    self._pending_acks[message.message_id] = message
-                    
-                    # Try to match and deliver to matching subscriptions
-                    with self._lock:
-                        for sub in self._subscriptions.get(topic, []):
-                            if sub.matches(message):
-                                try:
-                                    sub.callback(message)
-                                except Exception:
-                                    pass  # Callbacks should not crash the broker
-            
-            # Check all matching topics
+            # Check all matching topics (含通配符 "*")：弹出 → 登记 pending ack
+            # → 投递匹配订阅 → 返回。每次 receive 只消费一条消息。
             found_message = None
             with self._lock:
                 for t in [topic, "*"]:
@@ -450,6 +444,10 @@ class MessageBroker:
                     if queue and not queue.is_empty():
                         message = queue.pop()
                         if message:
+                            subs = self._subscriptions.get(t, [])
+                            # 有订阅但全部不匹配（filter 语义）：跳过该消息
+                            if subs and not any(sub.matches(message) for sub in subs):
+                                continue
                             message.subscriber_id = subscriber_id
                             message.status = MessageStatus.PROCESSING
                             self._pending_acks[message.message_id] = message
@@ -497,8 +495,14 @@ class MessageBroker:
             return False
     
     def get_queue_size(self, topic: str) -> int:
-        """Get the number of pending messages for a topic"""
-        return len(self._queues.get(topic, []))
+        """Get the number of pending messages for a topic
+        
+        用 self._queues[topic]（而非 .get）：首次访问某 topic 时
+        触发 defaultdict 工厂构造队列并加载持久化消息，
+        否则重启后 get_queue_size 永远返回 0。
+        """
+        with self._lock:
+            return len(self._queues[topic])
     
     def get_topics(self) -> List[str]:
         """Get list of active topics"""

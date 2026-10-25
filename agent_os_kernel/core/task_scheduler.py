@@ -55,9 +55,14 @@ class ScheduledTask:
     _consecutive_failures: int = 0
     
     def __lt__(self, other):
-        """比较优先级用于优先级队列"""
+        """自然优先级序：值大者更大（CRITICAL > HIGH > NORMAL > LOW）。
+        
+        注意：优先级队列的“高优先级先执行”由调用点的负号键
+        （task_queue.put((-task.priority.value, task))）实现，
+        与本比较器的方向无关；此处提供直观的自然序。
+        """
         if isinstance(other, ScheduledTask):
-            return self.priority.value > other.priority.value  # 高的优先级先执行
+            return self.priority.value < other.priority.value
         return NotImplemented
     
     def __eq__(self, other):
@@ -404,7 +409,10 @@ class TaskScheduler:
     def run_now(self, task_id: str) -> bool:
         """
         立即执行任务
-        
+
+        调度器未运行时同步执行（asyncio.run）；正在运行时
+        在调度循环上下文中安排执行。
+
         Args:
             task_id: 任务ID
             
@@ -412,12 +420,21 @@ class TaskScheduler:
             是否成功
         """
         task = self.tasks.get(task_id)
-        if task:
-            # 设置下次执行时间为现在
-            task.next_run_time = datetime.now()
-            task.enabled = True
-            return True
-        return False
+        if not task:
+            return False
+        
+        # 设置下次执行时间为现在
+        task.next_run_time = datetime.now()
+        task.enabled = True
+        
+        # 调度循环未运行：立即同步执行，兑现“立即执行”语义
+        if self.state != SchedulerState.RUNNING:
+            try:
+                asyncio.run(self._execute_task(task))
+            except Exception as e:
+                logger.error(f"run_now failed for task {task_id}: {e}")
+                return False
+        return True
     
     async def execute_task_chain(self, task_ids: List[str]) -> List[TaskExecution]:
         """

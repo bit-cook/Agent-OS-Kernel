@@ -66,7 +66,7 @@ class ConnectionPool(Generic[T]):
         self.config = config or PoolConfig()
         self._pool: queue.Queue[T] = queue.Queue(maxsize=self.config.max_size)
         self._active: List[T] = []
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
         self._closed = False
         self._health_check_thread: Optional[threading.Thread] = None
         
@@ -160,7 +160,7 @@ class LRUCache(Generic[T]):
         self.config = config or CacheConfig()
         self._cache: Dict[str, Tuple[float, T]] = {}  # {key: (timestamp, value)}
         self._order: List[str] = []  # 维护访问顺序
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
         self._cleanup_thread: Optional[threading.Thread] = None
         self._running = False
     
@@ -285,7 +285,7 @@ class ThreadPoolOptimizer:
         self._executor = ThreadPoolExecutor(max_workers=self.config.max_workers)
         self._task_queue: queue.Queue = queue.Queue(maxsize=self.config.queue_size)
         self._results: Dict[str, Any] = {}
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
         self._running = True
         self._worker_thread: Optional[threading.Thread] = None
         
@@ -408,9 +408,9 @@ class MemoryOptimizer:
     def __init__(self, max_pool_size: int = 100):
         self.max_pool_size = max_pool_size
         self._object_pool: Dict[str, List[Any]] = {}
-        self._pool_lock = threading.Lock()
+        self._pool_lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
         self._usage_stats: Dict[str, int] = {}
-        self._usage_lock = threading.Lock()
+        self._usage_lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
     
     def get_or_create(
         self,
@@ -489,7 +489,7 @@ class ConcurrencyLimiter:
         self.max_concurrent = max_concurrent
         self._semaphore = threading.Semaphore(max_concurrent)
         self._active_count = 0
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
     
     @contextmanager
     def limit(self):
@@ -540,7 +540,7 @@ class BatchProcessor:
         self._processor = processor
         
         self._queue: List[Any] = []
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
         self._flush_event = threading.Event()
         self._running = False
         self._worker_thread: Optional[threading.Thread] = None

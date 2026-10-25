@@ -15,6 +15,7 @@ Agent Scheduler - 进程调度器
 """
 
 import time
+import uuid
 import logging
 from typing import Optional, Dict, Any, List, Callable, Tuple
 from queue import PriorityQueue, Empty
@@ -464,43 +465,55 @@ class AgentScheduler:
         for pid in to_wakeup:
             self.wakeup_process(pid)
     
-    def suspend_process(self, pid: str, create_checkpoint: bool = True) -> Optional[str]:
+    def suspend_process(self, pid: str, create_checkpoint: bool = True,
+                        context_pages: Optional[List[Dict]] = None) -> Optional[str]:
         """
         挂起进程（保存检查点）
-        
+
         这是实现状态持久化的关键方法。
-        
+
         Args:
             pid: 进程 ID
             create_checkpoint: 是否创建检查点
-        
+            context_pages: 该进程的上下文页面（to_dict 后的列表），
+                由调用方（Kernel）从 ContextManager 收集后传入
+
         Returns:
             检查点 ID（如果创建）
         """
         process = self.processes.get(pid)
         if not process:
             return None
-        
+
         if self.running and self.running.pid == pid:
             self.running = None
-        
+
         process.state = AgentState.SUSPENDED
-        
+
         checkpoint_id = None
         if create_checkpoint and self.storage:
             try:
-                checkpoint_id = self.storage.save_checkpoint(
-                    agent_pid=pid,
-                    process_state=process.to_dict(),
-                    context_pages=[],  # 应该从 ContextManager 获取
-                    description=f"Suspended at {time.time()}"
-                )
+                checkpoint_id = str(uuid.uuid4())
+                # 唯一契约：StorageManager.save_checkpoint 接收完整 dict
+                ok = self.storage.save_checkpoint({
+                    'checkpoint_id': checkpoint_id,
+                    'agent_pid': pid,
+                    'agent_name': process.name,
+                    'process_state': process.to_dict(),
+                    'context_pages': context_pages or [],
+                    'description': f"Suspended at {time.time()}",
+                    'created_at': time.time(),
+                })
+                if not ok:
+                    logger.error(f"Failed to persist checkpoint for {process.name}")
+                    return None
                 process.checkpoint_id = checkpoint_id
                 self.stats['total_checkpoints'] += 1
                 logger.info(f"Created checkpoint {checkpoint_id[:8]} for {process.name}")
             except Exception as e:
                 logger.error(f"Failed to create checkpoint: {e}")
-        
+                return None
+
         return checkpoint_id
     
     def resume_process(self, pid: str, checkpoint_id: Optional[str] = None) -> bool:
@@ -555,6 +568,9 @@ class AgentScheduler:
         
         process.state = AgentState.TERMINATED
         process.terminated_at = time.time()
+        
+        # 终止后从进程表回收（reap）：API/CLI 视角该 Agent 不再存在
+        self.processes.pop(pid, None)
         
         if self.running and self.running.pid == pid:
             self.running = None

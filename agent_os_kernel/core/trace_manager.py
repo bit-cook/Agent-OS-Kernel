@@ -456,7 +456,7 @@ class TraceManager:
         self.service_name = service_name
         self._local = threading.local()
         self._global_context: Optional[TraceContext] = None
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
         self._exporters: List[SpanExporter] = []
         self._sampling_rate = 1.0
         self._trace_count = 0

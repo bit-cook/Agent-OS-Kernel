@@ -92,7 +92,7 @@ class CircuitBreaker:
         self._success_count = 0
         self._last_failure_time: Optional[float] = None
         self._half_open_calls = 0
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
         
     @property
     def state(self) -> CircuitState:

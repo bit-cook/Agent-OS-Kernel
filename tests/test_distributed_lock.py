@@ -267,8 +267,10 @@ class TestDistributedLock:
         async def try_acquire():
             nonlocal acquired_count
             try:
-                owner = await lock.acquire_mutex(lock_name, timeout=0.5)
-                async with lock.mutex_lock(lock_name, owner_id=owner):
+                # 只用上下文管理器获取（手动 acquire + CM 会重复获取同一把锁）。
+                # timeout(0.01) 必须短于临界区(0.05s)，否则后来者会在超时内
+                # 依次拿到锁，"只有一人获取"这一不变量就检验不到。
+                async with lock.mutex_lock(lock_name, timeout=0.01) as owner:
                     # Critical section
                     await asyncio.sleep(0.05)
                 acquired_count += 1

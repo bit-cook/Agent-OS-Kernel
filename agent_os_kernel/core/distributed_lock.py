@@ -16,7 +16,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Set
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 
 
 class LockType(Enum):
@@ -449,7 +449,7 @@ class DistributedLock:
             "is_expired": owner.is_expired(time.time())
         }
     
-    @contextmanager
+    @asynccontextmanager
     async def mutex_lock(self, lock_name: str, owner_id: Optional[str] = None,
                          timeout: Optional[float] = None,
                          expire: Optional[float] = None):
@@ -460,7 +460,7 @@ class DistributedLock:
         finally:
             await self.release(lock_name, owner_id)
     
-    @contextmanager
+    @asynccontextmanager
     async def read_lock(self, lock_name: str, owner_id: Optional[str] = None,
                         timeout: Optional[float] = None,
                         expire: Optional[float] = None):
@@ -471,7 +471,7 @@ class DistributedLock:
         finally:
             await self.release(lock_name, owner_id)
     
-    @contextmanager
+    @asynccontextmanager
     async def write_lock(self, lock_name: str, owner_id: Optional[str] = None,
                          timeout: Optional[float] = None,
                          expire: Optional[float] = None):
@@ -550,7 +550,7 @@ class ReadWriteLock:
         new_expire_time = time.time() + expire
         return await self._backend.renew(lock_name, owner_id, new_expire_time)
     
-    @contextmanager
+    @asynccontextmanager
     async def read(self, lock_name: str, owner_id: Optional[str] = None,
                    timeout: Optional[float] = None,
                    expire: Optional[float] = None):
@@ -561,7 +561,7 @@ class ReadWriteLock:
         finally:
             await self.release_read(lock_name, owner_id)
     
-    @contextmanager
+    @asynccontextmanager
     async def write(self, lock_name: str, owner_id: Optional[str] = None,
                     timeout: Optional[float] = None,
                     expire: Optional[float] = None):

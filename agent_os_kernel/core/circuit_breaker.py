@@ -114,7 +114,7 @@ class CircuitBreaker:
         self.on_state_change = on_state_change
         
         self._state = CircuitState.CLOSED
-        self._state_lock = threading.Lock()
+        self._state_lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
         self._failure_count = 0
         self._success_count = 0
         self._last_failure_time: Optional[float] = None
@@ -327,7 +327,7 @@ class CircuitBreakerManager:
     
     def __init__(self):
         self._breakers: Dict[str, CircuitBreaker] = {}
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
     
     def get_or_create(
         self,

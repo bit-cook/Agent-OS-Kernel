@@ -199,7 +199,8 @@ class TestHistogram:
         
         assert h.get_count({"operation": "read"}) == 2
         assert h.get_count({"operation": "write"}) == 1
-        assert h.get_sum({"operation": "read"}) == 0.3
+        # 浮点求和用 approx：0.1+0.2 在二进制浮点中无精确表示
+        assert h.get_sum({"operation": "read"}) == pytest.approx(0.3)
         assert h.get_sum({"operation": "write"}) == 0.5
     
     def test_histogram_bucket_counts(self):

@@ -320,7 +320,7 @@ class TestTaskPriority:
         assert TaskPriority.HIGH.value == 2
         assert TaskPriority.CRITICAL.value == 3
         
-        # 验证排序（高的优先级应该先执行）
+        # 验证排序（自然序：CRITICAL 值最大）
         assert critical > high > normal > low
     
     def test_update_priority(self):
@@ -352,8 +352,8 @@ class TestTaskPriority:
         high_task = self.scheduler.get_task("h")
         low_task = self.scheduler.get_task("l")
         
-        # 高优先级任务应该排在前面
-        tasks = sorted([high_task, low_task])
+        # 高优先级任务应该排在前面（自然序 + reverse：CRITICAL 最大）
+        tasks = sorted([high_task, low_task], reverse=True)
         assert tasks[0].priority.value > tasks[1].priority.value
 
 

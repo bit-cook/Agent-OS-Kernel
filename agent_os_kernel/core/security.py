@@ -14,6 +14,7 @@ import uuid
 import time
 import logging
 import subprocess
+from pathlib import Path
 from typing import Optional, Dict, Any, List, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
@@ -120,24 +121,37 @@ class SandboxManager:
         except Exception:
             return False
     
+    def isolation_available(self) -> bool:
+        """是否存在真实隔离运行时（Docker）。
+        
+        没有 Docker 时，本管理器不提供任何隔离保证——
+        调用方必须 fail closed 或显式接受宿主执行风险。
+        """
+        return bool(self.docker_available and self.docker_client is not None)
+    
     def create_sandbox(self, agent_pid: str, 
                       policy: Optional[SecurityPolicy] = None) -> Optional[str]:
         """
         为 Agent 创建隔离的沙箱
-        
+
         Args:
             agent_pid: Agent PID
             policy: 安全策略
-        
+
         Returns:
-            容器 ID，如果创建失败则返回 None
+            容器 ID；如果没有可用隔离运行时则返回 None（fail closed，
+            不再把"目录 + 宿主执行"伪装成 process isolation）
         """
         policy = policy or SecurityPolicy()
-        
+
         if not self.docker_available or not policy.use_sandbox:
-            logger.info(f"Using process-level isolation for agent {agent_pid[:8]}...")
-            return self._create_process_isolation(agent_pid, policy)
-        
+            logger.warning(
+                "No isolation runtime available (docker=%s, use_sandbox=%s); "
+                "refusing to create a fake sandbox for agent %s...",
+                self.docker_available, policy.use_sandbox, agent_pid[:8]
+            )
+            return None
+
         try:
             # 创建工作目录
             workspace = f"/tmp/agent-os-{agent_pid}"
@@ -169,42 +183,26 @@ class SandboxManager:
             
         except Exception as e:
             logger.error(f"Failed to create sandbox: {e}")
-            return self._create_process_isolation(agent_pid, policy)
-    
-    def _create_process_isolation(self, agent_pid: str, 
-                                  policy: SecurityPolicy) -> str:
-        """
-        创建进程级隔离（Docker 不可用时的回退方案）
-        """
-        # 创建工作目录作为隔离边界
-        workspace = f"/tmp/agent-os-{agent_pid}"
-        os.makedirs(workspace, exist_ok=True)
-        
-        # 记录隔离配置
-        self.containers[agent_pid] = {
-            'type': 'process',
-            'workspace': workspace,
-            'policy': policy,
-            'created_at': time.time(),
-        }
-        
-        return f"process-{agent_pid[:8]}"
+            return None
     
     def execute_in_sandbox(self, agent_pid: str, command: str,
-                          timeout: Optional[int] = None) -> Dict[str, Any]:
+                          timeout: Optional[int] = None,
+                          allow_host_fallback: bool = False) -> Dict[str, Any]:
         """
         在沙箱中执行命令
-        
+
         Args:
             agent_pid: Agent PID
             command: 要执行的命令
             timeout: 超时时间（秒）
-        
+            allow_host_fallback: 无真实隔离时是否显式允许宿主执行。
+                默认 False = fail closed（结构化 isolation_unavailable 错误）。
+
         Returns:
             执行结果
         """
         timeout = timeout or 30
-        
+
         if agent_pid not in self.containers:
             return {
                 'success': False,
@@ -212,14 +210,36 @@ class SandboxManager:
                 'stdout': '',
                 'stderr': ''
             }
-        
+
         container = self.containers[agent_pid]
-        
+
         # Docker 沙箱
         if hasattr(container, 'exec_run'):
             return self._execute_in_docker(container, command, timeout)
-        
-        # 进程级隔离
+
+        # 无真实隔离：fail closed，除非调用方显式接受宿主执行风险
+        if not allow_host_fallback:
+            logger.error(
+                "isolation_unavailable: refusing host execution for agent %s... "
+                "(no docker runtime). Pass allow_host_fallback=True to override "
+                "with explicit risk acceptance.",
+                agent_pid[:8]
+            )
+            return {
+                'success': False,
+                'error': ('isolation_unavailable: no sandbox runtime; '
+                          'refusing to execute on the host. '
+                          'Pass allow_host_fallback=True to override explicitly.'),
+                'stdout': '',
+                'stderr': '',
+                'isolation_unavailable': True,
+            }
+
+        logger.warning(
+            "Executing on HOST without isolation for agent %s... "
+            "(allow_host_fallback=True explicitly set)",
+            agent_pid[:8]
+        )
         return self._execute_in_process(container, command, timeout)
     
     def _execute_in_docker(self, container, command: str, 
@@ -252,38 +272,54 @@ class SandboxManager:
     
     def _execute_in_process(self, container_info: Dict, command: str,
                            timeout: int) -> Dict[str, Any]:
-        """在进程级隔离中执行"""
+        """在无隔离的宿主环境中执行（仅限显式 opt-in；argv 形式，无 shell）"""
+        import shlex
         policy = container_info['policy']
         workspace = container_info['workspace']
-        
+
+        # argv 形式：不使用 shell=True（防 shell 元字符注入）
+        try:
+            argv = shlex.split(command)
+        except ValueError as e:
+            return {
+                'success': False,
+                'error': f'Invalid command syntax: {e}',
+                'stdout': '',
+                'stderr': ''
+            }
+        if not argv:
+            return {
+                'success': False,
+                'error': 'Empty command',
+                'stdout': '',
+                'stderr': ''
+            }
+
         # 检查命令是否在允许的工具列表中
-        cmd_parts = command.split()
-        if cmd_parts:
-            tool_name = cmd_parts[0]
-            if policy.allowed_tools and tool_name not in policy.allowed_tools:
-                return {
-                    'success': False,
-                    'error': f'Tool {tool_name} is not in allowed tools list',
-                    'stdout': '',
-                    'stderr': ''
-                }
-            if tool_name in policy.blocked_tools:
-                return {
-                    'success': False,
-                    'error': f'Tool {tool_name} is blocked',
-                    'stdout': '',
-                    'stderr': ''
-                }
-        
+        tool_name = argv[0]
+        if policy.allowed_tools and tool_name not in policy.allowed_tools:
+            return {
+                'success': False,
+                'error': f'Tool {tool_name} is not in allowed tools list',
+                'stdout': '',
+                'stderr': ''
+            }
+        if tool_name in policy.blocked_tools:
+            return {
+                'success': False,
+                'error': f'Tool {tool_name} is blocked',
+                'stdout': '',
+                'stderr': ''
+            }
+
         try:
             # 设置环境变量
             env = os.environ.copy()
             env['AGENT_PID'] = container_info.get('agent_pid', 'unknown')
             env['WORKSPACE'] = workspace
-            
+
             result = subprocess.run(
-                command,
-                shell=True,
+                argv,
                 capture_output=True,
                 text=True,
                 timeout=timeout,
@@ -376,19 +412,27 @@ class SandboxManager:
         if mode == 'write' and policy.read_only:
             return False
         
-        # 规范化路径
-        abs_path = os.path.abspath(filepath)
-        
-        # 检查禁止路径
+        # 规范化路径（resolve 展开 symlink/..）
+        abs_path = Path(filepath).resolve()
+
+        # 检查禁止路径（按路径段前缀，避免 "/etc" 误匹配 "/etcXXX"）
         for blocked in policy.blocked_paths:
-            if abs_path.startswith(blocked):
+            blocked_resolved = Path(blocked).resolve()
+            try:
+                abs_path.relative_to(blocked_resolved)
                 return False
-        
+            except ValueError:
+                pass
+
         # 检查允许路径
         for allowed in policy.allowed_paths:
-            if abs_path.startswith(allowed):
+            allowed_resolved = Path(allowed).resolve()
+            try:
+                abs_path.relative_to(allowed_resolved)
                 return True
-        
+            except ValueError:
+                continue
+
         # 默认拒绝
         return False
     

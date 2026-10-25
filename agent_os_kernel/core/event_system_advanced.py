@@ -61,7 +61,7 @@ class Event:
     priority: EventPriority
     source: str
     data: Dict[str, Any] = field(default_factory=dict)
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     event_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     trace_id: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -78,7 +78,11 @@ class Event:
     def from_dict(cls, data: Dict[str, Any]) -> 'Event':
         """Create Event from dictionary"""
         data = copy.deepcopy(data)
-        data['timestamp'] = datetime.fromisoformat(data['timestamp'])
+        ts = datetime.fromisoformat(data['timestamp'])
+        # 兼容旧格式的 naive 时间戳：统一视为 UTC，避免与 aware 时间相减崩溃
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        data['timestamp'] = ts
         data['event_type'] = EventType[data['event_type']]
         data['priority'] = EventPriority[data['priority']]
         return cls(**data)
@@ -213,7 +217,8 @@ class EventPersister:
     def __init__(self, storage_backend: Optional[str] = None):
         self.storage_backend = storage_backend or "memory"
         self.storage: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
-        self.persist_lock = threading.Lock()
+        # RLock：save_events 持锁批量调用 save_event（同一线程重入）
+        self.persist_lock = threading.RLock()
     
     def save_event(self, event: Event) -> bool:
         """Persist an event"""
@@ -365,7 +370,7 @@ class AdvancedEventSystem:
         self.persister = EventPersister()
         self.tracer = EventTracer()
         self.event_history: deque = deque(maxlen=10000)
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
         self._running = False
         self._initialize_priority_queue()
     
@@ -490,7 +495,7 @@ class PriorityQueue:
     
     def __init__(self):
         self._queue: List[Event] = []
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
     
     def put(self, item: Event):
         """Add an item to the queue (sorted by priority)"""

@@ -191,7 +191,8 @@ class TestCountdownTimer:
         )
         
         timer.start()
-        assert timer.progress == 0.0
+        # 刚启动时进度为 0（真实时钟下有几微秒误差，用容差断言）
+        assert timer.progress == pytest.approx(0.0, abs=1e-3)
         
         timer.pause()
         timer.paused_elapsed = 5.0

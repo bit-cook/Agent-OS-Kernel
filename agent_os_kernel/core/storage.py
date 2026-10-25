@@ -176,8 +176,10 @@ class FileStorage(StorageInterface):
         with self._lock:
             try:
                 path = self._get_path(key)
+                # 信封格式保存：key 与 value 一起落盘，
+                # 使 list_keys 能恢复原始 key（纯 hash 文件名不可反推）
                 with open(path, 'w', encoding='utf-8') as f:
-                    json.dump(value, f, ensure_ascii=False, indent=2)
+                    json.dump({"key": key, "value": value}, f, ensure_ascii=False, indent=2)
                 self._stats.last_modify = datetime.now()
                 self._stats.total_keys += 1
                 return True
@@ -192,7 +194,11 @@ class FileStorage(StorageInterface):
                     self._stats.last_access = datetime.now()
                     self._stats.hit_count += 1
                     with open(path, 'r', encoding='utf-8') as f:
-                        return json.load(f)
+                        data = json.load(f)
+                    # 新信封格式返回 value；旧格式（裸 value）原样返回
+                    if isinstance(data, dict) and "key" in data and "value" in data:
+                        return data["value"]
+                    return data
                 self._stats.miss_count += 1
                 return None
             except Exception:
@@ -222,12 +228,14 @@ class FileStorage(StorageInterface):
             for root, dirs, files in os.walk(self._base_path):
                 for f in files:
                     if f.endswith('.json'):
-                        # 恢复原始 key
-                        key_hash = f.replace('.json', '')
-                        full_hash = os.path.basename(root) + key_hash
                         try:
-                            # 这里简化处理，实际应该维护映射
-                            keys.append(full_hash)
+                            with open(os.path.join(root, f), 'r', encoding='utf-8') as fh:
+                                data = json.load(fh)
+                            # 从信封中恢复原始 key；旧格式无 key 字段则跳过
+                            if isinstance(data, dict) and "key" in data:
+                                key = data["key"]
+                                if not prefix or key.startswith(prefix):
+                                    keys.append(key)
                         except Exception:
                             pass
             return keys
@@ -470,6 +478,36 @@ class PostgreSQLStorage(StorageInterface):
         except Exception:
             return False
     
+    def get_checkpoint(self, checkpoint_id: str) -> Optional[dict]:
+        """从检查点表读取检查点（与 save_checkpoint 同一张表）"""
+        if self._pool is None:
+            return None
+        try:
+            conn = self._pool.getconn()
+            cur = conn.cursor()
+            cur.execute(f"""
+                SELECT checkpoint_id, agent_pid, agent_name, description,
+                       state, context, metadata, created_at
+                FROM {self._table_prefix}checkpoints
+                WHERE checkpoint_id = %s
+            """, (checkpoint_id,))
+            row = cur.fetchone()
+            self._pool.putconn(conn)
+            if not row:
+                return None
+            return {
+                'checkpoint_id': row[0],
+                'agent_pid': row[1],
+                'agent_name': row[2],
+                'description': row[3],
+                'state': json.loads(row[4]) if row[4] else {},
+                'context_pages': json.loads(row[5]) if row[5] else [],
+                'metadata': json.loads(row[6]) if row[6] else {},
+                'created_at': row[7].isoformat() if hasattr(row[7], 'isoformat') else str(row[7]),
+            }
+        except Exception:
+            return None
+
     def save_audit_log(self, log_data: dict) -> bool:
         """保存审计日志"""
         if self._pool is None:
@@ -662,11 +700,18 @@ class StorageManager:
         # 向量存储 (用于语义搜索)
         self._vector = VectorStorage()
         
-        # 检查点存储
-        self._checkpoint = self._create_storage(StorageBackend.MEMORY, kwargs)
+        # 检查点存储：与主 backend 一致（MEMORY 时用独立内存对象；
+        # FILE/POSTGRESQL 时共享主后端，按 key 前缀命名空间隔离，
+        # 避免"声明了持久 backend 但检查点实际落在内存"的断裂）
+        if backend == StorageBackend.MEMORY:
+            self._checkpoint = MemoryStorage()
+            self._audit = MemoryStorage()
+        else:
+            self._checkpoint = self._data
+            self._audit = self._data
         
-        # 审计日志存储
-        self._audit = self._create_storage(StorageBackend.MEMORY, kwargs)
+        self._CHECKPOINT_PREFIX = "checkpoint:"
+        self._AUDIT_PREFIX = "audit:"
     
     def _create_storage(self, backend: StorageBackend, kwargs: Dict) -> StorageInterface:
         """创建存储后端实例"""
@@ -716,25 +761,69 @@ class StorageManager:
     
     # ========== 检查点管理 ==========
     
+    def save_context_page(self, page) -> bool:
+        """保存上下文页面到长期存储（key: context_page:<page_id>）"""
+        page_dict = page.to_dict() if hasattr(page, 'to_dict') else page
+        page_id = page_dict.get('page_id', '')
+        if not page_id:
+            return False
+        return self._data.save(f"context_page:{page_id}", page_dict)
+    
+    def load_context_page(self, page_id: str) -> Optional[dict]:
+        """从长期存储加载上下文页面"""
+        return self._data.retrieve(f"context_page:{page_id}")
+    
     def save_checkpoint(self, checkpoint_data: dict) -> bool:
-        """保存检查点"""
+        """保存检查点
+        
+        唯一契约：接收完整 checkpoint dict（含 checkpoint_id / agent_pid /
+        process_state / context_pages / description），返回是否成功。
+        PostgreSQL backend 写入 checkpoints 表；其余 backend 按前缀写入主存储。
+        """
         checkpoint_id = checkpoint_data.get('checkpoint_id', '')
+        if not checkpoint_id:
+            logger.error("save_checkpoint: missing checkpoint_id")
+            return False
         if self._backend == StorageBackend.POSTGRESQL:
             if isinstance(self._data, PostgreSQLStorage):
                 return self._data.save_checkpoint(checkpoint_data)
-        return self._checkpoint.save(checkpoint_id, checkpoint_data)
+        return self._checkpoint.save(
+            f"{self._CHECKPOINT_PREFIX}{checkpoint_id}", checkpoint_data
+        )
     
     def get_checkpoint(self, checkpoint_id: str) -> Optional[dict]:
         """获取检查点"""
         if self._backend == StorageBackend.POSTGRESQL:
             if isinstance(self._data, PostgreSQLStorage):
-                # 从 PostgreSQL 获取
-                return self._data.retrieve(checkpoint_id)
-        return self._checkpoint.retrieve(checkpoint_id)
+                return self._data.get_checkpoint(checkpoint_id)
+        return self._checkpoint.retrieve(f"{self._CHECKPOINT_PREFIX}{checkpoint_id}")
+    
+    def load_checkpoint(self, checkpoint_id: str) -> Optional[dict]:
+        """加载检查点（get_checkpoint 的别名，兼容 Kernel/Scheduler 调用）"""
+        return self.get_checkpoint(checkpoint_id)
     
     def list_checkpoints(self, agent_pid: str = None) -> List[dict]:
         """列出检查点"""
-        keys = self._checkpoint.list_keys()
+        if self._backend == StorageBackend.POSTGRESQL:
+            if isinstance(self._data, PostgreSQLStorage):
+                # PostgreSQL 后端：从检查点表列出
+                try:
+                    conn = self._data._pool.getconn()
+                    cur = conn.cursor()
+                    cur.execute(
+                        f"SELECT checkpoint_id FROM {self._data._table_prefix}checkpoints"
+                    )
+                    ids = [row[0] for row in cur.fetchall()]
+                    self._data._pool.putconn(conn)
+                except Exception:
+                    ids = []
+                checkpoints = []
+                for cid in ids:
+                    cp = self.get_checkpoint(cid)
+                    if cp and (agent_pid is None or cp.get('agent_pid') == agent_pid):
+                        checkpoints.append(cp)
+                return checkpoints
+        keys = self._checkpoint.list_keys(self._CHECKPOINT_PREFIX)
         checkpoints = []
         for key in keys:
             cp = self._checkpoint.retrieve(key)
@@ -750,13 +839,14 @@ class StorageManager:
             if isinstance(self._data, PostgreSQLStorage):
                 return self._data.save_audit_log(log_data)
         return self._audit.save(
-            f"{log_data.get('action', 'unknown')}_{log_data.get('agent_pid', 'unknown')}_{time.time()}",
+            f"{self._AUDIT_PREFIX}{log_data.get('action', 'unknown')}_"
+            f"{log_data.get('agent_pid', 'unknown')}_{time.time()}",
             log_data
         )
     
     def get_audit_logs(self, agent_pid: str = None, limit: int = 100) -> List[dict]:
         """获取审计日志"""
-        keys = self._audit.list_keys()
+        keys = self._audit.list_keys(self._AUDIT_PREFIX)
         logs = []
         for key in keys[-limit:]:
             log = self._audit.retrieve(key)

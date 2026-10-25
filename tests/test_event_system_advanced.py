@@ -13,7 +13,7 @@ import pytest
 import time
 import tempfile
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from agent_os_kernel.core.event_system_advanced import (
     Event,
@@ -320,8 +320,8 @@ class TestEventPersistence:
         """Test loading events filtered by time range"""
         persister = EventPersister()
         
-        # Save events at different times
-        now = datetime.utcnow()
+        # Save events at different times (aware UTC, matching Event's clock)
+        now = datetime.now(timezone.utc)
         
         event_old = Event(EventType.SYSTEM, EventPriority.NORMAL, "test")
         event_old.timestamp = now - timedelta(hours=2)

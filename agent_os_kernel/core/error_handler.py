@@ -86,7 +86,7 @@ class ErrorHandler:
         self.max_recovery_attempts = max_recovery_attempts
         self.error_history: List[ErrorInfo] = []
         self.error_callbacks: Dict[ErrorCategory, List[Callable]] = {}
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
         
         # 错误分类映射
         self._error_category_map: Dict[Type[Exception], ErrorCategory] = {

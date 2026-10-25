@@ -2,47 +2,15 @@
 Agent OS Kernel CLI Entry Point
 
 Usage:
-    python -m agent_os_kernel
     python -m agent_os_kernel --help
+    python -m agent_os_kernel doctor
+    python -m agent_os_kernel create -n "Researcher" -t "Research AI"
+    python -m agent_os_kernel demo --type checkpoint
 """
 
 import sys
-import argparse
 
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="Agent OS Kernel - Operating System for AI Agents"
-    )
-    parser.add_argument(
-        "--version",
-        action="version",
-        version="1.0.0"
-    )
-    parser.add_argument(
-        "--demo",
-        choices=["basic", "messaging", "workflow"],
-        default="basic",
-        help="Run demo"
-    )
-    
-    args = parser.parse_args()
-    
-    if args.demo == "basic":
-        from examples.basic_usage import main as demo_main
-    elif args.demo == "messaging":
-        from examples.multi_agent_demo import main as demo_main
-    elif args.demo == "workflow":
-        from examples.complete_workflow import main as demo_main
-    
-    try:
-        import asyncio
-        asyncio.run(demo_main())
-    except ImportError:
-        print("Demo module not found")
-        print("Available demos: basic, messaging, workflow")
-        sys.exit(1)
-
+from .cli.main import main
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

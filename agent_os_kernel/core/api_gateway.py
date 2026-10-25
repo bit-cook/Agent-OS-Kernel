@@ -263,7 +263,7 @@ class RateLimitMiddleware(Middleware):
     
     def __init__(self):
         self.requests: Dict[str, List[datetime]] = defaultdict(list)
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
     
     def before_request(self, request: Request, context: Dict[str, Any]) -> Optional[Response]:
         """检查速率限制"""
@@ -405,7 +405,7 @@ class APIGateway:
         self.middleware_chain: List[Middleware] = []
         self.global_middleware: List[Middleware] = []
         self.exception_handlers: Dict[type, Callable] = {}
-        self._route_lock = threading.Lock()
+        self._route_lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
     
     def add_route(
         self,

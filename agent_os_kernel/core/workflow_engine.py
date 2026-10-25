@@ -68,6 +68,9 @@ class TaskConfig:
     condition: Optional[Callable[[Dict[str, TaskResult]], bool]] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
     parallel: bool = False
+    # 任务失败时的处理策略："fail_all"（默认，任一任务失败即终止工作流）
+    # 或 "continue"（继续执行无依赖关系的后续任务）
+    error_handling: str = "fail_all"
 
 
 class Task:
@@ -83,6 +86,7 @@ class Task:
         self.condition = config.condition
         self.metadata = config.metadata
         self.parallel = config.parallel
+        self.error_handling = config.error_handling
         
         self.status = TaskStatus.PENDING
         self.result: Optional[Any] = None
@@ -125,21 +129,30 @@ class Workflow:
         self._task_completed: Dict[str, bool] = {}
     
     def add_task(self, task: Task) -> None:
-        """添加任务到工作流"""
+        """添加任务到工作流
+        
+        允许前向引用依赖（被依赖的任务可以后添加）——
+        循环/缺失依赖在 get_execution_order() / 执行期才报错，
+        与 tests/test_workflow_engine.py::test_cycle_detection 契约一致。
+        """
         if task.task_id in self.tasks:
             raise ValueError(f"任务 {task.task_id} 已存在")
         
         self.tasks[task.task_id] = task
         
-        # 更新任务图
+        # 更新任务图（不要求依赖已存在）
         for dep in task.dependencies:
-            if dep not in self.tasks:
-                raise ValueError(f"依赖任务 {dep} 不存在")
             self.task_graph[task.task_id].add(dep)
             self.reverse_graph[dep].add(task.task_id)
     
     def get_execution_order(self) -> List[str]:
         """获取拓扑排序后的执行顺序 (Kahn算法)"""
+        # 缺失依赖检查（前向引用未补齐）：图定型时拒绝
+        for task_id in self.tasks:
+            for dep in self.task_graph.get(task_id, []):
+                if dep not in self.tasks:
+                    raise ValueError(f"依赖任务 {dep} 不存在")
+        
         in_degree: Dict[str, int] = {task_id: 0 for task_id in self.tasks}
         
         # 计算入度
@@ -363,9 +376,29 @@ class WorkflowEngine:
                         ready_tasks = parallel_tasks
                 
                 if not ready_tasks:
-                    # 等待任意任务完成
-                    await asyncio.sleep(0.1)
-                    continue
+                    # 没有就绪任务：若有任务在跑则等待，否则说明剩余任务
+                    # 被失败/缺失依赖卡住（error_handling="continue" 路径），
+                    # 标记为跳过避免死循环
+                    any_running = any(
+                        workflow.tasks[t].status == TaskStatus.RUNNING
+                        for t in execution_order
+                    )
+                    if any_running:
+                        await asyncio.sleep(0.1)
+                        continue
+                    for task_id in list(task_queue):
+                        stuck_task = workflow.tasks[task_id]
+                        if stuck_task.status == TaskStatus.PENDING:
+                            stuck_task.status = TaskStatus.SKIPPED
+                            stuck_task.error = "skipped: 依赖失败或缺失"
+                            workflow.results[task_id] = TaskResult(
+                                task_id=task_id,
+                                status=TaskStatus.SKIPPED,
+                                error=stuck_task.error,
+                            )
+                            completed.add(task_id)
+                    task_queue.clear()
+                    break
                 
                 # 执行准备好的任务
                 async with self._semaphore:

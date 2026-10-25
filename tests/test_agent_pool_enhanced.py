@@ -87,18 +87,14 @@ class TestAgentPriorityQueue:
     
     def test_priority_queue_ordering(self):
         """Test PriorityQueue ordering"""
-        queue = asyncio.Queue()
+        from agent_os_kernel.core.agent_pool_enhanced import PriorityQueue
+        queue = PriorityQueue()
         
         # Add tasks in random order
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(queue.put(AgentTask(priority=AgentPriority.NORMAL, task_id="t1", data="n")))
-            loop.run_until_complete(queue.put(AgentTask(priority=AgentPriority.HIGH, task_id="t2", data="h")))
-            loop.run_until_complete(queue.put(AgentTask(priority=AgentPriority.CRITICAL, task_id="t3", data="c")))
-            loop.run_until_complete(queue.put(AgentTask(priority=AgentPriority.LOW, task_id="t4", data="l")))
-        finally:
-            loop.close()
+        queue.put(AgentTask(priority=AgentPriority.NORMAL, task_id="t1", data="n"))
+        queue.put(AgentTask(priority=AgentPriority.HIGH, task_id="t2", data="h"))
+        queue.put(AgentTask(priority=AgentPriority.CRITICAL, task_id="t3", data="c"))
+        queue.put(AgentTask(priority=AgentPriority.LOW, task_id="t4", data="l"))
         
         # Retrieve in priority order (CRITICAL=0 first, then HIGH=1, etc.)
         first = queue.get_nowait()
@@ -341,9 +337,9 @@ class TestLoadBalancing:
         """Test priority-based load balancing"""
         balancer = PriorityLoadBalancer()
         
-        # Create normal priority agents with RUNNING state
+        # Create HIGH priority agents with RUNNING state
         for agent in agents:
-            agent.priority = AgentPriority.NORMAL
+            agent.priority = AgentPriority.HIGH
             agent.state = AgentState.RUNNING
         
         # Create high-priority task
@@ -351,8 +347,18 @@ class TestLoadBalancing:
         
         selected = balancer.select_agent(agents, high_task)
         
-        # Should select a suitable agent (NORMAL can handle HIGH priority)
+        # HIGH agents can handle HIGH priority tasks (see test_agent_can_handle_priority)
         assert selected is not None
+        
+        # A NORMAL agent cannot handle a HIGH task (contract from
+        # test_agent_can_handle_priority) — this test previously asserted the
+        # opposite and contradicted that explicit contract test.
+        normal_agents = []
+        for i in range(1):
+            a = Agent(agent_id="n1", name="N1", priority=AgentPriority.NORMAL)
+            a.state = AgentState.RUNNING
+            normal_agents.append(a)
+        assert balancer.select_agent(normal_agents, high_task) is None
     
     def test_no_available_agents(self, agents):
         """Test load balancing with no available agents"""

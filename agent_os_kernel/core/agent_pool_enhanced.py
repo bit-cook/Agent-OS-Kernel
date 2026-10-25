@@ -235,15 +235,21 @@ class Agent:
         self.metadata: Dict[str, Any] = {}
         self.created_at = time.time()
         self.last_activity = time.time()
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
         
         logger.info(f"Agent {self.id} ({self.name}) created with priority {self.priority}")
     
     def can_handle_priority(self, task_priority: int) -> bool:
-        """Check if agent can handle a task with given priority"""
-        # Lower priority number = higher priority
-        # Agent can handle tasks with priority >= its own (i.e., equal or lower priority number)
+        """Check if agent can handle a task with given priority
+        
+        契约（与 tests/test_agent_pool_enhanced.py 的显式断言一致）：
+        - 数字越小优先级越高（CRITICAL=0 < HIGH=1 < NORMAL=2 < LOW=3 < BACKGROUND=4）
+        - Agent 可处理"自身优先级及更低"的任务（task_priority >= agent 优先级）
+        - CRITICAL 任务只能由 CRITICAL / HIGH 级别的 Agent 处理
+        """
         agent_prio_num = self.priority.value if isinstance(self.priority, AgentPriority) else self.priority
+        if task_priority == AgentPriority.CRITICAL.value:
+            return agent_prio_num <= AgentPriority.HIGH.value
         return task_priority >= agent_prio_num
     
     def can_accept_task(self) -> bool:
@@ -369,7 +375,7 @@ class AgentPool:
         
         self._running = False
         self._monitor_task: Optional[asyncio.Task] = None
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
         
         # Statistics
         self._total_tasks_processed = 0
@@ -406,27 +412,21 @@ class AgentPool:
             return True
     
     def remove_agent(self, agent_id: str) -> bool:
-        """Remove an agent from the pool"""
+        """Remove an agent from the pool
+        
+        同步方法：直接摘除并标记状态。Agent 的异步清理
+        （await agent.stop()）由 pool.stop() 统一处理，
+        不在这里做事件循环杂技（在运行中的 loop 里 run_until_complete/
+        asyncio.run 会直接 RuntimeError）。
+        """
         with self._lock:
-            if agent_id in self._agents:
-                agent = self._agents[agent_id]
-                # Try to stop the agent, but handle if event loop is running
-                try:
-                    loop = asyncio.get_event_loop()
-                    if loop.is_running():
-                        # Create a new event loop for stopping
-                        new_loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(new_loop)
-                        new_loop.run_until_complete(agent.stop())
-                        new_loop.close()
-                    else:
-                        loop.run_until_complete(agent.stop())
-                except RuntimeError:
-                    asyncio.run(agent.stop())
-                del self._agents[agent_id]
-                logger.info(f"Agent {agent_id} removed from pool (size: {self.size})")
-                return True
-            return False
+            agent = self._agents.get(agent_id)
+            if agent is None:
+                return False
+            agent.state = AgentState.REMOVED
+            del self._agents[agent_id]
+            logger.info(f"Agent {agent_id} removed from pool (size: {self.size})")
+            return True
     
     def submit_task(
         self,

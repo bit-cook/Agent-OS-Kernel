@@ -535,9 +535,9 @@ class TestServiceCommunication:
         # 触发熔断
         circuit.record_failure()
         
-        # 降级调用
+        # 降级调用（fallback 与被调用函数同签名：call_with_circuit 会透传参数）
         fallback_called = [False]
-        def fallback():
+        def fallback(*args, **kwargs):
             fallback_called[0] = True
             return {"status_code": 503, "message": "fallback"}
         

@@ -13,6 +13,7 @@ Metrics Collector - Agent-OS-Kernel 指标收集器
 
 import json
 import logging
+import math
 import threading
 import time
 import uuid
@@ -78,7 +79,7 @@ class Counter:
         self.description = description
         self.labels = labels or []
         self._values: Dict[tuple, float] = defaultdict(float)
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
     
     def _get_label_values(self, label_values: Dict[str, str]) -> tuple:
         """获取标签元组"""
@@ -178,7 +179,7 @@ class Gauge:
         self.description = description
         self.labels = labels or []
         self._values: Dict[tuple, float] = defaultdict(float)
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
     
     def _get_label_values(self, label_values: Dict[str, str]) -> tuple:
         """获取标签元组"""
@@ -314,7 +315,7 @@ class Histogram:
         self._totals: Dict[tuple, int] = defaultdict(int)
         self._sums: Dict[tuple, float] = defaultdict(float)
         
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
     
     def _get_label_values(self, label_values: Dict[str, str]) -> tuple:
         """获取标签元组"""
@@ -362,16 +363,17 @@ class Histogram:
     def get_sum(self, label_values: Dict[str, str] = None) -> float:
         """
         获取观察值总和
-        
+
         Args:
             label_values: 标签值字典
-            
+
         Returns:
-            观察值总和
+            观察值总和（math.fsum 精确求和，避免浮点累积误差）
         """
         with self._lock:
             labels = self._get_label_values(label_values or {})
-            return self._sums[labels]
+            # fsum 对 observations 精确求和：0.1+0.2+0.3 == 0.6
+            return math.fsum(self._observations[labels])
     
     def get_bucket_counts(self, label_values: Dict[str, str] = None) -> Dict[float, int]:
         """
@@ -603,7 +605,7 @@ class MetricsRegistry:
         self._counters: Dict[str, Counter] = {}
         self._gauges: Dict[str, Gauge] = {}
         self._histograms: Dict[str, Histogram] = {}
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
     
     def create_counter(
         self,
@@ -813,7 +815,7 @@ class MetricsRegistry:
 
 # 全局默认注册表
 _default_registry: Optional[MetricsRegistry] = None
-_registry_lock = threading.Lock()
+_registry_lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
 
 
 def get_default_registry() -> MetricsRegistry:

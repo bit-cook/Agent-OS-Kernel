@@ -83,7 +83,12 @@ class TestWorkflowDefinition:
             workflow.add_task(Task(task_config))
     
     def test_add_task_with_nonexistent_dependency(self):
-        """测试添加依赖不存在的任务"""
+        """测试添加依赖不存在的任务
+        
+        契约说明：add_task 允许前向引用（否则互锁循环不可构造），
+        缺失依赖在图定型时（get_execution_order）才抛 ValueError——
+        与 test_cycle_detection 的前向引用用法兼容。
+        """
         workflow = Workflow("test_wf")
         
         def dummy_task(input_data, context):
@@ -95,8 +100,10 @@ class TestWorkflowDefinition:
             dependencies=["nonexistent"]
         )
         
+        workflow.add_task(Task(task_config))
+        
         with pytest.raises(ValueError):
-            workflow.add_task(Task(task_config))
+            workflow.get_execution_order()
     
     def test_task_graph_structure(self):
         """测试任务图结构"""

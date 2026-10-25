@@ -123,7 +123,7 @@ class Connection(ABC):
             last_health_check=time.time()
         )
         self._connection = None
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
     
     async def get_connection(self) -> Any:
         """获取实际连接对象"""
@@ -190,7 +190,7 @@ class ConnectionPool:
         self.config = config or ConnectionConfig()
         self._connections: deque = deque()
         self._active_connections: Dict[str, Connection] = {}
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
         self._acquire_lock = asyncio.Lock()
         self._closed = False
         self._health_check_task = None
@@ -201,9 +201,10 @@ class ConnectionPool:
         return Connection(connection_id, self.backend, self.config)
     
     async def initialize(self) -> None:
-        """初始化连接池，创建最小连接数"""
+        """初始化连接池，创建最小连接数（真实建立后端连接）"""
         for _ in range(self.config.min_idle_connections):
             conn = self._create_connection()
+            await conn.get_connection()  # 真正建立后端连接，避免交出未初始化的连接
             self._connections.append(conn)
     
     async def acquire(self, timeout: Optional[float] = None) -> Connection:
@@ -238,7 +239,11 @@ class ConnectionPool:
                         asyncio.create_task(conn.close())
                         continue
                     
-                    # 标记连接为活跃
+                    # 标记连接为活跃（懒建后端连接：initialize 未建或已关闭时补建）
+                    try:
+                        await conn.get_connection()
+                    except Exception:
+                        continue
                     conn.mark_used()
                     self._active_connections[conn.connection_id] = conn
                     return conn
@@ -291,7 +296,9 @@ class ConnectionPool:
             
             if idle_count < self.config.min_idle_connections:
                 connection.release()
-                self._connections.append(connection)
+                # LIFO：刚释放的连接放池头，下次 acquire 优先复用它
+                # （热连接复用，也满足"释放后立即重取得到同一连接"的契约）
+                self._connections.appendleft(connection)
             else:
                 await connection.close()
     
@@ -340,40 +347,45 @@ class ConnectionPool:
     
     async def remove_unhealthy(self) -> int:
         """
-        移除所有不健康的连接
-        
+        移除所有不健康的连接（真实健康检查：调用 backend.health_check）
+
         Returns:
             int: 移除的连接数量
         """
         removed_count = 0
-        current_time = time.time()
-        
+
+        # 检查并移除不健康的空闲连接（真实探活，而非仅看时间戳）
         with self._lock:
-            # 检查并移除不健康的空闲连接
-            new_connections = deque()
-            while self._connections:
-                conn = self._connections.popleft()
-                
-                if conn.info.is_healthy(current_time, self.config.health_check_interval):
-                    new_connections.append(conn)
-                else:
-                    asyncio.create_task(conn.close())
-                    removed_count += 1
-            
-            self._connections = new_connections
-        
-        # 检查活跃连接
-        with self._lock:
-            unhealthy_active = []
-            for conn in self._active_connections.values():
-                if not conn.info.is_healthy(current_time, self.config.health_check_interval):
-                    unhealthy_active.append(conn.connection_id)
-            
-            for conn_id in unhealthy_active:
-                conn = self._active_connections.pop(conn_id)
+            candidates = list(self._connections)
+            self._connections.clear()
+
+        for conn in candidates:
+            try:
+                healthy = await conn.check_health()
+            except Exception:
+                healthy = False
+            if healthy:
+                with self._lock:
+                    self._connections.append(conn)
+            else:
                 asyncio.create_task(conn.close())
                 removed_count += 1
-        
+
+        # 检查活跃连接
+        with self._lock:
+            active_candidates = list(self._active_connections.values())
+
+        for conn in active_candidates:
+            try:
+                healthy = await conn.check_health()
+            except Exception:
+                healthy = False
+            if not healthy:
+                with self._lock:
+                    self._active_connections.pop(conn.connection_id, None)
+                asyncio.create_task(conn.close())
+                removed_count += 1
+
         return removed_count
     
     async def replenish_idle(self) -> int:
@@ -385,6 +397,7 @@ class ConnectionPool:
         """
         current_time = time.time()
         idle_count = 0
+        replenished_count = 0
         
         with self._lock:
             for conn in self._connections:

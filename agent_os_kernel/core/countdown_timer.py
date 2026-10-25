@@ -41,18 +41,31 @@ class TimerAlert:
     _trigger_count: int = 0
     
     def should_trigger(self, elapsed_seconds: float) -> bool:
-        """检查是否应该触发"""
-        if self.trigger_at <= elapsed_seconds:
-            self._trigger_count += 1
-            if self.max_repeats and self._trigger_count >= self.max_repeats:
-                return False
-            if self.repeat and self.repeat_interval:
-                # 计算下一次触发时间
-                next_trigger = self.trigger_at + (self._trigger_count * self.repeat_interval)
-                if elapsed_seconds < next_trigger:
-                    return False
-            return True
-        return False
+        """检查是否应该触发
+        
+        契约（与 tests/test_countdown_timer.py 一致）：
+        - 首次触发在 trigger_at；repeat 时后续每 repeat_interval 一次
+        - max_repeats 达到后不再触发
+        - 未到触发时间不触发，且不消耗触发计数
+        """
+        if elapsed_seconds < self.trigger_at:
+            return False
+        
+        if not self.repeat:
+            # 非重复：仅首次触发
+            if self._trigger_count == 0:
+                self._trigger_count += 1
+                return True
+            return False
+        
+        # 重复：下一次触发时间 = trigger_at + 已触发次数 * interval
+        next_trigger = self.trigger_at + self._trigger_count * self.repeat_interval
+        if elapsed_seconds < next_trigger:
+            return False
+        if self.max_repeats and self._trigger_count >= self.max_repeats:
+            return False
+        self._trigger_count += 1
+        return True
 
 
 @dataclass

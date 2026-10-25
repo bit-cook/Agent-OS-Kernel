@@ -120,12 +120,23 @@ class StateMachine:
         """
         with self._lock:
             self._states.add(state)
-            self._transitions[state] = []
-            self._callbacks[state] = StateCallbacks(
-                on_enter=on_enter,
-                on_exit=on_exit,
-                on_update=on_update
-            )
+            self._transitions.setdefault(state, [])
+            # 合并语义：重复 add_state 不清掉已注册的回调，
+            # 仅覆盖本次显式传入的非 None 回调
+            existing = self._callbacks.get(state)
+            if existing is None:
+                self._callbacks[state] = StateCallbacks(
+                    on_enter=on_enter,
+                    on_exit=on_exit,
+                    on_update=on_update
+                )
+            else:
+                if on_enter is not None:
+                    existing.on_enter = on_enter
+                if on_exit is not None:
+                    existing.on_exit = on_exit
+                if on_update is not None:
+                    existing.on_update = on_update
     
     def add_transition(
         self,
@@ -216,30 +227,33 @@ class StateMachine:
             是否成功触发转换
         """
         with self._lock:
-            # 查找匹配的转换
+            # 遍历全部匹配转换：取第一个守卫通过的；
+            # 只有全部被守卫拒绝才返回 False（test_multiple_guards 契约）
             for transition in self._transitions.get(self._current_state, []):
-                if transition.event == event:
-                    # 检查条件守卫
-                    if transition.guard is not None and not transition.guard():
-                        return False
-                    
-                    # 执行状态退出回调
-                    self._execute_callback(self._current_state, 'on_exit')
-                    
-                    # 记录前一个状态
-                    self._previous_state = self._current_state
-                    
-                    # 执行转换动作
-                    if transition.action:
-                        transition.action(data)
-                    
-                    # 更新当前状态
-                    self._current_state = transition.to_state
-                    
-                    # 执行状态进入回调
-                    self._execute_callback(self._current_state, 'on_enter')
-                    
-                    return True
+                if transition.event != event:
+                    continue
+                
+                # 检查条件守卫：不满足则尝试下一个匹配转换
+                if transition.guard is not None and not transition.guard():
+                    continue
+                
+                # 执行状态退出回调
+                self._execute_callback(self._current_state, 'on_exit')
+                
+                # 记录前一个状态
+                self._previous_state = self._current_state
+                
+                # 执行转换动作
+                if transition.action:
+                    transition.action(data)
+                
+                # 更新当前状态
+                self._current_state = transition.to_state
+                
+                # 执行状态进入回调
+                self._execute_callback(self._current_state, 'on_enter')
+                
+                return True
             return False
     
     def _execute_callback(self, state: str, callback_type: str) -> None:
@@ -251,10 +265,22 @@ class StateMachine:
                 callback()
     
     def start(self) -> None:
-        """启动状态机"""
+        """启动状态机
+
+        语义（tests/test_state_machine.py::test_start_stop）：
+        1. 标记为运行中并触发当前状态的 on_enter
+        2. 若存在从当前状态出发、事件名为 "start" 的转换，则自动触发它
+           （机器启动即走启动转换；无此转换时静默跳过）
+        """
         with self._lock:
             self._is_running = True
             self._execute_callback(self._current_state, 'on_enter')
+            if self.can_transition('start'):
+                self.trigger_event('start')
+    
+    def _enter_initial(self) -> None:
+        """回到初始状态并触发其 on_enter（不走启动转换）"""
+        self._execute_callback(self._current_state, 'on_enter')
     
     def stop(self) -> None:
         """停止状态机"""
@@ -263,12 +289,13 @@ class StateMachine:
             self._execute_callback(self._current_state, 'on_exit')
     
     def reset(self) -> None:
-        """重置状态机"""
+        """重置状态机（回到初始状态，不走启动转换）"""
         with self._lock:
             self.stop()
             self._current_state = self._initial_state
             self._previous_state = None
-            self.start()
+            self._is_running = True
+            self._enter_initial()
     
     def update(self, dt: float = 0.0) -> None:
         """
@@ -391,9 +418,12 @@ class ParallelStateMachine(StateMachine):
         initial_states: List[str],
         name: str = "ParallelStateMachine"
     ):
+        # 先设置两个属性：super().__init__ 会调用被覆写的 add_state，
+        # 后者读取 _initial_states / _active_states
+        self._initial_states = list(initial_states)
+        self._active_states: Set[str] = set()
         super().__init__(initial_states[0] if initial_states else "", name)
-        self._active_states: Set[str] = set(initial_states)
-        self._initial_states = initial_states
+        self._active_states = set(initial_states)
     
     @property
     def current_states(self) -> Set[str]:
@@ -466,21 +496,27 @@ def state_machine(
     """
     def decorator(cls: type) -> type:
         sm = StateMachine(initial_state, name)
+        sm._instance = None  # 装饰的类实例（在 __init__ 中注入）
         
-        # 自动发现状态方法
+        # 自动发现状态方法（类方法未绑定，调用时经 sm._instance 转发）
+        def make_cb(method_name: str) -> Callable[[], None]:
+            def cb():
+                inst = getattr(sm, '_instance', None)
+                if inst is not None:
+                    getattr(inst, method_name)()
+            return cb
+        
         for attr_name in dir(cls):
             if attr_name.startswith('on_enter_'):
-                state = attr_name[9:]
-                method = getattr(cls, attr_name)
-                if callable(method):
-                    sm.add_state(state, on_enter=method)
+                state = attr_name[len('on_enter_'):]
+                if callable(getattr(cls, attr_name)):
+                    sm.add_state(state, on_enter=make_cb(attr_name))
             elif attr_name.startswith('on_exit_'):
-                state = attr_name[8:]
-                method = getattr(cls, attr_name)
-                if callable(method):
+                state = attr_name[len('on_exit_'):]
+                if callable(getattr(cls, attr_name)):
                     if state not in sm._callbacks:
                         sm.add_state(state)
-                    sm._callbacks[state].on_exit = method
+                    sm._callbacks[state].on_exit = make_cb(attr_name)
         
         # 存储状态机实例
         setattr(cls, '_state_machine', sm)

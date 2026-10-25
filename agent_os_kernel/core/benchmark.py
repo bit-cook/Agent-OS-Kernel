@@ -311,7 +311,7 @@ class ResourceMonitor:
         self._running = False
         self._monitor_thread: Optional[threading.Thread] = None
         self._samples: List[ResourceUsage] = []
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
     
     def start(self, duration_seconds: Optional[float] = None):
         """开始监控"""

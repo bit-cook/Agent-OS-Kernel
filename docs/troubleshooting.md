@@ -401,7 +401,7 @@ psutil.disk_usage('/')
 
 如果以上方案无法解决问题：
 
-1. 查看[文档](docs/)
+1. 查看[文档](../docs/)
 2. 检查 [GitHub Issues](https://github.com/bit-cook/Agent-OS-Kernel/issues)
 3. 创建 Issue 反馈问题
 
