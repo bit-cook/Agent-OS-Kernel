@@ -3,6 +3,8 @@ use super::context::ContextManager;
 use super::scheduler::AgentScheduler;
 use super::storage::StorageManager;
 use super::security::{SecurityPolicy, SandboxManager};
+use crate::tools::registry::ToolRegistry;
+use crate::tools::register_builtin_tools;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use log::info;
@@ -23,6 +25,8 @@ pub struct KernelConfig {
     pub max_context_tokens: usize,
     pub time_slice: u64,
     pub enable_sandbox: bool,
+    /// 工具的工作区根（文件工具只能访问此根之内）
+    pub workspace: std::path::PathBuf,
 }
 
 impl Default for KernelConfig {
@@ -31,6 +35,7 @@ impl Default for KernelConfig {
             max_context_tokens: 128_000,
             time_slice: 60_000,
             enable_sandbox: false,
+            workspace: std::env::current_dir().unwrap_or_default(),
         }
     }
 }
@@ -73,6 +78,7 @@ pub struct AgentOSKernel {
     security: Option<Arc<SandboxManager>>,
     stats: Arc<RwLock<KernelStats>>,
     running: Arc<RwLock<bool>>,
+    tool_registry: Arc<ToolRegistry>,
 }
 
 impl AgentOSKernel {
@@ -116,6 +122,11 @@ impl AgentOSKernel {
         let stats = Arc::new(RwLock::new(KernelStats::default()));
         let running = Arc::new(RwLock::new(false));
 
+        // 内置工具注册（fail-closed 执行器 + workspace 根约束）
+        let tool_registry = Arc::new(ToolRegistry::new());
+        register_builtin_tools(&tool_registry, vec![config.workspace.clone()]).await;
+        info!("[tools] {} built-in tools registered", 6);
+
         {
             let mut inner_stats = stats.write().await;
             inner_stats.start_time = Utc::now().timestamp() as f64;
@@ -130,12 +141,18 @@ impl AgentOSKernel {
             security,
             stats,
             running,
+            tool_registry,
         };
 
         info!("Agent OS Kernel initialized successfully!");
         info!("");
 
         Ok(kernel)
+    }
+
+    /// 工具注册表访问器
+    pub fn tools(&self) -> Arc<ToolRegistry> {
+        self.tool_registry.clone()
     }
 
     pub async fn spawn_agent(

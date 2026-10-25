@@ -14,4 +14,5 @@ pub mod mcp;
 pub use base::*;
 pub use registry::*;
 pub use builtin::*;
+pub use builtin::register_builtin_tools;
 pub use mcp::*;
