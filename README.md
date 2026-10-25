@@ -505,6 +505,35 @@ cargo test --lib
 
 ---
 
+## 🖥️ 控制面板与 REST API
+
+```bash
+# 启动 API（默认仅 127.0.0.1；公开监听须显式 --host 0.0.0.0）
+agent-os-kernel serve --port 8000
+# 控制面板:  http://127.0.0.1:8000/ui   （自包含单文件，零 CDN 依赖）
+# API 文档:   http://127.0.0.1:8000/docs
+```
+
+| 端点 | 方法 | 说明 |
+|-----|------|------|
+| `/api/v1/agents` | GET/POST | Agent 生命周期管理 |
+| `/api/v1/agents/{id}` | GET/DELETE | 查询 / 真实终止 |
+| `/api/v1/agents/{id}/checkpoints` | POST | 创建检查点（进程状态+上下文页面） |
+| `/api/v1/checkpoints` | GET | 列出检查点 |
+| `/api/v1/checkpoints/{cid}/restore` | POST | 恢复为新 Agent |
+| `/api/v1/tasks` | GET/POST | 任务提交与查询 |
+| `/api/v1/context/{id}` | GET/POST | 上下文读写（内核共享状态） |
+| `/api/v1/tools` | GET | 已注册工具 schema |
+| `/api/v1/audit` | GET | 审计日志 |
+| `/api/v1/metrics` | GET | 指标（JSON / Prometheus） |
+| `/api/v1/status` | GET | 内核状态 |
+
+安全默认值：默认绑定 loopback；变更型端点（POST/DELETE）要求
+`X-API-Key`（环境变量 `AOSK_API_KEY`），未配置 key 时仅 loopback
+客户端可变更。面板在收到 401 时会自动弹出密钥输入框。
+
+---
+
 ## 🔗 相关资源
 
 ### 📖 灵感来源
