@@ -5,18 +5,18 @@
 use axum::{
     Router,
     routing::get,
-    extract::{Path, State, Json},
+    extract::{Path, State, Json, ConnectInfo},
     response::{Html, IntoResponse},
-    http::{StatusCode, Method},
+    http::{StatusCode, Method, HeaderMap, header},
 };
-use tower_http::cors::{CorsLayer, Any};
+use tower_http::cors::CorsLayer;
 use serde::{Serialize, Deserialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use std::collections::HashMap;
+use std::net::SocketAddr;
 use chrono::Utc;
 use uuid::Uuid;
-use std::net::SocketAddr;
 use log::info;
 
 // ─── Shared State ───────────────────────────────────────────
@@ -74,18 +74,68 @@ pub struct AppState {
     pub total_api_calls: RwLock<u64>,
     pub total_tokens: RwLock<u64>,
     pub total_iterations: RwLock<u64>,
+    /// 变更型端点的 API Key（None = 未配置，仅 loopback 可变更）
+    pub api_key: Option<String>,
 }
 
 impl AppState {
     pub fn new() -> Self {
+        Self::with_api_key(None)
+    }
+
+    pub fn with_api_key(api_key: Option<String>) -> Self {
         Self {
             agents: RwLock::new(HashMap::new()),
             start_time: Utc::now(),
             total_api_calls: RwLock::new(0),
             total_tokens: RwLock::new(0),
             total_iterations: RwLock::new(0),
+            api_key,
         }
     }
+}
+
+/// 变更型端点（POST/DELETE）认证（审计 P0-04）：
+/// - 配置了 key：必须提供正确的 X-API-Key
+/// - 未配置 key：仅放行 loopback 客户端，其余 401
+fn check_write_auth(
+    state: &AppState,
+    headers: &HeaderMap,
+    client_addr: SocketAddr,
+) -> Result<(), axum::response::Response> {
+    let is_loopback = client_addr.ip().is_loopback();
+
+    if let Some(expected) = &state.api_key {
+        let provided = headers
+            .get("X-API-Key")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
+        if provided != expected {
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                Json(ErrorResponse {
+                    ok: false,
+                    error: "Invalid or missing API key".to_string(),
+                }),
+            )
+                .into_response());
+        }
+        return Ok(());
+    }
+
+    if !is_loopback {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            Json(ErrorResponse {
+                ok: false,
+                error: "Anonymous mutations are only allowed from loopback; \
+                        set AOSK_API_KEY to authorize remote clients"
+                    .to_string(),
+            }),
+        )
+            .into_response());
+    }
+    Ok(())
 }
 
 #[derive(Deserialize)]
@@ -148,8 +198,13 @@ async fn list_agents(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 
 async fn create_agent(
     State(state): State<Arc<AppState>>,
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     Json(req): Json<CreateAgentRequest>,
-) -> impl IntoResponse {
+) -> axum::response::Response {
+    if let Err(resp) = check_write_auth(&state, &headers, client_addr) {
+        return resp;
+    }
     let mut calls = state.total_api_calls.write().await;
     *calls += 1;
     let pid = format!("agent-{}", Uuid::new_v4());
@@ -166,7 +221,7 @@ async fn create_agent(
     let mut agents = state.agents.write().await;
     agents.insert(pid.clone(), agent.clone());
     info!("Agent created: {} ({})", agent.name, pid);
-    (StatusCode::CREATED, Json(ApiResponse { ok: true, data: agent }))
+    (StatusCode::CREATED, Json(ApiResponse { ok: true, data: agent })).into_response()
 }
 
 async fn get_agent(
@@ -185,18 +240,28 @@ async fn get_agent(
 
 async fn delete_agent(
     State(state): State<Arc<AppState>>,
+    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
     Path(pid): Path<String>,
-) -> impl IntoResponse {
+) -> axum::response::Response {
+    if let Err(resp) = check_write_auth(&state, &headers, client_addr) {
+        return resp;
+    }
     let mut agents = state.agents.write().await;
     match agents.remove(&pid) {
         Some(agent) => {
             info!("Agent terminated: {} ({})", agent.name, pid);
-            Ok(Json(ApiResponse { ok: true, data: serde_json::json!({"terminated": pid}) }))
+            (StatusCode::OK, Json(ApiResponse { ok: true, data: serde_json::json!({"terminated": pid}) }))
+                .into_response()
         }
-        None => Err((StatusCode::NOT_FOUND, Json(ErrorResponse {
-            ok: false,
-            error: format!("Agent {} not found", pid),
-        }))),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                ok: false,
+                error: format!("Agent {} not found", pid),
+            }),
+        )
+            .into_response(),
     }
 }
 
@@ -242,13 +307,39 @@ async fn dashboard() -> Html<&'static str> {
 
 // ─── Server ─────────────────────────────────────────────────
 
+/// 启动 Web API 服务器（审计 P0-04 默认值）：
+/// - 默认绑定 127.0.0.1（loopback）；显式公开须设 AOSK_BIND_ADDR
+/// - 变更型端点认证：AOSK_API_KEY（X-API-Key header）；
+///   未配置时仅 loopback 客户端可变更
 pub async fn start_server(port: u16) -> Result<(), Box<dyn std::error::Error>> {
-    let state = Arc::new(AppState::new());
+    start_server_with_bind(port, None, None).await
+}
 
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods([Method::GET, Method::POST, Method::DELETE])
-        .allow_headers(Any);
+pub async fn start_server_with_bind(
+    port: u16,
+    bind_addr: Option<String>,
+    api_key: Option<String>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let bind_addr = bind_addr
+        .or_else(|| std::env::var("AOSK_BIND_ADDR").ok())
+        .unwrap_or_else(|| "127.0.0.1".to_string());
+    let api_key = api_key.or_else(|| std::env::var("AOSK_API_KEY").ok());
+    let is_public = bind_addr != "127.0.0.1" && bind_addr != "localhost" && bind_addr != "::1";
+
+    let state = Arc::new(AppState::with_api_key(api_key));
+
+    // CORS：默认不放行跨站；显式公开监听时才允许 Any
+    let cors = if is_public {
+        info!("⚠️  Public bind {} — 显式公开暴露，必须配置 AOSK_API_KEY", bind_addr);
+        CorsLayer::new()
+            .allow_origin(tower_http::cors::Any)
+            .allow_methods([Method::GET, Method::POST, Method::DELETE])
+            .allow_headers(tower_http::cors::Any)
+    } else {
+        CorsLayer::new()
+            .allow_methods([Method::GET, Method::POST, Method::DELETE])
+            .allow_headers(vec![header::CONTENT_TYPE, header::AUTHORIZATION])
+    };
 
     let app = Router::new()
         .route("/", get(dashboard))
@@ -260,12 +351,13 @@ pub async fn start_server(port: u16) -> Result<(), Box<dyn std::error::Error>> {
         .layer(cors)
         .with_state(state);
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], port));
-    info!("🚀 Agent OS Kernel Web API starting on http://0.0.0.0:{}", port);
-    info!("📊 Dashboard: http://0.0.0.0:{}/", port);
-    info!("📡 API: http://0.0.0.0:{}/api/status", port);
+    let ip: std::net::IpAddr = bind_addr.parse()?;
+    let addr = SocketAddr::new(ip, port);
+    info!("🚀 Agent OS Kernel Web API starting on http://{}", addr);
+    info!("📊 Dashboard: http://{}/", addr);
+    info!("📡 API: http://{}/api/status", addr);
 
-    let server = axum::Server::bind(&addr).serve(app.into_make_service());
+    let server = axum::Server::bind(&addr).serve(app.into_make_service_with_connect_info::<SocketAddr>());
     server.await?;
     Ok(())
 }

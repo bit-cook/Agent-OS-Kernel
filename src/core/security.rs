@@ -106,19 +106,21 @@ impl SecurityPolicy {
     }
 
     async fn check_path_permission(&self, path: &str) -> Result<(), SecurityViolation> {
-        let normalized_path = Path::new(path).to_str().unwrap_or(path);
+        let normalized_path = Path::new(path);
         
         for (pattern, permission) in &self.filesystem_permissions {
+            // 组件级前缀匹配（Path::starts_with 按路径段比较），
+            // 避免 "/workspace" 误匹配 "/workspace-evil" 的字符串前缀缺陷
             if normalized_path.starts_with(pattern)
                 && permission.can_read() {
                     return Ok(());
-                }
+            }
         }
 
-        warn!("Path access violation: {}", normalized_path);
+        warn!("Path access violation: {}", normalized_path.display());
         Err(SecurityViolation {
             violation_type: SecurityViolationType::PathAccess,
-            message: format!("Path '{}' is not allowed", normalized_path),
+            message: format!("Path '{}' is not allowed", normalized_path.display()),
             severity: SecuritySeverity::Medium,
         })
     }
@@ -318,7 +320,19 @@ impl SandboxManager {
 
             result
         } else {
-            Ok(())
+            // Fail closed：未注册沙箱的 agent 不允许任何操作
+            // （此前返回 Ok(()) = 默认放行，P0-01 级缺陷）
+            let violation = SecurityViolation {
+                violation_type: SecurityViolationType::SystemCall,
+                message: format!(
+                    "No sandbox registered for agent '{}'; all operations denied (fail closed). \
+                     Call create_sandbox first.",
+                    pid
+                ),
+                severity: SecuritySeverity::Critical,
+            };
+            self.log_audit(pid, operation, &violation).await;
+            Err(violation)
         }
     }
 
@@ -410,5 +424,45 @@ mod tests {
 
         let sandbox = manager.get_sandbox(pid).await;
         assert!(sandbox.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_unregistered_agent_fails_closed() {
+        // P0-01：未注册沙箱的 agent 必须 fail closed（此前 Ok(()) 默认放行）
+        let manager = SandboxManager::new();
+        let result = manager
+            .check_operation("ghost-agent", SecurityOperation::FileAccess("/etc/passwd".to_string()))
+            .await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().severity, SecuritySeverity::Critical);
+    }
+
+    #[tokio::test]
+    async fn test_registered_agent_respects_policy() {
+        let manager = SandboxManager::new();
+        let policy = SecurityPolicy::builder()
+            .permission_level(PermissionLevel::Restricted)
+            .build();
+        manager.create_sandbox("agent-1", policy).await;
+
+        let result = manager
+            .check_operation("agent-1", SecurityOperation::SystemCall("execve".to_string()))
+            .await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_path_prefix_sibling_not_matched() {
+        // "/workspace-evil" 不是 "/workspace" 的子路径（组件级前缀）
+        let policy = SecurityPolicy::default();
+        let ok = policy
+            .check_permission(SecurityOperation::FileAccess("/workspace/data.txt".to_string()))
+            .await;
+        assert!(ok.is_ok());
+
+        let evil = policy
+            .check_permission(SecurityOperation::FileAccess("/workspace-evil/data.txt".to_string()))
+            .await;
+        assert!(evil.is_err());
     }
 }
