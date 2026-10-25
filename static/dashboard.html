@@ -3,148 +3,452 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Agent OS Kernel Dashboard</title>
+<title>Agent OS Kernel — Control Dashboard</title>
 <style>
+:root{
+  --bg:#070b14; --bg2:#0b1120; --card:#0f172a; --card2:#131c31; --border:#1e2a44;
+  --border2:#2a3a5c; --accent:#22d3ee; --accent2:#a78bfa; --green:#34d399;
+  --red:#f87171; --yellow:#fbbf24; --text:#e6edf7; --text2:#8fa3bf; --text3:#5b6b8c;
+  --glow:0 0 24px rgba(34,211,238,.14); --mono:'SF Mono',ui-monospace,Monaco,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+}
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#0a0e17;--card:#111827;--border:#1e293b;--accent:#06b6d4;--accent2:#8b5cf6;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--text:#e2e8f0;--text2:#94a3b8;--glow:0 0 20px rgba(6,182,212,0.3)}
-body{font-family:'SF Mono',Monaco,Consolas,monospace;background:var(--bg);color:var(--text);min-height:100vh}
-.header{background:linear-gradient(135deg,#0f172a,#1e1b4b);border-bottom:1px solid var(--border);padding:20px 30px;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--glow)}
-.header h1{font-size:24px;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:2px}
-.header .status{display:flex;align-items:center;gap:10px}
-.status-dot{width:10px;height:10px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
-@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(16,185,129,0.7)}50%{opacity:0.8;box-shadow:0 0 0 8px rgba(16,185,129,0)}}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;padding:20px 30px}
-.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;transition:all 0.3s}
-.card:hover{border-color:var(--accent);box-shadow:var(--glow)}
-.card .label{font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:1px}
-.card .value{font-size:28px;font-weight:bold;margin-top:6px;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.card .sub{font-size:11px;color:var(--text2);margin-top:4px}
-.section{padding:10px 30px}
-.section h2{font-size:16px;color:var(--accent);margin-bottom:12px;display:flex;align-items:center;gap:8px}
-table{width:100%;border-collapse:collapse;background:var(--card);border-radius:12px;overflow:hidden;border:1px solid var(--border)}
-th{background:#1e293b;padding:12px 16px;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--text2)}
-td{padding:10px 16px;border-top:1px solid var(--border);font-size:13px}
-tr:hover td{background:rgba(6,182,212,0.05)}
-.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:bold}
-.badge.running{background:rgba(16,185,129,0.2);color:var(--green)}
-.badge.waiting{background:rgba(245,158,11,0.2);color:var(--yellow)}
-.badge.stopped{background:rgba(239,68,68,0.2);color:var(--red)}
-.btn{padding:6px 14px;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-family:inherit;transition:all 0.2s}
-.btn-danger{background:rgba(239,68,68,0.2);color:var(--red);border:1px solid var(--red)}
-.btn-danger:hover{background:var(--red);color:white}
-.btn-primary{background:rgba(6,182,212,0.2);color:var(--accent);border:1px solid var(--accent)}
-.btn-primary:hover{background:var(--accent);color:white}
-.form-row{display:flex;gap:10px;padding:10px 30px;flex-wrap:wrap}
-.form-row input,.form-row select{background:var(--card);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:8px;font-family:inherit;font-size:13px;outline:none}
-.form-row input:focus,.form-row select:focus{border-color:var(--accent)}
-.form-row input{flex:1;min-width:150px}
-.footer{text-align:center;padding:20px;color:var(--text2);font-size:11px;border-top:1px solid var(--border);margin-top:20px}
-@media(max-width:768px){.grid{grid-template-columns:1fr 1fr}.header h1{font-size:16px}.form-row{flex-direction:column}}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;
+  background-image:radial-gradient(ellipse 80% 50% at 50% -20%,rgba(34,211,238,.08),transparent)}
+::selection{background:rgba(34,211,238,.3)}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+
+/* ── Header ── */
+.header{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;
+  gap:16px;padding:14px 28px;background:rgba(7,11,20,.85);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border)}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.logo{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font-size:18px;flex-shrink:0;
+  background:linear-gradient(135deg,#0891b2,#7c3aed);box-shadow:var(--glow)}
+.brand h1{font-size:16px;font-weight:700;letter-spacing:.4px;white-space:nowrap}
+.brand p{font-size:11px;color:var(--text3);font-family:var(--mono)}
+.header-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.pill{display:inline-flex;align-items:center;gap:7px;padding:6px 13px;border-radius:99px;
+  border:1px solid var(--border);background:var(--card);font-size:12px;font-family:var(--mono);white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;flex-shrink:0}
+.dot.bad{background:var(--red);animation:none}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(52,211,153,.6)}50%{opacity:.75;box-shadow:0 0 0 7px rgba(52,211,153,0)}}
+
+/* ── Layout ── */
+.wrap{max-width:1280px;margin:0 auto;padding:24px 28px 60px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-bottom:22px}
+.kpi{position:relative;overflow:hidden;background:linear-gradient(180deg,var(--card),var(--bg2));
+  border:1px solid var(--border);border-radius:14px;padding:18px 18px 14px;transition:border-color .2s}
+.kpi:hover{border-color:var(--border2)}
+.kpi .label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1.2px;display:flex;align-items:center;gap:6px}
+.kpi .value{font-size:30px;font-weight:750;margin-top:8px;font-family:var(--mono);letter-spacing:-.5px}
+.kpi .sub{font-size:11px;color:var(--text3);margin-top:5px;font-family:var(--mono)}
+.kpi .spark{position:absolute;right:0;bottom:0;left:0;height:38px;opacity:.9}
+.panel{background:var(--card);border:1px solid var(--border);border-radius:14px;margin-bottom:20px;overflow:hidden}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  padding:14px 18px;border-bottom:1px solid var(--border)}
+.panel-head h2{font-size:13px;font-weight:650;letter-spacing:.6px;color:var(--text);display:flex;align-items:center;gap:8px}
+.panel-head h2 .ico{color:var(--accent)}
+.panel-body{padding:16px 18px}
+.cols{display:grid;grid-template-columns:1.6fr 1fr;gap:20px;align-items:start}
+@media(max-width:960px){.cols{grid-template-columns:1fr}}
+
+/* ── Controls ── */
+input,select,button{font-family:inherit;font-size:13px;outline:none}
+.input{background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:9px 13px;
+  border-radius:9px;transition:border-color .15s;min-width:0}
+.input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,211,238,.12)}
+.input::placeholder{color:var(--text3)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 15px;border-radius:9px;border:1px solid transparent;
+  cursor:pointer;font-weight:600;transition:all .15s;white-space:nowrap}
+.btn-primary{background:linear-gradient(135deg,#0891b2,#6d28d9);color:#fff}
+.btn-primary:hover{filter:brightness(1.15)}
+.btn-ghost{background:var(--bg2);border-color:var(--border);color:var(--text2)}
+.btn-ghost:hover{border-color:var(--border2);color:var(--text)}
+.btn-danger{background:rgba(248,113,113,.12);border-color:rgba(248,113,113,.4);color:var(--red)}
+.btn-danger:hover{background:var(--red);color:#fff}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.form-grid{display:grid;grid-template-columns:1fr 1.4fr auto auto;gap:10px}
+@media(max-width:720px){.form-grid{grid-template-columns:1fr 1fr}}
+
+/* ── Table ── */
+.table-scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{padding:10px 14px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:1px;
+  color:var(--text3);border-bottom:1px solid var(--border);background:var(--bg2);white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+tbody tr{transition:background .12s}
+tbody tr:hover{background:rgba(34,211,238,.04)}
+tbody tr:last-child td{border-bottom:none}
+.mono{font-family:var(--mono);font-size:12px}
+.pid{color:var(--text3);font-family:var(--mono);font-size:11px}
+.task-cell{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:650;font-family:var(--mono)}
+.badge::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
+.badge.running{background:rgba(52,211,153,.12);color:var(--green)}
+.badge.waiting{background:rgba(251,191,36,.12);color:var(--yellow)}
+.badge.stopped,.badge.failed{background:rgba(248,113,113,.12);color:var(--red)}
+.badge.ready{background:rgba(34,211,238,.12);color:var(--accent)}
+.empty{padding:38px 20px;text-align:center;color:var(--text3);font-size:13px}
+.empty .big{font-size:26px;margin-bottom:8px;opacity:.5}
+
+/* ── Log stream ── */
+.log{height:300px;overflow-y:auto;font-family:var(--mono);font-size:11.5px;line-height:1.7;padding:4px 0}
+.log-line{display:flex;gap:10px;padding:3px 10px;border-radius:6px}
+.log-line:hover{background:var(--bg2)}
+.log-time{color:var(--text3);flex-shrink:0}
+.log-tag{flex-shrink:0;width:64px;font-weight:700}
+.log-tag.info{color:var(--accent)} .log-tag.ok{color:var(--green)}
+.log-tag.warn{color:var(--yellow)} .log-tag.err{color:var(--red)}
+.log-msg{color:var(--text2);word-break:break-all}
+
+/* ── Meter bars ── */
+.meters{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:720px){.meters{grid-template-columns:1fr}}
+.meter-label{display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:6px;font-family:var(--mono)}
+.meter-track{height:6px;background:var(--bg2);border-radius:3px;overflow:hidden}
+.meter-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .5s}
+
+/* ── Key banner ── */
+.keybar{display:none;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(251,191,36,.08);
+  border:1px solid rgba(251,191,36,.3);border-radius:12px;padding:11px 16px;margin-bottom:18px;font-size:12.5px}
+.keybar.show{display:flex}
+.keybar input{flex:1;min-width:200px}
+
+/* ── Toasts ── */
+.toasts{position:fixed;right:18px;bottom:18px;z-index:100;display:flex;flex-direction:column;gap:8px;max-width:340px}
+.toast{background:var(--card2);border:1px solid var(--border2);border-left:3px solid var(--accent);
+  border-radius:10px;padding:11px 14px;font-size:12.5px;box-shadow:0 8px 30px rgba(0,0,0,.5);
+  animation:slidein .25s}
+.toast.err{border-left-color:var(--red)} .toast.ok{border-left-color:var(--green)}
+.toast.warn{border-left-color:var(--yellow)}
+@keyframes slidein{from{transform:translateX(20px);opacity:0}}
+
+.skeleton{color:var(--text3);animation:blink 1.2s infinite}
+@keyframes blink{50%{opacity:.35}}
+.footer{text-align:center;padding:26px 0 6px;color:var(--text3);font-size:11px;font-family:var(--mono)}
 </style>
 </head>
 <body>
-<div class="header">
-<h1>⚡ AGENT OS KERNEL DASHBOARD</h1>
-<div class="status"><span class="status-dot"></span><span id="state">Connecting...</span><span style="color:var(--text2);font-size:12px" id="version"></span></div>
+
+<header class="header">
+  <div class="brand">
+    <div class="logo">⚡</div>
+    <div>
+      <h1>AGENT OS KERNEL</h1>
+      <p>runtime control plane</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="pill"><span class="dot" id="connDot"></span><span id="connState">connecting</span></span>
+    <span class="pill" id="versionPill">v—</span>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="keybar" id="keybar">
+    <span>🔑</span>
+    <span>该服务启用了 API Key 认证，变更操作需要密钥：</span>
+    <input class="input" id="apiKeyInput" type="password" placeholder="AOSK_API_KEY">
+    <button class="btn btn-ghost" onclick="saveKey()">保存</button>
+  </div>
+
+  <section class="kpis">
+    <div class="kpi">
+      <div class="label">⏱ Uptime</div>
+      <div class="value skeleton" id="kUptime">—</div>
+      <div class="sub" id="kSince">—</div>
+      <svg class="spark" id="spUptime" preserveAspectRatio="none"></svg>
+    </div>
+    <div class="kpi">
+      <div class="label">🤖 Agents</div>
+      <div class="value skeleton" id="kAgents">—</div>
+      <div class="sub" id="kActive">—</div>
+      <svg class="spark" id="spAgents" preserveAspectRatio="none"></svg>
+    </div>
+    <div class="kpi">
+      <div class="label">🪙 Tokens</div>
+      <div class="value skeleton" id="kTokens">—</div>
+      <div class="sub" id="kCalls">—</div>
+      <svg class="spark" id="spTokens" preserveAspectRatio="none"></svg>
+    </div>
+    <div class="kpi">
+      <div class="label">📊 Context</div>
+      <div class="value skeleton" id="kContext">—</div>
+      <div class="sub" id="kCache">—</div>
+      <svg class="spark" id="spCache" preserveAspectRatio="none"></svg>
+    </div>
+  </section>
+
+  <div class="cols">
+    <div>
+      <section class="panel">
+        <div class="panel-head">
+          <h2><span class="ico">🧪</span>创建 Agent</h2>
+        </div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <input class="input" id="fName" placeholder="名称，如 Researcher">
+            <input class="input" id="fTask" placeholder="任务描述">
+            <select class="input" id="fPriority">
+              <option value="90">Critical</option>
+              <option value="70">High</option>
+              <option value="50" selected>Normal</option>
+              <option value="30">Low</option>
+              <option value="10">Background</option>
+            </select>
+            <button class="btn btn-primary" onclick="createAgent()">+ 创建</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2><span class="ico">📋</span>Agent 进程</h2>
+          <input class="input" id="fSearch" placeholder="搜索名称 / 任务 / PID…" style="width:220px" oninput="renderAgents()">
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>PID</th><th>名称</th><th>任务</th><th>优先级</th><th>状态</th><th>Tokens</th><th style="text-align:right">操作</th></tr></thead>
+            <tbody id="agentsBody">
+              <tr><td colspan="7" class="empty"><div class="big">🤖</div>加载中…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <div>
+      <section class="panel">
+        <div class="panel-head"><h2><span class="ico">⚙️</span>调度器</h2></div>
+        <div class="panel-body">
+          <div class="meters">
+            <div>
+              <div class="meter-label"><span>Ready Queue</span><span id="mReadyV">0</span></div>
+              <div class="meter-track"><div class="meter-fill" id="mReady" style="width:0%"></div></div>
+            </div>
+            <div>
+              <div class="meter-label"><span>Running Queue</span><span id="mRunV">0</span></div>
+              <div class="meter-track"><div class="meter-fill" id="mRun" style="width:0%"></div></div>
+            </div>
+            <div>
+              <div class="meter-label"><span>Waiting Queue</span><span id="mWaitV">0</span></div>
+              <div class="meter-track"><div class="meter-fill" id="mWait" style="width:0%"></div></div>
+            </div>
+            <div>
+              <div class="meter-label"><span>Cache Hit</span><span id="mCacheV">—</span></div>
+              <div class="meter-track"><div class="meter-fill" id="mCache" style="width:0%"></div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2><span class="ico">📡</span>运行事件</h2>
+          <button class="btn btn-ghost" style="padding:5px 11px;font-size:11px" onclick="clearLog()">清空</button>
+        </div>
+        <div class="log" id="logStream"></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="footer">Agent OS Kernel — Rust + Axum runtime control plane</div>
 </div>
 
-<div class="grid">
-<div class="card"><div class="label">⏱ Uptime</div><div class="value" id="uptime">—</div><div class="sub" id="start_time">—</div></div>
-<div class="card"><div class="label">🤖 Total Agents</div><div class="value" id="total_agents">0</div><div class="sub" id="active_agents">0 active</div></div>
-<div class="card"><div class="label">🪙 Tokens Processed</div><div class="value" id="total_tokens">0</div><div class="sub" id="api_calls">0 API calls</div></div>
-<div class="card"><div class="label">📊 Context Window</div><div class="value" id="context">128K</div><div class="sub" id="cache_hit">— cache hit</div></div>
-</div>
-
-<div class="section"><h2>🧪 Create Agent</h2></div>
-<div class="form-row">
-<input type="text" id="agent_name" placeholder="Agent Name">
-<input type="text" id="agent_task" placeholder="Task Description">
-<select id="agent_priority"><option value="90">Critical (90)</option><option value="70">High (70)</option><option value="50" selected>Normal (50)</option><option value="30">Low (30)</option><option value="10">Background (10)</option></select>
-<button class="btn btn-primary" onclick="createAgent()">+ Create Agent</button>
-</div>
-
-<div class="section"><h2>📋 Agent Processes</h2>
-<table>
-<thead><tr><th>PID</th><th>Name</th><th>Task</th><th>Priority</th><th>Status</th><th>Tokens</th><th>Actions</th></tr></thead>
-<tbody id="agents_table"><tr><td colspan="7" style="text-align:center;color:var(--text2)">No agents running</td></tr></tbody>
-</table>
-</div>
-
-<div class="section" style="margin-top:20px"><h2>⚙️ Scheduler</h2></div>
-<div class="grid">
-<div class="card"><div class="label">Policy</div><div class="value" style="font-size:20px" id="sched_policy">—</div></div>
-<div class="card"><div class="label">Ready Queue</div><div class="value" id="sched_ready">0</div></div>
-<div class="card"><div class="label">Running Queue</div><div class="value" id="sched_running">0</div></div>
-<div class="card"><div class="label">Waiting Queue</div><div class="value" id="sched_waiting">0</div></div>
-</div>
-
-<div class="footer">Agent OS Kernel v0.3.0 — Built with Rust + Axum — © 2026 bit-cook</div>
+<div class="toasts" id="toasts"></div>
 
 <script>
-const API='';
-function fmt(s){if(s>86400)return(s/86400).toFixed(1)+'d';if(s>3600)return(s/3600).toFixed(1)+'h';if(s>60)return(s/60).toFixed(1)+'m';return s.toFixed(0)+'s'}
-function fmtN(n){if(n>=1e9)return(n/1e9).toFixed(1)+'B';if(n>=1e6)return(n/1e6).toFixed(1)+'M';if(n>=1e3)return(n/1e3).toFixed(1)+'K';return n.toString()}
+'use strict';
+const $ = id => document.getElementById(id);
+const API = '';
+const KEY_STORE = 'aosk_api_key';
+let API_KEY = sessionStorage.getItem(KEY_STORE) || '';
+let agents = [];
+let hist = { uptime: [], tokens: [], agents: [], cache: [] };
+let lastAgentIds = new Set();
+let logCleared = false;
 
+if (API_KEY) { $('apiKeyInput').value = API_KEY; $('keybar').classList.add('show'); }
+
+/* ── helpers ── */
+function fmt(s){ s=Math.max(0,s|0); if(s>=86400)return (s/86400).toFixed(1)+'d'; if(s>=3600)return (s/3600).toFixed(1)+'h'; if(s>=60)return (s/60).toFixed(1)+'m'; return s+'s'; }
+function fmtN(n){ n=n||0; if(n>=1e9)return (n/1e9).toFixed(1)+'B'; if(n>=1e6)return (n/1e6).toFixed(1)+'M'; if(n>=1e3)return (n/1e3).toFixed(1)+'K'; return String(n|0); }
+function esc(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function now(){ return new Date().toLocaleTimeString('zh-CN',{hour12:false}); }
+
+function toast(msg, kind='info'){
+  const t = document.createElement('div');
+  t.className = 'toast ' + kind;
+  t.textContent = msg;
+  $('toasts').appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(()=>t.remove(),300); }, 3600);
+}
+function log(tag, msg){
+  if (logCleared) return;
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML = `<span class="log-time">${now()}</span><span class="log-tag ${tag}">${tag.toUpperCase()}</span><span class="log-msg">${esc(msg)}</span>`;
+  const s = $('logStream');
+  s.appendChild(line);
+  while (s.children.length > 120) s.removeChild(s.firstChild);
+  s.scrollTop = s.scrollHeight;
+}
+function clearLog(){ $('logStream').innerHTML=''; logCleared=true; setTimeout(()=>logCleared=false, 500); }
+
+function saveKey(){
+  API_KEY = $('apiKeyInput').value.trim();
+  sessionStorage.setItem(KEY_STORE, API_KEY);
+  toast(API_KEY ? 'API Key 已保存（本次会话有效）' : '已清除 API Key', 'ok');
+  refresh();
+}
+function authHeaders(){
+  const h = {'Content-Type':'application/json'};
+  if (API_KEY) h['X-API-Key'] = API_KEY;
+  return h;
+}
+
+/* ── sparkline ── */
+function spark(svgId, data, color){
+  const svg = $(svgId);
+  const w = svg.clientWidth || 240, h = 38;
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  if (data.length < 2){ svg.innerHTML=''; return; }
+  const max = Math.max(...data), min = Math.min(...data);
+  const range = (max-min) || 1;
+  const pts = data.map((v,i)=>{
+    const x = (i/(data.length-1))*w;
+    const y = h-4 - ((v-min)/range)*(h-8);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  svg.innerHTML = `
+    <defs><linearGradient id="g${svgId}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${color}" stop-opacity=".35"/>
+      <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+    </linearGradient></defs>
+    <polygon points="0,${h} ${pts} ${w},${h}" fill="url(#g${svgId})"/>
+    <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linejoin="round"/>`;
+}
+
+/* ── data ── */
 async function refresh(){
   try{
-    const [sr,ar,mr,scr]=await Promise.all([
+    const [sr,ar,mr,scr] = await Promise.all([
       fetch(API+'/api/status').then(r=>r.json()),
       fetch(API+'/api/agents').then(r=>r.json()),
       fetch(API+'/api/metrics').then(r=>r.json()),
-      fetch(API+'/api/scheduler').then(r=>r.json())
+      fetch(API+'/api/scheduler').then(r=>r.json()),
     ]);
-    const s=sr.data;
-    document.getElementById('state').textContent=s.state;
-    document.getElementById('version').textContent='v'+s.version;
-    document.getElementById('uptime').textContent=fmt(s.uptime_secs);
-    document.getElementById('start_time').textContent='Since '+new Date(s.start_time).toLocaleString();
-    document.getElementById('total_agents').textContent=s.total_agents;
-    document.getElementById('active_agents').textContent=s.active_agents+' active';
-    document.getElementById('total_tokens').textContent=fmtN(s.total_tokens);
-    document.getElementById('api_calls').textContent=fmtN(s.total_api_calls)+' API calls';
-    document.getElementById('context').textContent=fmtN(s.max_context_tokens);
+    const s = sr.data || {};
+    $('connDot').classList.remove('bad');
+    $('connState').textContent = s.state || 'Running';
+    $('versionPill').textContent = 'v' + (s.version || '?');
 
-    const m=mr.data;
-    document.getElementById('cache_hit').textContent=(m.cache_hit_rate*100).toFixed(0)+'% cache hit';
+    $('kUptime').textContent = fmt(s.uptime_secs);
+    $('kUptime').classList.remove('skeleton');
+    $('kSince').textContent = 'since ' + new Date(s.start_time).toLocaleString();
+    $('kAgents').textContent = fmtN(s.total_agents);
+    $('kAgents').classList.remove('skeleton');
+    $('kActive').textContent = s.active_agents + ' active';
+    $('kTokens').textContent = fmtN(s.total_tokens);
+    $('kTokens').classList.remove('skeleton');
+    $('kCalls').textContent = fmtN(s.total_api_calls) + ' API calls';
+    $('kContext').textContent = fmtN(s.max_context_tokens);
+    $('kContext').classList.remove('skeleton');
 
-    const agents=ar.data;
-    const tb=document.getElementById('agents_table');
-    if(agents.length===0){tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text2)">No agents running</td></tr>';}
-    else{tb.innerHTML=agents.map(a=>`<tr>
-      <td style="font-size:11px;color:var(--text2)">${a.pid.substring(0,14)}...</td>
-      <td><strong>${a.name}</strong></td>
-      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.task}</td>
-      <td>${a.priority}</td>
-      <td><span class="badge ${a.status}">${a.status}</span></td>
-      <td>${fmtN(a.tokens_used)}</td>
-      <td><button class="btn btn-danger" onclick="killAgent('${a.pid}')">Kill</button></td>
-    </tr>`).join('');}
+    const m = mr.data || {};
+    const cachePct = Math.round((m.cache_hit_rate||0)*100);
+    $('kCache').textContent = cachePct + '%';
+    $('mCacheV').textContent = cachePct + '%';
+    $('mCache').style.width = cachePct + '%';
 
-    const sc=scr.data;
-    document.getElementById('sched_policy').textContent=sc.policy;
-    document.getElementById('sched_ready').textContent=sc.ready_queue;
-    document.getElementById('sched_running').textContent=sc.running_queue;
-    document.getElementById('sched_waiting').textContent=sc.waiting_queue;
-  }catch(e){document.getElementById('state').textContent='Disconnected';}
+    hist.uptime.push(s.uptime_secs||0); hist.tokens.push(s.total_tokens||0);
+    hist.agents.push(s.total_agents||0); hist.cache.push(cachePct);
+    for (const k of Object.keys(hist)) if (hist[k].length>40) hist[k].shift();
+    spark('spUptime', hist.uptime, '#22d3ee');
+    spark('spAgents', hist.agents, '#a78bfa');
+    spark('spTokens', hist.tokens, '#34d399');
+    spark('spCache', hist.cache, '#fbbf24');
+
+    const sc = scr.data || {};
+    $('mReadyV').textContent = sc.ready_queue;  $('mReady').style.width  = Math.min(100,(sc.ready_queue||0)*10)+'%';
+    $('mRunV').textContent  = sc.running_queue; $('mRun').style.width   = Math.min(100,(sc.running_queue||0)*10)+'%';
+    $('mWaitV').textContent = sc.waiting_queue; $('mWait').style.width  = Math.min(100,(sc.waiting_queue||0)*10)+'%';
+
+    agents = ar.data || [];
+    renderAgents();
+
+    // 生命周期事件日志（对比上次快照）
+    const ids = new Set(agents.map(a=>a.pid));
+    for (const a of agents) if (!lastAgentIds.has(a.pid)) log('ok', `agent spawned — ${a.name} (${a.pid.slice(0,8)}…)`);
+    for (const pid of lastAgentIds) if (!ids.has(pid)) log('warn', `agent terminated — ${pid.slice(0,8)}…`);
+    lastAgentIds = ids;
+
+  }catch(e){
+    $('connDot').classList.add('bad');
+    $('connState').textContent = 'disconnected';
+    log('err', '无法连接内核 API: ' + e.message);
+  }
 }
 
+function renderAgents(){
+  const q = ($('fSearch').value||'').toLowerCase();
+  const list = agents.filter(a =>
+    !q || a.name.toLowerCase().includes(q) || (a.task||'').toLowerCase().includes(q) || a.pid.includes(q));
+  const tb = $('agentsBody');
+  if (!list.length){
+    tb.innerHTML = `<tr><td colspan="7" class="empty"><div class="big">🤖</div>${agents.length? '没有匹配的 Agent':'暂无 Agent，先创建一个'}</td></tr>`;
+    return;
+  }
+  tb.innerHTML = list.map(a=>`<tr>
+    <td class="pid" title="${esc(a.pid)}">${esc(a.pid.slice(0,8))}…</td>
+    <td><strong>${esc(a.name)}</strong></td>
+    <td class="task-cell" title="${esc(a.task)}">${esc(a.task)}</td>
+    <td class="mono">${a.priority}</td>
+    <td><span class="badge ${esc(a.status)}">${esc(a.status)}</span></td>
+    <td class="mono">${fmtN(a.tokens_used)}</td>
+    <td style="text-align:right"><button class="btn btn-danger" style="padding:5px 12px;font-size:11px" onclick="killAgent('${esc(a.pid)}','${esc(a.name)}')">Kill</button></td>
+  </tr>`).join('');
+}
+
+/* ── actions ── */
 async function createAgent(){
-  const name=document.getElementById('agent_name').value||'Untitled';
-  const task=document.getElementById('agent_task').value||'No task';
-  const priority=parseInt(document.getElementById('agent_priority').value);
-  await fetch(API+'/api/agents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,task,priority})});
-  document.getElementById('agent_name').value='';
-  document.getElementById('agent_task').value='';
-  refresh();
+  const name = $('fName').value.trim() || 'Untitled';
+  const task = $('fTask').value.trim() || 'No task';
+  const priority = parseInt($('fPriority').value, 10);
+  try{
+    const r = await fetch(API+'/api/agents', {
+      method:'POST', headers: authHeaders(),
+      body: JSON.stringify({name, task, priority})
+    });
+    if (r.status === 401){ $('keybar').classList.add('show'); toast('认证失败：需要 API Key（已弹出输入框）', 'err'); log('err','POST /api/agents → 401 unauthorized'); return; }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const body = await r.json();
+    toast(`已创建 Agent「${body.data?.name || name}」`, 'ok');
+    log('ok', `create agent — ${name} (priority ${priority})`);
+    $('fName').value=''; $('fTask').value='';
+    refresh();
+  }catch(e){ toast('创建失败: ' + e.message, 'err'); log('err','create agent failed: '+e.message); }
 }
 
-async function killAgent(pid){
-  await fetch(API+'/api/agents/'+pid,{method:'DELETE'});
-  refresh();
+async function killAgent(pid, name){
+  if (!confirm(`确定终止 Agent「${name}」(${pid.slice(0,8)}…)？`)) return;
+  try{
+    const r = await fetch(API+'/api/agents/'+encodeURIComponent(pid), { method:'DELETE', headers: authHeaders() });
+    if (r.status === 401){ $('keybar').classList.add('show'); toast('认证失败：需要 API Key', 'err'); log('err','DELETE /api/agents → 401'); return; }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    toast(`已终止「${name}」`, 'ok');
+    log('warn', `kill agent — ${name}`);
+    refresh();
+  }catch(e){ toast('终止失败: ' + e.message, 'err'); log('err','kill agent failed: '+e.message); }
 }
 
+/* ── boot ── */
+log('info', 'dashboard connected — polling every 3s');
 refresh();
-setInterval(refresh,3000);
+setInterval(refresh, 3000);
 </script>
 </body>
 </html>
