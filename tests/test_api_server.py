@@ -109,3 +109,74 @@ def test_mutation_with_wrong_key_rejected(client):
     r = client.post("/api/v1/agents", headers={"X-API-Key": "wrong"},
                     json={"name": "X", "task": "t"})
     assert r.status_code == 401
+
+
+def test_ui_dashboard_served(client):
+    """控制面板页面必须真实提供（此前 static 目录是孤儿文件）"""
+    r = client.get("/ui")
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    body = r.text
+    # 自包含：不得依赖外部 CDN
+    assert "cdn.tailwindcss.com" not in body
+    assert "unpkg.com" not in body
+    # 必须调用真实存在的端点（BASE='/api/v1' 动态拼接）
+    assert "/api/v1" in body
+    assert "'/agents'" in body
+    assert "'/checkpoints'" in body
+    assert "'/tools'" in body
+    assert "'/audit" in body
+
+
+def test_tools_endpoint_real(client):
+    """工具列表必须是真实注册表的 schema"""
+    r = client.get("/api/v1/tools")
+    assert r.status_code == 200
+    tools = r.json()["tools"]
+    assert len(tools) >= 5
+    names = {t.get("name") for t in tools}
+    assert {"calculator", "read_file", "write_file", "execute_python"} <= names
+
+
+def test_checkpoint_create_and_restore_real(client):
+    """检查点创建/恢复必须是真实内核操作（非占位）"""
+    r = client.post("/api/v1/agents", headers=HEADERS, json={"name": "CP", "task": "t"})
+    aid = r.json()["agent_id"]
+
+    # 创建检查点
+    r = client.post(f"/api/v1/agents/{aid}/checkpoints", headers=HEADERS)
+    assert r.status_code == 200
+    cid = r.json()["checkpoint_id"]
+    assert cid
+
+    # 检查点出现在列表中，且带上下文页面
+    r = client.get("/api/v1/checkpoints")
+    assert r.status_code == 200
+    cps = r.json()["checkpoints"]
+    assert any(c["checkpoint_id"] == cid for c in cps)
+    cp = next(c for c in cps if c["checkpoint_id"] == cid)
+    assert len(cp.get("context_pages", [])) >= 3
+
+    # 恢复：产生新 PID
+    r = client.post(f"/api/v1/checkpoints/{cid}/restore", headers=HEADERS)
+    assert r.status_code == 200
+    new_pid = r.json()["new_agent_id"]
+    assert new_pid and new_pid != aid
+    assert client.get(f"/api/v1/agents/{new_pid}").status_code == 200
+
+
+def test_checkpoint_unknown_agent_404(client):
+    r = client.post("/api/v1/agents/nonexistent/checkpoints", headers=HEADERS)
+    assert r.status_code == 404
+
+
+def test_restore_unknown_checkpoint_404(client):
+    r = client.post("/api/v1/checkpoints/nonexistent/restore", headers=HEADERS)
+    assert r.status_code == 404
+
+
+def test_audit_endpoint_real(client):
+    """审计日志端点返回真实记录"""
+    r = client.get("/api/v1/audit?limit=10")
+    assert r.status_code == 200
+    assert isinstance(r.json()["logs"], list)

@@ -270,7 +270,7 @@ class CLI:
             print("请安装: pip install fastapi uvicorn", file=sys.stderr)
             return 1
         
-        print(f"启动服务器: http://{args.host}:{args.port}  (docs: /docs)")
+        print(f"启动服务器: http://{args.host}:{args.port}  (docs: /docs, dashboard: /ui)")
         run_server(host=args.host, port=args.port)
         return 0
     

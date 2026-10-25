@@ -17,11 +17,14 @@ REST API Server
 import logging
 import os
 import hmac
+from pathlib import Path
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 import uvicorn
 
@@ -303,6 +306,49 @@ class AgentOSKernelAPI:
 
             return {"context": context}
 
+        # ========== Checkpoints（真实内核 create_checkpoint/restore_checkpoint） ==========
+
+        @app.post("/api/v1/agents/{agent_id}/checkpoints", tags=["Checkpoints"],
+                  dependencies=[Depends(self.require_write_auth)])
+        async def create_checkpoint(agent_id: str):
+            """为 Agent 创建检查点（真实持久化进程状态+上下文页面）"""
+            if not self.kernel.get_agent(agent_id):
+                raise HTTPException(status_code=404, detail="Agent not found")
+            checkpoint_id = self.kernel.create_checkpoint(agent_id, description="via API")
+            if not checkpoint_id:
+                raise HTTPException(status_code=500, detail="Checkpoint creation failed")
+            self.metrics.counter("checkpoints_created_total")
+            return {"checkpoint_id": checkpoint_id, "agent_id": agent_id, "status": "created"}
+
+        @app.get("/api/v1/checkpoints", tags=["Checkpoints"])
+        async def list_checkpoints(agent_id: Optional[str] = None):
+            """列出检查点"""
+            return {"checkpoints": self.kernel.storage.list_checkpoints(agent_pid=agent_id)}
+
+        @app.post("/api/v1/checkpoints/{checkpoint_id}/restore", tags=["Checkpoints"],
+                  dependencies=[Depends(self.require_write_auth)])
+        async def restore_checkpoint(checkpoint_id: str):
+            """从检查点恢复 Agent（真实恢复到新 PID）"""
+            new_pid = self.kernel.restore_checkpoint(checkpoint_id)
+            if not new_pid:
+                raise HTTPException(status_code=404, detail="Checkpoint not found")
+            self.metrics.counter("checkpoints_restored_total")
+            return {"new_agent_id": new_pid, "checkpoint_id": checkpoint_id, "status": "restored"}
+
+        # ========== Tools（真实工具注册表） ==========
+
+        @app.get("/api/v1/tools", tags=["Tools"])
+        async def list_tools():
+            """列出已注册的内置工具（真实 schema）"""
+            return {"tools": self.kernel.tool_registry.get_schemas()}
+
+        # ========== Audit（真实审计日志） ==========
+
+        @app.get("/api/v1/audit", tags=["Audit"])
+        async def get_audit(agent_id: Optional[str] = None, limit: int = 50):
+            """查询审计日志（真实记录）"""
+            return {"logs": self.kernel.storage.get_audit_logs(agent_pid=agent_id, limit=limit)}
+
         # ========== Metrics ==========
 
         @app.get("/api/v1/metrics", tags=["Metrics"])
@@ -321,6 +367,15 @@ class AgentOSKernelAPI:
             return self.metrics.export_prometheus()
 
         # ========== System ==========
+
+        @app.get("/ui", response_class=HTMLResponse, tags=["System"],
+                 include_in_schema=False)
+        async def dashboard_ui():
+            """控制面板（自包含单文件，无 CDN 依赖）"""
+            index = Path(__file__).parent / "static" / "index.html"
+            if not index.exists():
+                raise HTTPException(status_code=404, detail="dashboard not installed")
+            return HTMLResponse(index.read_text(encoding="utf-8"))
 
         @app.get("/api/v1/status", response_model=StatusResponse, tags=["System"])
         async def get_status():

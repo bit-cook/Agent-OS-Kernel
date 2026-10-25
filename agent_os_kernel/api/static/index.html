@@ -1,346 +1,396 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agent-OS-Kernel 管理面板</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
-    <style>
-        [v-cloak] { display: none; }
-        .fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
-        .fade-enter-from, .fade-leave-to { opacity: 0; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent OS Kernel — Control Dashboard</title>
+<style>
+:root{
+  --bg:#070b14; --bg2:#0b1120; --card:#0f172a; --card2:#131c31; --border:#1e2a44;
+  --border2:#2a3a5c; --accent:#22d3ee; --accent2:#a78bfa; --green:#34d399;
+  --red:#f87171; --yellow:#fbbf24; --text:#e6edf7; --text2:#8fa3bf; --text3:#5b6b8c;
+  --glow:0 0 24px rgba(34,211,238,.14); --mono:'SF Mono',ui-monospace,Monaco,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;
+  background-image:radial-gradient(ellipse 80% 50% at 50% -20%,rgba(34,211,238,.08),transparent)}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+
+.header{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;
+  gap:16px;padding:14px 28px;background:rgba(7,11,20,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.logo{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font-size:18px;flex-shrink:0;
+  background:linear-gradient(135deg,#0891b2,#7c3aed);box-shadow:var(--glow)}
+.brand h1{font-size:16px;font-weight:700;letter-spacing:.4px;white-space:nowrap}
+.brand p{font-size:11px;color:var(--text3);font-family:var(--mono)}
+.header-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.pill{display:inline-flex;align-items:center;gap:7px;padding:6px 13px;border-radius:99px;border:1px solid var(--border);
+  background:var(--card);font-size:12px;font-family:var(--mono);white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;flex-shrink:0}
+.dot.bad{background:var(--red);animation:none}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(52,211,153,.6)}50%{opacity:.75;box-shadow:0 0 0 7px rgba(52,211,153,0)}}
+
+.wrap{max-width:1280px;margin:0 auto;padding:24px 28px 60px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:22px}
+.kpi{position:relative;overflow:hidden;background:linear-gradient(180deg,var(--card),var(--bg2));
+  border:1px solid var(--border);border-radius:14px;padding:18px 18px 14px}
+.kpi:hover{border-color:var(--border2)}
+.kpi .label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1.2px}
+.kpi .value{font-size:30px;font-weight:750;margin-top:8px;font-family:var(--mono);letter-spacing:-.5px}
+.kpi .sub{font-size:11px;color:var(--text3);margin-top:5px;font-family:var(--mono)}
+
+.panel{background:var(--card);border:1px solid var(--border);border-radius:14px;margin-bottom:20px;overflow:hidden}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 18px;border-bottom:1px solid var(--border)}
+.panel-head h2{font-size:13px;font-weight:650;letter-spacing:.6px;display:flex;align-items:center;gap:8px}
+.panel-head h2 .ico{color:var(--accent)}
+.panel-body{padding:16px 18px}
+.cols{display:grid;grid-template-columns:1.5fr 1fr;gap:20px;align-items:start}
+@media(max-width:960px){.cols{grid-template-columns:1fr}}
+
+input,select,button{font-family:inherit;font-size:13px;outline:none}
+.input{background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:9px 13px;border-radius:9px;transition:border-color .15s;min-width:0}
+.input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,211,238,.12)}
+.input::placeholder{color:var(--text3)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 15px;border-radius:9px;border:1px solid transparent;cursor:pointer;font-weight:600;transition:all .15s;white-space:nowrap}
+.btn-primary{background:linear-gradient(135deg,#0891b2,#6d28d9);color:#fff}
+.btn-primary:hover{filter:brightness(1.15)}
+.btn-ghost{background:var(--bg2);border-color:var(--border);color:var(--text2)}
+.btn-ghost:hover{border-color:var(--border2);color:var(--text)}
+.btn-danger{background:rgba(248,113,113,.12);border-color:rgba(248,113,113,.4);color:var(--red)}
+.btn-danger:hover{background:var(--red);color:#fff}
+.btn-sm{padding:5px 11px;font-size:11px}
+.form-grid{display:grid;grid-template-columns:1fr 1.4fr auto auto;gap:10px}
+@media(max-width:720px){.form-grid{grid-template-columns:1fr 1fr}}
+
+.table-scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{padding:10px 14px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);border-bottom:1px solid var(--border);background:var(--bg2);white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+tbody tr{transition:background .12s}
+tbody tr:hover{background:rgba(34,211,238,.04)}
+tbody tr:last-child td{border-bottom:none}
+.mono{font-family:var(--mono);font-size:12px}
+.pid{color:var(--text3);font-family:var(--mono);font-size:11px}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:650;font-family:var(--mono)}
+.badge::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
+.badge.running,.badge.ready{background:rgba(52,211,153,.12);color:var(--green)}
+.badge.waiting,.badge.suspended{background:rgba(251,191,36,.12);color:var(--yellow)}
+.badge.terminated,.badge.failed,.badge.error{background:rgba(248,113,113,.12);color:var(--red)}
+.empty{padding:34px 20px;text-align:center;color:var(--text3);font-size:13px}
+.empty .big{font-size:24px;margin-bottom:8px;opacity:.5}
+
+.log{max-height:320px;overflow-y:auto;font-family:var(--mono);font-size:11.5px;line-height:1.7}
+.log-line{display:flex;gap:10px;padding:4px 10px;border-radius:6px}
+.log-line:hover{background:var(--bg2)}
+.log-time{color:var(--text3);flex-shrink:0}
+.log-tag{flex-shrink:0;width:70px;font-weight:700;color:var(--accent)}
+.log-msg{color:var(--text2);word-break:break-all}
+
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--bg2);border:1px solid var(--border);
+  border-radius:9px;padding:7px 12px;font-size:12px;font-family:var(--mono)}
+
+.keybar{display:none;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(251,191,36,.08);
+  border:1px solid rgba(251,191,36,.3);border-radius:12px;padding:11px 16px;margin-bottom:18px;font-size:12.5px}
+.keybar.show{display:flex}
+.keybar input{flex:1;min-width:200px}
+
+.toasts{position:fixed;right:18px;bottom:18px;z-index:100;display:flex;flex-direction:column;gap:8px;max-width:340px}
+.toast{background:var(--card2);border:1px solid var(--border2);border-left:3px solid var(--accent);border-radius:10px;
+  padding:11px 14px;font-size:12.5px;box-shadow:0 8px 30px rgba(0,0,0,.5);animation:slidein .25s}
+.toast.err{border-left-color:var(--red)} .toast.ok{border-left-color:var(--green)}
+@keyframes slidein{from{transform:translateX(20px);opacity:0}}
+.skeleton{color:var(--text3);animation:blink 1.2s infinite}
+@keyframes blink{50%{opacity:.35}}
+.footer{text-align:center;padding:26px 0 6px;color:var(--text3);font-size:11px;font-family:var(--mono)}
+</style>
 </head>
-<body class="bg-gray-900 text-gray-100 min-h-screen">
-    <div id="app" v-cloak>
-        <!-- Header -->
-        <header class="bg-gray-800 border-b border-gray-700 sticky top-0 z-50">
-            <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-xl">🤖</div>
-                    <div>
-                        <h1 class="text-xl font-bold">Agent-OS-Kernel</h1>
-                        <p class="text-xs text-gray-400">v2.0 管理面板</p>
-                    </div>
-                </div>
-                <div class="flex items-center gap-4">
-                    <span class="px-3 py-1 rounded-full text-sm" :class="statusClass">{{ status.overall_health }}</span>
-                    <button @click="refreshAll" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition">
-                        🔄 刷新
-                    </button>
-                </div>
-            </div>
-        </header>
+<body>
 
-        <!-- Main Content -->
-        <main class="max-w-7xl mx-auto px-4 py-6">
-            <!-- Stats Cards -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
-                    <div class="text-gray-400 text-sm">CPU 使用率</div>
-                    <div class="text-2xl font-bold mt-1">{{ status.cpu_usage?.toFixed(1) || 0 }}%</div>
-                    <div class="w-full bg-gray-700 h-2 rounded-full mt-2">
-                        <div class="h-2 rounded-full transition-all" :class="getProgressClass(status.cpu_usage)" :style="{width: (status.cpu_usage || 0) + '%'}"></div>
-                    </div>
-                </div>
-                <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
-                    <div class="text-gray-400 text-sm">内存使用率</div>
-                    <div class="text-2xl font-bold mt-1">{{ status.memory_usage?.toFixed(1) || 0 }}%</div>
-                    <div class="w-full bg-gray-700 h-2 rounded-full mt-2">
-                        <div class="h-2 rounded-full transition-all" :class="getProgressClass(status.memory_usage)" :style="{width: (status.memory_usage || 0) + '%'}"></div>
-                    </div>
-                </div>
-                <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
-                    <div class="text-gray-400 text-sm">活跃 Agent</div>
-                    <div class="text-2xl font-bold mt-1">{{ agents.length }}</div>
-                </div>
-                <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
-                    <div class="text-gray-400 text-sm">检查点</div>
-                    <div class="text-2xl font-bold mt-1">{{ checkpoints.length }}</div>
-                </div>
-            </div>
+<header class="header">
+  <div class="brand">
+    <div class="logo">⚡</div>
+    <div>
+      <h1>AGENT OS KERNEL</h1>
+      <p>runtime control plane</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="pill"><span class="dot" id="connDot"></span><span id="connState">connecting</span></span>
+    <span class="pill" id="versionPill">v—</span>
+  </div>
+</header>
 
-            <!-- Tabs -->
-            <div class="flex gap-2 mb-6 border-b border-gray-700">
-                <button v-for="tab in tabs" :key="tab.id" @click="currentTab = tab.id"
-                    class="px-4 py-2 text-sm font-medium transition border-b-2 -mb-px"
-                    :class="currentTab === tab.id ? 'text-blue-400 border-blue-400' : 'text-gray-400 border-transparent hover:text-gray-300'">
-                    {{ tab.name }}
-                </button>
-            </div>
+<div class="wrap">
 
-            <!-- Agents Tab -->
-            <div v-if="currentTab === 'agents'" class="space-y-4">
-                <!-- Create Agent -->
-                <div class="bg-gray-800 rounded-xl p-4 border border-gray-700">
-                    <h3 class="font-medium mb-4">创建新 Agent</h3>
-                    <div class="grid md:grid-cols-3 gap-4">
-                        <input v-model="newAgent.name" placeholder="Agent 名称" class="bg-gray-700 border border-gray-600 rounded-lg px-4 py-2">
-                        <input v-model="newAgent.task" placeholder="任务描述" class="bg-gray-700 border border-gray-600 rounded-lg px-4 py-2">
-                        <div class="flex gap-2">
-                            <select v-model="newAgent.priority" class="bg-gray-700 border border-gray-600 rounded-lg px-4 py-2">
-                                <option :value="10">低优先级</option>
-                                <option :value="30">中优先级</option>
-                                <option :value="50">高优先级</option>
-                                <option :value="80">紧急</option>
-                            </select>
-                            <button @click="createAgent" :disabled="!newAgent.name || !newAgent.task"
-                                class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-medium disabled:opacity-50">
-                                创建
-                            </button>
-                        </div>
-                    </div>
-                </div>
+  <div class="keybar" id="keybar">
+    <span>🔑</span><span>该服务启用了 API Key 认证，变更操作需要密钥：</span>
+    <input class="input" id="apiKeyInput" type="password" placeholder="AOSK_API_KEY">
+    <button class="btn btn-ghost" onclick="saveKey()">保存</button>
+  </div>
 
-                <!-- Agent List -->
-                <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-                    <table class="w-full">
-                        <thead class="bg-gray-750 border-b border-gray-700">
-                            <tr>
-                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">名称</th>
-                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">状态</th>
-                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">优先级</th>
-                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">创建时间</th>
-                                <th class="px-4 py-3 text-right text-sm font-medium text-gray-400">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="agent in agents" :key="agent.pid" class="border-b border-gray-700 hover:bg-gray-750">
-                                <td class="px-4 py-3">{{ agent.name }}</td>
-                                <td class="px-4 py-3">
-                                    <span class="px-2 py-1 rounded text-xs font-medium" :class="getStateClass(agent.state)">{{ agent.state }}</span>
-                                </td>
-                                <td class="px-4 py-3">{{ agent.priority }}</td>
-                                <td class="px-4 py-3 text-gray-400">{{ formatTime(agent.created_at) }}</td>
-                                <td class="px-4 py-3 text-right">
-                                    <button @click="terminateAgent(agent.pid)" class="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-xs">终止</button>
-                                </td>
-                            </tr>
-                            <tr v-if="agents.length === 0">
-                                <td colspan="5" class="px-4 py-8 text-center text-gray-500">暂无 Agent</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+  <section class="kpis">
+    <div class="kpi"><div class="label">⏱ Uptime</div><div class="value skeleton" id="kUptime">—</div><div class="sub" id="kVersion">—</div></div>
+    <div class="kpi"><div class="label">🤖 Agents</div><div class="value skeleton" id="kAgents">—</div><div class="sub" id="kRunning">—</div></div>
+    <div class="kpi"><div class="label">💾 Checkpoints</div><div class="value skeleton" id="kCheckpoints">—</div><div class="sub">durable snapshots</div></div>
+    <div class="kpi"><div class="label">🔧 Tools</div><div class="value skeleton" id="kTools">—</div><div class="sub">registered built-ins</div></div>
+  </section>
 
-            <!-- Checkpoints Tab -->
-            <div v-if="currentTab === 'checkpoints'" class="space-y-4">
-                <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
-                    <table class="w-full">
-                        <thead class="bg-gray-750 border-b border-gray-700">
-                            <tr>
-                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">Agent</th>
-                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">描述</th>
-                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-400">创建时间</th>
-                                <th class="px-4 py-3 text-right text-sm font-medium text-gray-400">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="cp in checkpoints" :key="cp.checkpoint_id" class="border-b border-gray-700 hover:bg-gray-750">
-                                <td class="px-4 py-3">{{ cp.agent_name || cp.agent_pid }}</td>
-                                <td class="px-4 py-3 text-gray-400">{{ cp.description || '-' }}</td>
-                                <td class="px-4 py-3 text-gray-400">{{ formatTime(cp.timestamp) }}</td>
-                                <td class="px-4 py-3 text-right">
-                                    <button @click="restoreCheckpoint(cp.checkpoint_id)" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs">恢复</button>
-                                </td>
-                            </tr>
-                            <tr v-if="checkpoints.length === 0">
-                                <td colspan="4" class="px-4 py-8 text-center text-gray-500">暂无检查点</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Tools Tab -->
-            <div v-if="currentTab === 'tools'" class="space-y-4">
-                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div v-for="tool in tools" :key="tool.name" class="bg-gray-800 rounded-xl p-4 border border-gray-700">
-                        <div class="font-medium">{{ tool.name }}</div>
-                        <div class="text-sm text-gray-400 mt-1">{{ tool.description }}</div>
-                        <button @click="selectedTool = tool" class="mt-3 px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs">使用</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Logs Tab -->
-            <div v-if="currentTab === 'logs'" class="space-y-4">
-                <div class="bg-gray-800 rounded-xl border border-gray-700 p-4 max-h-96 overflow-auto font-mono text-sm">
-                    <div v-for="(log, i) in auditLogs" :key="i" class="py-1 border-b border-gray-700 last:border-0">
-                        <span class="text-gray-500">[{{ formatTime(log.timestamp) }}]</span>
-                        <span class="ml-2">{{ log.action }} - {{ log.result }}</span>
-                    </div>
-                    <div v-if="auditLogs.length === 0" class="text-center text-gray-500 py-8">暂无日志</div>
-                </div>
-            </div>
-        </main>
-
-        <!-- Tool Modal -->
-        <div v-if="selectedTool" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="selectedTool = null">
-            <div class="bg-gray-800 rounded-xl p-6 w-full max-w-md border border-gray-700">
-                <h3 class="text-lg font-medium mb-4">{{ selectedTool.name }}</h3>
-                <textarea v-model="toolInput" placeholder="输入参数 (JSON)" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-3 h-32 font-mono text-sm"></textarea>
-                <div class="flex gap-2 mt-4">
-                    <button @click="executeTool" class="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg">执行</button>
-                    <button @click="selectedTool = null" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg">关闭</button>
-                </div>
-                <div v-if="toolResult" class="mt-4 p-3 bg-gray-700 rounded-lg font-mono text-sm max-h-48 overflow-auto">
-                    {{ toolResult }}
-                </div>
-            </div>
+  <div class="cols">
+    <div>
+      <section class="panel">
+        <div class="panel-head"><h2><span class="ico">🧪</span>创建 Agent</h2></div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <input class="input" id="fName" placeholder="名称，如 Researcher">
+            <input class="input" id="fTask" placeholder="任务描述">
+            <select class="input" id="fPriority">
+              <option value="90">Critical</option><option value="70">High</option>
+              <option value="50" selected>Normal</option><option value="30">Low</option><option value="10">Background</option>
+            </select>
+            <button class="btn btn-primary" onclick="createAgent()">+ 创建</button>
+          </div>
         </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2><span class="ico">📋</span>Agent 进程</h2>
+          <input class="input" id="fSearch" placeholder="搜索名称 / 任务 / ID…" style="width:220px" oninput="renderAgents()">
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>ID</th><th>名称</th><th>任务</th><th>优先级</th><th>状态</th><th style="text-align:right">操作</th></tr></thead>
+            <tbody id="agentsBody"><tr><td colspan="6" class="empty"><div class="big">🤖</div>加载中…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2><span class="ico">💾</span>检查点</h2>
+          <button class="btn btn-ghost btn-sm" onclick="refresh()">刷新</button>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Checkpoint</th><th>Agent</th><th>页面</th><th>描述</th><th style="text-align:right">操作</th></tr></thead>
+            <tbody id="cpBody"><tr><td colspan="5" class="empty">加载中…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
     </div>
 
-    <script>
-        const { createApp, ref, computed, onMounted, onUnmounted } = Vue
+    <div>
+      <section class="panel">
+        <div class="panel-head"><h2><span class="ico">🔧</span>已注册工具</h2></div>
+        <div class="panel-body"><div class="chips" id="toolsChips"><span class="chip">加载中…</span></div></div>
+      </section>
 
-        createApp({
-            setup() {
-                const status = ref({})
-                const agents = ref([])
-                const checkpoints = ref([])
-                const tools = ref([])
-                const auditLogs = ref([])
-                const currentTab = ref('agents')
-                const selectedTool = ref(null)
-                const toolInput = ref('{}')
-                const toolResult = ref('')
+      <section class="panel">
+        <div class="panel-head">
+          <h2><span class="ico">📡</span>审计事件</h2>
+          <button class="btn btn-ghost btn-sm" onclick="clearLog()">清空</button>
+        </div>
+        <div class="log" id="logStream"></div>
+      </section>
+    </div>
+  </div>
 
-                const newAgent = ref({ name: '', task: '', priority: 30 })
-                const tabs = [
-                    { id: 'agents', name: '🤖 Agent 管理' },
-                    { id: 'checkpoints', name: '💾 检查点' },
-                    { id: 'tools', name: '🛠️ 工具' },
-                    { id: 'logs', name: '📋 日志' }
-                ]
+  <div class="footer">Agent OS Kernel — Python + FastAPI runtime control plane</div>
+</div>
 
-                const statusClass = computed(() => {
-                    const health = status.value.overall_health
-                    if (health === 'healthy') return 'bg-green-500/20 text-green-400'
-                    if (health === 'warning') return 'bg-yellow-500/20 text-yellow-400'
-                    return 'bg-red-500/20 text-red-400'
-                })
+<div class="toasts" id="toasts"></div>
 
-                const getProgressClass = (value) => {
-                    if (!value) return 'bg-blue-500'
-                    if (value < 60) return 'bg-green-500'
-                    if (value < 80) return 'bg-yellow-500'
-                    return 'bg-red-500'
-                }
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const BASE = '/api/v1';
+const KEY_STORE = 'aosk_api_key';
+let API_KEY = sessionStorage.getItem(KEY_STORE) || '';
+let agents = [], checkpoints = [], tools = [], logCleared = false;
 
-                const getStateClass = (state) => {
-                    const classes = {
-                        'running': 'bg-green-500/20 text-green-400',
-                        'ready': 'bg-blue-500/20 text-blue-400',
-                        'waiting': 'bg-yellow-500/20 text-yellow-400',
-                        'terminated': 'bg-gray-500/20 text-gray-400',
-                        'error': 'bg-red-500/20 text-red-400'
-                    }
-                    return classes[state] || 'bg-gray-500/20 text-gray-400'
-                }
+if (API_KEY){ $('apiKeyInput').value = API_KEY; $('keybar').classList.add('show'); }
 
-                const formatTime = (ts) => {
-                    if (!ts) return '-'
-                    return new Date(ts).toLocaleString('zh-CN')
-                }
+function fmt(s){ s=Math.max(0,s|0); if(s>=86400)return (s/86400).toFixed(1)+'d'; if(s>=3600)return (s/3600).toFixed(1)+'h'; if(s>=60)return (s/60).toFixed(1)+'m'; return s+'s'; }
+function fmtN(n){ n=n||0; if(n>=1e9)return (n/1e9).toFixed(1)+'B'; if(n>=1e6)return (n/1e6).toFixed(1)+'M'; if(n>=1e3)return (n/1e3).toFixed(1)+'K'; return String(n|0); }
+function esc(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function now(){ return new Date().toLocaleTimeString('zh-CN',{hour12:false}); }
 
-                let refreshInterval
+function toast(msg, kind='info'){
+  const t = document.createElement('div'); t.className='toast '+kind; t.textContent=msg;
+  $('toasts').appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(()=>t.remove(),300); }, 3600);
+}
+function log(tag, msg){
+  if (logCleared) return;
+  const line = document.createElement('div'); line.className='log-line';
+  line.innerHTML = `<span class="log-time">${now()}</span><span class="log-tag">${esc(tag)}</span><span class="log-msg">${esc(msg)}</span>`;
+  const s = $('logStream'); s.appendChild(line);
+  while (s.children.length > 120) s.removeChild(s.firstChild);
+  s.scrollTop = s.scrollHeight;
+}
+function clearLog(){ $('logStream').innerHTML=''; logCleared=true; setTimeout(()=>logCleared=false,500); }
 
-                const fetchStatus = async () => {
-                    try {
-                        const r = await axios.get('/api/status')
-                        status.value = r.data
-                    } catch (e) { console.error('Status error:', e) }
-                }
+function saveKey(){
+  API_KEY = $('apiKeyInput').value.trim();
+  sessionStorage.setItem(KEY_STORE, API_KEY);
+  toast(API_KEY ? 'API Key 已保存（本次会话有效）' : '已清除 API Key', 'ok');
+  refresh();
+}
+function authHeaders(){
+  const h = {'Content-Type':'application/json'};
+  if (API_KEY) h['X-API-Key'] = API_KEY;
+  return h;
+}
 
-                const fetchAgents = async () => {
-                    try {
-                        const r = await axios.get('/api/agents')
-                        agents.value = r.data
-                    } catch (e) { console.error('Agents error:', e) }
-                }
+async function refresh(){
+  try{
+    const [st, ag, cp, tl] = await Promise.all([
+      fetch(BASE+'/status').then(r=>r.json()),
+      fetch(BASE+'/agents').then(r=>r.json()),
+      fetch(BASE+'/checkpoints').then(r=>r.json()),
+      fetch(BASE+'/tools').then(r=>r.json()),
+    ]);
+    $('connDot').classList.remove('bad');
+    $('connState').textContent = st.running ? 'running' : 'stopped';
+    $('versionPill').textContent = 'v' + (st.version || '?');
 
-                const fetchCheckpoints = async () => {
-                    try {
-                        const r = await axios.get('/api/checkpoints')
-                        checkpoints.value = r.data
-                    } catch (e) { console.error('Checkpoints error:', e) }
-                }
+    $('kUptime').textContent = fmt(st.uptime_seconds);
+    $('kUptime').classList.remove('skeleton');
+    $('kVersion').textContent = 'kernel ' + (st.version || '?');
+    $('kAgents').textContent = fmtN(ag.length);
+    $('kAgents').classList.remove('skeleton');
+    $('kRunning').textContent = ag.filter(a=>a.state==='ready'||a.state==='running').length + ' active';
 
-                const fetchTools = async () => {
-                    try {
-                        const r = await axios.get('/api/tools')
-                        tools.value = r.data
-                    } catch (e) { console.error('Tools error:', e) }
-                }
+    checkpoints = cp.checkpoints || [];
+    $('kCheckpoints').textContent = fmtN(checkpoints.length);
+    $('kCheckpoints').classList.remove('skeleton');
 
-                const fetchLogs = async () => {
-                    try {
-                        const r = await axios.get('/api/audit-logs')
-                        auditLogs.value = r.data.slice(-50).reverse()
-                    } catch (e) { console.error('Logs error:', e) }
-                }
+    tools = tl.tools || [];
+    $('kTools').textContent = fmtN(tools.length);
+    $('kTools').classList.remove('skeleton');
 
-                const refreshAll = async () => {
-                    await Promise.all([fetchStatus(), fetchAgents(), fetchCheckpoints(), fetchTools(), fetchLogs()])
-                }
+    agents = ag;
+    renderAgents(); renderCheckpoints(); renderTools();
+    pollAudit();
+  }catch(e){
+    $('connDot').classList.add('bad');
+    $('connState').textContent = 'disconnected';
+    log('ERROR', '无法连接内核 API: ' + e.message);
+  }
+}
 
-                const createAgent = async () => {
-                    try {
-                        await axios.post('/api/agents', newAgent.value)
-                        newAgent.value = { name: '', task: '', priority: 30 }
-                        await fetchAgents()
-                    } catch (e) { alert('创建失败: ' + (e.response?.data?.detail || e.message)) }
-                }
+async function pollAudit(){
+  try{
+    const r = await fetch(BASE+'/audit?limit=20').then(r=>r.json());
+    const logs = r.logs || [];
+    if (!log._seen) log._seen = new Set();
+    for (let i = Math.min(logs.length, 20) - 1; i >= 0; i--){
+      const l = logs[i];
+      const sig = (l.action||'') + (l.agent_pid||'') + (l.details ? JSON.stringify(l.details) : '');
+      if (log._seen.has(sig)) continue;
+      log._seen.add(sig);
+      if (log._seen.size > 200) log._seen = new Set([sig]);
+      log(l.result === 'success' ? 'OK' : 'WARN', `${l.action} · ${(l.agent_pid||'').slice(0,8)} · ${l.result||''}`);
+    }
+  }catch(e){ /* audit 不可用不打断主流程 */ }
+}
 
-                const terminateAgent = async (pid) => {
-                    if (!confirm('确定要终止此 Agent 吗？')) return
-                    try {
-                        await axios.delete(`/api/agents/${pid}`)
-                        await fetchAgents()
-                    } catch (e) { alert('终止失败: ' + e.message) }
-                }
+function renderTools(){
+  const c = $('toolsChips');
+  if (!tools.length){ c.innerHTML = '<span class="chip">暂无工具</span>'; return; }
+  c.innerHTML = tools.map(t=>`<span class="chip" title="${esc(t.description||'')}">🔧 ${esc(t.name||'tool')}</span>`).join('');
+}
 
-                const restoreCheckpoint = async (checkpointId) => {
-                    try {
-                        await axios.post(`/api/checkpoints/${checkpointId}/restore`)
-                        await fetchAgents()
-                    } catch (e) { alert('恢复失败: ' + e.message) }
-                }
+function renderAgents(){
+  const q = ($('fSearch').value||'').toLowerCase();
+  const list = agents.filter(a => !q || (a.name||'').toLowerCase().includes(q) || (a.task||'').toLowerCase().includes(q) || (a.agent_id||'').includes(q));
+  const tb = $('agentsBody');
+  if (!list.length){
+    tb.innerHTML = `<tr><td colspan="6" class="empty"><div class="big">🤖</div>${agents.length?'没有匹配的 Agent':'暂无 Agent，先创建一个'}</td></tr>`;
+    return;
+  }
+  tb.innerHTML = list.map(a=>`<tr>
+    <td class="pid" title="${esc(a.agent_id)}">${esc((a.agent_id||'').slice(0,8))}…</td>
+    <td><strong>${esc(a.name)}</strong></td>
+    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)" title="${esc(a.task)}">${esc(a.task)}</td>
+    <td class="mono">${a.priority}</td>
+    <td><span class="badge ${esc(a.state)}">${esc(a.state)}</span></td>
+    <td style="text-align:right;white-space:nowrap">
+      <button class="btn btn-ghost btn-sm" onclick="checkpoint('${esc(a.agent_id)}','${esc(a.name)}')">📸</button>
+      <button class="btn btn-danger btn-sm" onclick="killAgent('${esc(a.agent_id)}','${esc(a.name)}')">Kill</button>
+    </td>
+  </tr>`).join('');
+}
 
-                const executeTool = async () => {
-                    try {
-                        const params = JSON.parse(toolInput.value)
-                        const r = await axios.post('/api/tools/execute', {
-                            tool_name: selectedTool.value.name,
-                            parameters: params
-                        })
-                        toolResult.value = JSON.stringify(r.data, null, 2)
-                    } catch (e) {
-                        toolResult.value = '执行失败: ' + (e.response?.data?.detail || e.message)
-                    }
-                }
+function renderCheckpoints(){
+  const tb = $('cpBody');
+  if (!checkpoints.length){ tb.innerHTML = '<tr><td colspan="5" class="empty">暂无检查点——点 Agent 行的 📸 创建</td></tr>'; return; }
+  tb.innerHTML = checkpoints.map(c=>`<tr>
+    <td class="pid" title="${esc(c.checkpoint_id)}">${esc((c.checkpoint_id||'').slice(0,8))}…</td>
+    <td class="pid">${esc((c.agent_pid||'').slice(0,8))}…</td>
+    <td class="mono">${(c.context_pages||[]).length}</td>
+    <td style="color:var(--text2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(c.description||'')}">${esc(c.description||'—')}</td>
+    <td style="text-align:right"><button class="btn btn-ghost btn-sm" onclick="restore('${esc(c.checkpoint_id)}')">↩ 恢复</button></td>
+  </tr>`).join('');
+}
 
-                onMounted(() => {
-                    refreshAll()
-                    refreshInterval = setInterval(refreshAll, 5000)
-                })
+async function createAgent(){
+  const name = $('fName').value.trim() || 'Untitled';
+  const task = $('fTask').value.trim() || 'No task';
+  const priority = parseInt($('fPriority').value, 10);
+  try{
+    const r = await fetch(BASE+'/agents', { method:'POST', headers: authHeaders(), body: JSON.stringify({name, task, priority}) });
+    if (r.status === 401){ $('keybar').classList.add('show'); toast('认证失败：需要 API Key', 'err'); return; }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    toast(`已创建「${name}」`, 'ok');
+    log('OK', `spawn agent — ${name} (priority ${priority})`);
+    $('fName').value=''; $('fTask').value='';
+    refresh();
+  }catch(e){ toast('创建失败: ' + e.message, 'err'); }
+}
 
-                onUnmounted(() => {
-                    clearInterval(refreshInterval)
-                })
+async function killAgent(id, name){
+  if (!confirm(`确定终止「${name}」？`)) return;
+  try{
+    const r = await fetch(BASE+'/agents/'+encodeURIComponent(id), { method:'DELETE', headers: authHeaders() });
+    if (r.status === 401){ $('keybar').classList.add('show'); toast('认证失败：需要 API Key', 'err'); return; }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    toast(`已终止「${name}」`, 'ok');
+    log('WARN', `terminate agent — ${name}`);
+    refresh();
+  }catch(e){ toast('终止失败: ' + e.message, 'err'); }
+}
 
-                return {
-                    status, agents, checkpoints, tools, auditLogs, currentTab, tabs,
-                    newAgent, selectedTool, toolInput, toolResult,
-                    statusClass, getProgressClass, getStateClass, formatTime,
-                    refreshAll, createAgent, terminateAgent, restoreCheckpoint, executeTool
-                }
-            }
-        }).mount('#app')
-    </script>
+async function checkpoint(id, name){
+  try{
+    const r = await fetch(BASE+'/agents/'+encodeURIComponent(id)+'/checkpoints', { method:'POST', headers: authHeaders() });
+    if (r.status === 401){ $('keybar').classList.add('show'); toast('认证失败：需要 API Key', 'err'); return; }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const b = await r.json();
+    toast(`检查点已创建（${(b.checkpoint_id||'').slice(0,8)}…）`, 'ok');
+    log('OK', `checkpoint created — ${name}`);
+    refresh();
+  }catch(e){ toast('检查点失败: ' + e.message, 'err'); }
+}
+
+async function restore(cid){
+  try{
+    const r = await fetch(BASE+'/checkpoints/'+encodeURIComponent(cid)+'/restore', { method:'POST', headers: authHeaders() });
+    if (r.status === 401){ $('keybar').classList.add('show'); toast('认证失败：需要 API Key', 'err'); return; }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const b = await r.json();
+    toast(`已恢复为新 Agent（${(b.new_agent_id||'').slice(0,8)}…）`, 'ok');
+    log('OK', `checkpoint restored — ${(b.new_agent_id||'').slice(0,8)}…`);
+    refresh();
+  }catch(e){ toast('恢复失败: ' + e.message, 'err'); }
+}
+
+log('INFO', 'dashboard connected — polling every 3s');
+refresh();
+setInterval(refresh, 3000);
+</script>
 </body>
 </html>
