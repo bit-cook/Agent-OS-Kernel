@@ -371,7 +371,12 @@ class MessageBroker:
         )
 
         # Add to topic queue
-        self._queues[topic].push(message)
+        # 队列获取必须在锁内：defaultdict 的工厂调用+插入并非原子操作，
+        # 多线程首次发布同一 topic 时会各自构造队列互相覆盖，导致消息
+        # 进了被丢弃的队列对象（实测 30 条只收到 28 条）。
+        with self._lock:
+            queue = self._queues[topic]
+        queue.push(message)
 
         return message.message_id
 
