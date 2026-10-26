@@ -9,6 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     strategy:
       matrix:
@@ -39,7 +40,8 @@ jobs:
       run: mypy agent_os_kernel/ || true
 
     - name: Test
-      run: pytest tests/ -q --cov=agent_os_kernel --cov-report=xml
+      # -p no:randomly: CI 用确定性顺序，失败可复现可定位
+      run: pytest tests/ -q --cov=agent_os_kernel --cov-report=xml -p no:randomly
 
     - name: Upload coverage
       uses: codecov/codecov-action@v4
