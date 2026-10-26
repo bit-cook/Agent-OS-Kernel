@@ -19,11 +19,12 @@ path = "src/lib.rs"
 
 [features]
 default = ["postgres", "web", "cli"]
-full = ["postgres", "web", "cli"]  # 暂时禁用 llm-providers 特性，避免 async-openai 依赖问题
+full = ["postgres", "web", "cli", "llm-providers"]
 postgres = ["sqlx/postgres", "sqlx/runtime-tokio-rustls"]
 web = ["axum", "tower-http"]
 cli = ["clap", "tabwriter", "colored"]
-llm-providers = []  # 暂时禁用 llm-providers
+llm-providers = ["reqwest"]
+python = ["pyo3"]
 
 [dependencies]
 # Core dependencies
@@ -59,9 +60,11 @@ colored = { version = "2.1", optional = true }
 prometheus = { version = "0.13", optional = true }
 opentelemetry = { version = "0.19", optional = true }
 
-# LLM integration (暂时禁用，避免 async-openai 依赖问题)
-# async-openai = { version = "0.19", optional = true }
-# reqwest = { version = "0.11", optional = true, features = ["json"] }
+# LLM integration (llm-providers feature, reqwest 实现，无 async-openai 依赖)
+reqwest = { version = "0.11", optional = true, default-features = false, features = ["json", "rustls-tls"] }
+
+# Python 绑定 (optional)
+pyo3 = { version = "0.22", features = ["extension-module"], optional = true }
 
 # 锁定 getrandom 到与 Cargo 1.75 兼容的版本
 getrandom = "0.3.4"
@@ -71,11 +74,7 @@ tokio-test = "0.4"
 assert-json-diff = "2.0"
 
 # Python Bindings (可选, 需要 python3-dev)
-[target.'cfg(feature = "python")'.dependencies]
-pyo3 = { version = "0.22", features = ["extension-module"] }
-
-# 启用 Python 绑定: cargo build --features python
-# 或者使用 maturin: maturin develop
+# Python 绑定: cargo build --features python (或 maturin develop)
 
 [[bin]]
 name = "agent-os-kernel"

@@ -100,9 +100,11 @@ impl AgentOSKernel {
             page_size: 1000,
         }));
 
-        let storage_manager = Arc::new(StorageManager::from_postgres_url(
-            "postgresql://postgres:password@localhost/agent_os"
-        ).await?);
+        // 存储后端：AOSK_DATABASE_URL 有值且可连则用 PostgreSQL，否则内存后端（开发默认）
+        let storage_manager = Arc::new(StorageManager::from_url_or_memory(
+            std::env::var("AOSK_DATABASE_URL").ok().as_deref(),
+        )
+        .await);
 
         let scheduler = Arc::new(AgentScheduler::new(super::scheduler::SchedulerConfig {
             policy: super::scheduler::SchedulingPolicy::Priority,
@@ -397,12 +399,22 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    #[ignore]
     async fn test_kernel_initialization() {
+        // 无 AOSK_DATABASE_URL 时应回退内存后端并成功启动
         let config = KernelConfig::default();
-        let result = AgentOSKernel::new(config).await;
-        // Should fail due to no database
-        assert!(result.is_err());
+        let kernel = AgentOSKernel::new(config).await.expect("kernel should boot with in-memory storage");
+        // 内置工具已注册
+        assert!(kernel.tools().get("calculator").await.is_some());
+        assert!(kernel.tools().get("read_file").await.is_some());
+        assert!(kernel.tools().get("execute_shell").await.is_some());
+        let r = kernel
+            .tools()
+            .get("calculator")
+            .await
+            .unwrap()
+            .run(serde_json::json!({"expression": "2 + 2"}))
+            .unwrap();
+        assert_eq!(r["result"], 4.0);
     }
 
     #[tokio::test]

@@ -16,6 +16,7 @@
 
 pub mod core;
 pub mod tools;
+#[cfg(feature = "llm-providers")]
 pub mod llm;
 pub mod agents;
 pub mod api;
@@ -24,6 +25,7 @@ pub mod utils;
 
 pub use core::*;
 pub use tools::*;
+#[cfg(feature = "llm-providers")]
 pub use llm::*;
 pub use agents::*;
 pub use api::server;
