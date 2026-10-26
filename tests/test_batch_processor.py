@@ -1,6 +1,5 @@
 """测试批处理器"""
 
-import pytest
 
 
 class TestBatchProcessorExists:

@@ -263,7 +263,7 @@ class CloudflareProvider(LLMProvider):
         **kwargs
     ) -> Dict[str, Any]:
         """发送聊天请求"""
-        from .provider import ChatMessage, Message
+        from .provider import Message
         # 转换为 Message 格式
         msg_list = [
             Message(role=msg.role, content=msg.content)

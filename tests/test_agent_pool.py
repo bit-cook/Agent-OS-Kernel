@@ -1,6 +1,5 @@
 """测试 Agent Pool"""
 
-import pytest
 from agent_os_kernel.core.agent_pool import AgentPool
 
 

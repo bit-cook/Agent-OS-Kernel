@@ -12,12 +12,9 @@
 
 import re
 import logging
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 from enum import Enum
-from datetime import datetime, timezone, timedelta
-import hashlib
-import json
 
 logger = logging.getLogger(__name__)
 
@@ -323,7 +320,6 @@ class ContextCompressor:
     def _extract_topics(self, messages: List[Dict]) -> List[str]:
         """提取话题"""
         # 简单的话题提取
-        topics = []
         keywords = []
         
         for msg in messages:
@@ -368,7 +364,6 @@ class ContextCompressor:
         
         for msg in messages:
             content = msg.get("content", "")
-            role = msg.get("role", "")
             
             # 角色 overhead
             total += self.config.token_per_message

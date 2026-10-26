@@ -13,9 +13,9 @@ import asyncio
 import time
 import uuid
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set, TypeVar
+from typing import Any, Dict, Optional, TypeVar
 from contextlib import contextmanager
 from collections import deque
 import threading
@@ -152,7 +152,7 @@ class Connection(ABC):
                 self.state = ConnectionState.ERROR
                 self.info.error_count += 1
             return is_healthy
-        except Exception as e:
+        except Exception:
             self.state = ConnectionState.ERROR
             self.info.error_count += 1
             return False

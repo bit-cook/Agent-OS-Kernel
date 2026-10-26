@@ -1,6 +1,5 @@
 """测试存储"""
 
-import pytest
 from agent_os_kernel.core.storage import StorageManager
 
 

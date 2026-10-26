@@ -5,9 +5,7 @@ Service Mesh Module - Agent-OS-Kernel 服务网格模块
 提供服务发现、负载均衡、熔断器和服务间通信功能。
 """
 
-import asyncio
 import hashlib
-import json
 import logging
 import random
 import time
@@ -155,7 +153,7 @@ class CircuitBreaker:
             result = func(*args, **kwargs)
             self.record_success()
             return result
-        except Exception as e:
+        except Exception:
             self.record_failure()
             if fallback and self.state == CircuitState.OPEN:
                 return fallback(*args, **kwargs)

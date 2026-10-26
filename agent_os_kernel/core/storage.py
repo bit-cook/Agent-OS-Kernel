@@ -24,10 +24,9 @@ import pickle
 import hashlib
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, TypeVar, Generic, Type
-from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
-from enum import Enum
+from typing import Any, Dict, List, Optional, TypeVar
+from dataclasses import dataclass
+from datetime import datetime
 import threading
 
 from .types import StorageBackend
@@ -281,7 +280,6 @@ class PostgreSQLStorage(StorageInterface):
     def _connect(self):
         """建立数据库连接"""
         try:
-            import psycopg2
             from psycopg2 import pool
             self._pool = pool.ThreadedConnectionPool(
                 minconn=2,
@@ -646,7 +644,6 @@ class VectorStorage(StorageInterface):
     
     def search(self, query_embedding: bytes, top_k: int = 10) -> List[dict]:
         """搜索相似向量 (暴力计算 - 生产环境应使用索引)"""
-        import math
         with self._lock:
             results = []
             for key, emb in self._vectors.items():

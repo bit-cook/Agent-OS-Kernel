@@ -26,6 +26,13 @@ dependencies = [
     "psutil>=5.9.0",
     "pyyaml>=6.0",
     "requests>=2.31.0",
+    # 以下为核心 import 链上的依赖（曾因缺失导致干净环境 import 即崩：
+    # wheel smoke / Docker 均复现）。保持体积小的纯 Python 包。
+    "watchdog>=4.0.0",      # core.config_hot_reload 配置热重载
+    "jsonschema>=4.0.0",    # core.config_hot_reload 配置 schema 校验
+    "structlog>=23.0.0",    # tools.mcp.client 结构化日志
+    "croniter>=2.0.0",      # core.task_scheduler cron 表达式
+    "httpx>=0.27.0",        # LLM providers 传输层
 ]
 
 [project.optional-dependencies]
@@ -81,6 +88,27 @@ target-version = ["py310"]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+
+[tool.ruff.lint]
+# 聚焦真 bug 类规则（CI 门禁）：pyflakes 全家桶（未定义名/未用导入/
+# 重复定义/无用变量）+ 裸 except。不选 UP0xx 等现代化风格规则——
+# 存量代码 3000+ 处风格问题属于 P1-05 命名空间收敛专项，不塞门禁。
+select = ["F", "E722", "E7", "E9"]
+ignore = ["E741", "E743"]
+
+[tool.ruff.lint.per-file-ignores]
+# P1-05（审查报告）：core/__init__.py 从 base/enhanced/advanced 多套平行
+# 实现重复导入同名符号，后者静默覆盖前者。收敛为单一命名空间是多周级
+# 重构（见 site/audit/report.md），完成前按文件豁免 F811。
+"agent_os_kernel/core/__init__.py" = ["F811"]
+# llm 包中 List['ChatMessage' 等引号前向引用（typing 合法，运行时不
+# 求值），ruff 静态解析报 F821 误报。
+"agent_os_kernel/llm/*.py" = ["F821"]
+# 测试中的无用变量多为演示/可读性赋值（如 owner3 = ...），非缺陷。
+"tests/*" = ["F841"]
+# ToolResult 的 error 字段与 error() 工厂类方法同名：实例属性遮蔽类属性，
+# 两者均可正常工作（dataclass 生成的 __init__ 写实例属性）。
+"agent_os_kernel/tools/base.py" = ["F811"]
 
 [tool.mypy]
 python_version = "3.10"

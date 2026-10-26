@@ -1,7 +1,6 @@
 """测试检查点管理器"""
 
 import pytest
-import asyncio
 from agent_os_kernel.core.checkpointer import Checkpointer
 
 

@@ -1,6 +1,5 @@
 """测试增强存储管理器"""
 
-import pytest
 from agent_os_kernel.core.storage import StorageManager, StorageBackend
 
 

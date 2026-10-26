@@ -21,9 +21,8 @@ import time
 class ContextOverflowError(Exception):
     """上下文窗口无法容纳请求的页面（换出失败）"""
     pass
-import heapq
 import logging
-from typing import Optional, Dict, Any, List, Set, Tuple, Callable
+from typing import Optional, Dict, Any, List, Set, Tuple
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum

@@ -1,6 +1,5 @@
 """测试熔断器"""
 
-import pytest
 from agent_os_kernel.core.circuit_breaker import (
     CircuitBreaker, CircuitState, CircuitConfig
 )

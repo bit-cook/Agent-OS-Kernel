@@ -4,7 +4,7 @@
 import pytest
 import asyncio
 from agent_os_kernel.core.optimized_scheduler import (
-    OptimizedScheduler, Priority, TaskStatus
+    OptimizedScheduler, Priority
 )
 
 

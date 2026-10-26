@@ -1,6 +1,5 @@
 """集成测试"""
 
-import pytest
 
 
 class TestIntegration:

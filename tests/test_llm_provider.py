@@ -1,7 +1,6 @@
 """测试 LLM Provider"""
 
-import pytest
-from agent_os_kernel.llm.provider import LLMConfig, LLMProvider, ProviderType
+from agent_os_kernel.llm.provider import LLMConfig, ProviderType
 
 
 class TestLLMConfig:

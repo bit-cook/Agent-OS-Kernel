@@ -22,7 +22,6 @@ from queue import PriorityQueue, Empty
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
-from abc import ABC, abstractmethod
 
 
 logger = logging.getLogger(__name__)
@@ -212,7 +211,7 @@ class ResourceQuotaManager:
         """检查并重置配额窗口"""
         current_time = time.time()
         if current_time - self.window_start >= self.quota.window_seconds:
-            logger.info(f"Resetting quota window")
+            logger.info("Resetting quota window")
             self.current_usage = {'tokens': 0, 'api_calls': 0}
             self.per_agent_usage.clear()
             self.window_start = current_time
@@ -236,7 +235,7 @@ class ResourceQuotaManager:
         
         # 检查单个请求限制
         if tokens > self.quota.max_tokens_per_request:
-            return False, f"Request exceeds max tokens per request"
+            return False, "Request exceeds max tokens per request"
         
         # 检查单个 Agent 配额（最多 30%）
         agent_usage = self.per_agent_usage[agent_pid]
@@ -439,7 +438,7 @@ class AgentScheduler:
         if not self.ready_queue.empty():
             next_schedulable = self.ready_queue.queue[0]
             if next_schedulable.priority < process.priority - 10:
-                logger.debug(f"Higher priority process waiting")
+                logger.debug("Higher priority process waiting")
                 return True
         
         # 3. 资源使用过多

@@ -13,7 +13,7 @@ Features:
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Type, TypeVar, Callable
+from typing import Any, Dict, Optional, TypeVar
 from enum import Enum
 import threading
 

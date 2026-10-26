@@ -9,7 +9,6 @@ Health Checker Module - Agent-OS-Kernel 健康检查器模块
 4. 健康报告 - 生成详细的健康状态报告
 """
 
-import asyncio
 import logging
 import time
 import socket
@@ -317,7 +316,7 @@ class ServiceHealthChecker(BaseHealthChecker):
                     name=self.config.name,
                     status=HealthStatus.UNHEALTHY,
                     check_type=CheckType.SERVICE,
-                    message=f"Ping failed",
+                    message="Ping failed",
                     response_time_ms=response_time_ms,
                 )
         except Exception as e:
@@ -414,7 +413,7 @@ class DependencyHealthChecker(BaseHealthChecker):
                     name=self.config.name,
                     status=HealthStatus.HEALTHY,
                     check_type=CheckType.DEPENDENCY,
-                    message=f"Command executed successfully",
+                    message="Command executed successfully",
                     response_time_ms=response_time_ms,
                 )
             else:

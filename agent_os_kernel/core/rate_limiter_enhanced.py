@@ -11,11 +11,9 @@ Provides multiple rate limiting algorithms:
 import time
 import threading
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, Optional, List, Any, Callable, Union
 from collections import defaultdict
-import hashlib
-import json
 from functools import wraps
 
 

@@ -7,7 +7,6 @@ from typing import Dict, List, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
 from datetime import timezone, timedelta
-import uuid
 
 logger = logging.getLogger(__name__)
 

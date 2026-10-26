@@ -6,7 +6,6 @@ GPU Resource Manager - GPU资源管理器
 
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
-from datetime import datetime, timezone
 import asyncio
 
 
@@ -96,7 +95,7 @@ class GPUManager:
         while self._monitoring:
             # 收集GPU指标
             for i in range(4):
-                info = await self.get_gpu_info(i)
+                await self.get_gpu_info(i)
                 # 这里可以记录到监控系统
             await asyncio.sleep(self._monitoring_interval)
     

@@ -4,7 +4,6 @@
 支持: Llama, Qwen, Mistral, 等主流模型
 """
 
-import os
 import json
 import logging
 from typing import List, Dict, Optional, AsyncIterator

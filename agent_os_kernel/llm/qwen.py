@@ -4,8 +4,6 @@
 支持: Qwen, Qwen-Chat, Qwen-Max, Qwen-Plus 等
 """
 
-import os
-import json
 import logging
 from typing import List, Dict, Optional
 import httpx
@@ -100,5 +98,5 @@ class QwenProvider(LLMProvider):
 
 # 注册 Provider
 from .provider import register_provider
-from .provider import ProviderType, register_provider
+from .provider import ProviderType
 register_provider(ProviderType.QWEN, QwenProvider)

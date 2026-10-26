@@ -1,6 +1,5 @@
 """测试成本跟踪器"""
 
-import pytest
 
 
 class TestCostTrackerExists:

@@ -1,6 +1,5 @@
 """测试Agent定义"""
 
-import pytest
 
 
 class TestAgentDefinitionExists:

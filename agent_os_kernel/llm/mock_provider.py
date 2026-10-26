@@ -8,7 +8,6 @@ Mock Provider - 用于测试的模拟 Provider
 import asyncio
 import logging
 from typing import Dict, Any, List, Optional, AsyncIterator
-from dataclasses import dataclass
 
 from .provider import (
     LLMProvider,

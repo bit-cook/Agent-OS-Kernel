@@ -2,7 +2,6 @@
 """测试记忆增强系统"""
 
 import pytest
-import asyncio
 from agent_os_kernel.core.memory_feedback import (
     MemoryFeedbackSystem, FeedbackType
 )

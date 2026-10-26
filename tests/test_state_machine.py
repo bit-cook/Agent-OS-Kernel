@@ -3,12 +3,10 @@
 """
 
 import pytest
-import time
 from agent_os_kernel.core.state_machine import (
     StateMachine,
     HierarchicalStateMachine,
     ParallelStateMachine,
-    TransitionType,
     state_machine
 )
 

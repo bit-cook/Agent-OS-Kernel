@@ -1,6 +1,5 @@
 """测试Mock Provider"""
 
-import pytest
 
 
 class TestMockProvider:

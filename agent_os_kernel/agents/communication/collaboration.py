@@ -12,7 +12,7 @@
 
 import asyncio
 import logging
-from typing import Dict, List, Any, Optional, Callable
+from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -279,7 +279,7 @@ class AgentCollaboration:
     ):
         """委派任务"""
         if self.messenger:
-            message = await self.messenger.send(
+            await self.messenger.send(
                 message={
                     "msg_type": "task_delegation",
                     "sender_id": from_agent,

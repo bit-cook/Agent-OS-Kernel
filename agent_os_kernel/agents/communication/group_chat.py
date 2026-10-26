@@ -9,13 +9,11 @@
 5. 决策共识
 """
 
-import asyncio
 import logging
-from typing import Dict, List, Any, Optional, Callable
+from typing import Dict, List, Optional, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from abc import ABC, abstractmethod
 
 logger = logging.getLogger(__name__)
 
@@ -189,8 +187,6 @@ class GroupChatManager:
     
     async def _check_consensus(self, chat_id: str, message: ChatMessage):
         """检查共识"""
-        chat = self._chats[chat_id]
-        
         # 简单共识检查：包含"同意"或"共识"的消息
         if any(kw in message.content.lower() for kw in ["agree", "同意", "consensus", "共识"]):
             message.consensus_score = 0.9

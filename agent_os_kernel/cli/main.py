@@ -16,7 +16,6 @@ import json
 import os
 import sys
 from datetime import datetime, timezone
-from typing import Optional
 
 STATE_FILE = ".agent-os-kernel-state.json"
 
@@ -113,7 +112,7 @@ class CLI:
         cmd.add_argument("--json", action="store_true")
     
     def _add_doctor_command(self, subparsers):
-        cmd = subparsers.add_parser("doctor", help="环境自检（黄金路径第一步）")
+        subparsers.add_parser("doctor", help="环境自检（黄金路径第一步）")
     
     def run(self, args=None):
         """运行 CLI"""
@@ -313,7 +312,7 @@ class CLI:
         
         # 1. 顶层公共 API 可导入
         try:
-            from .. import AgentOSKernel, KernelStats, __version__
+            from .. import AgentOSKernel, __version__
             checks.append(("顶层导入 AgentOSKernel/KernelStats", True, f"v{__version__}"))
         except Exception as e:
             checks.append(("顶层导入 AgentOSKernel/KernelStats", False, str(e)))

@@ -1,6 +1,5 @@
 """测试上下文管理器"""
 
-import pytest
 from agent_os_kernel.core.context_manager import (
     ContextManager, ContextPage, PageStatus
 )

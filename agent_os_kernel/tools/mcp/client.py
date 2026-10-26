@@ -4,10 +4,7 @@
 支持连接 MCP 服务器并调用工具。
 """
 
-import asyncio
-import json
-import logging
-from typing import Any, Dict, List, Optional, Callable
+from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
 from enum import Enum
 import httpx
@@ -95,6 +92,7 @@ class MCPClient:
                 "protocolVersion": "2024-11-05",
                 "capabilities": {}
             })
+            logger.debug(f"MCP initialize response: {response}")
             logger.info(f"MCP Server {self.config.name} initialized")
     
     async def _send_request(self, method: str, params: Dict[str, Any]) -> Dict[str, Any]:

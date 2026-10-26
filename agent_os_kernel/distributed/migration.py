@@ -10,7 +10,6 @@ from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime
 import pickle
-import json
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +74,6 @@ class AgentMigration:
     
     async def _persist_checkpoint(self, checkpoint: MigrationCheckpoint):
         """持久化检查点"""
-        import os
         
         path = f"{self.storage_dir}/{checkpoint.checkpoint_id}.chk"
         

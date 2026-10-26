@@ -8,7 +8,7 @@ import logging
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
 
-from .client import MCPManager, MCPServerConfig, MCPToolCall, MCPToolResult
+from .client import MCPManager, MCPServerConfig, MCPToolCall
 from ..base import Tool, ToolParameter
 from ..registry import ToolRegistry
 
@@ -177,7 +177,6 @@ class MCPWrappedTool(Tool):
     
     async def execute(self, **kwargs) -> Dict[str, Any]:
         """执行工具调用"""
-        from .client import MCPManager
         manager = self._get_manager()
         return await manager.call_tool(self.name, **kwargs)
     

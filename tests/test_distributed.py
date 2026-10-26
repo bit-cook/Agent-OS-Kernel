@@ -1,6 +1,5 @@
 """测试分布式模块"""
 
-import pytest
 
 
 class TestDistributedExists:

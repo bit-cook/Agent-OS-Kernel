@@ -8,7 +8,7 @@ import asyncio
 import logging
 from typing import Dict, Any, Optional, Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta, timedelta
+from datetime import datetime
 from enum import Enum
 from uuid import uuid4
 import heapq
@@ -76,7 +76,7 @@ class OptimizedScheduler:
         self._running_flag = False
         self._scheduler_task: Optional[asyncio.Task] = None
         
-        logger.info(f"OptimizedScheduler initialized")
+        logger.info("OptimizedScheduler initialized")
     
     def _init_quota(self, quota_name: str, max_tasks: int = 100):
         if quota_name not in self._quotas:

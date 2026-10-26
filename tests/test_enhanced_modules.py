@@ -1,6 +1,5 @@
 """测试增强模块"""
 
-import pytest
 
 
 class TestEnhancedEventBus:

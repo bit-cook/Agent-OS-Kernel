@@ -6,7 +6,6 @@
 import pytest
 import asyncio
 from datetime import datetime, timedelta
-from unittest.mock import Mock, AsyncMock, patch
 import sys
 import os
 
@@ -14,7 +13,6 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agent_os_kernel.core.task_scheduler import (
-    TaskScheduler,
     TaskPriority,
     SchedulerState,
     ScheduledTask,

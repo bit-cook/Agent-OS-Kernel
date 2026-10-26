@@ -10,14 +10,13 @@ Distributed tracing module for the Agent-OS-Kernel. This module provides:
 """
 
 import json
-import time
 import uuid
 import threading
 import enum
 from datetime import datetime
 from datetime import timezone
-from typing import Dict, List, Optional, Any, Callable
-from dataclasses import dataclass, field, asdict
+from typing import Dict, List, Optional, Any
+from dataclasses import dataclass, field
 from contextlib import contextmanager
 import logging
 
@@ -489,7 +488,9 @@ class TraceManager:
     def start_trace(self, name: str = "root") -> TraceContext:
         """Start a new trace and return its context"""
         context = TraceContext()
-        span = context.start_span(name=name, kind=SpanKind.INTERNAL)
+        # start_span 已把 span 注册进 context.spans；root_span property
+        # 自动推导（第一个无父 span），无需本地持有
+        context.start_span(name=name, kind=SpanKind.INTERNAL)
         
         # Set as thread-local context
         self._context = context

@@ -8,10 +8,9 @@ import asyncio
 import logging
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta, timedelta
+from datetime import datetime
 from enum import Enum
 from uuid import uuid4
-import json
 
 logger = logging.getLogger(__name__)
 
@@ -182,6 +181,7 @@ class ToolMemory:
             return {
                 "tools_count": len(self._tool_stats),
                 "total_calls": total_calls,
+                "total_failed": total_failed,
                 "success_rate": (total_success / total_calls * 100) if total_calls > 0 else 0,
                 "tool_stats": self._tool_stats
             }

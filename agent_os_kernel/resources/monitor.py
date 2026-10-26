@@ -8,11 +8,10 @@ import asyncio
 import logging
 import psutil
 from typing import Dict, List, Any, Optional, Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 from collections import deque
-import json
 
 logger = logging.getLogger(__name__)
 
@@ -299,9 +298,9 @@ class SystemMonitor:
         """获取监控摘要"""
         latest = {}
         
-        for key, deque in self._history.items():
-            if deque:
-                latest[key] = deque[-1]["value"]
+        for key, history in self._history.items():
+            if history:
+                latest[key] = history[-1]["value"]
         
         return {
             "monitoring": self._monitoring,

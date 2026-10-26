@@ -9,16 +9,14 @@ This module provides advanced event handling capabilities including:
 - Event Tracing: Track event flow and history for debugging
 """
 
-import json
 import threading
-import time
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from datetime import timezone
 from enum import Enum, auto
-from typing import Any, Callable, Dict, List, Optional, Set, Union, Generic, TypeVar
+from typing import Any, Callable, Dict, List, Optional, Set
 from collections import defaultdict, deque
 import copy
 import logging
@@ -182,7 +180,7 @@ class EventAggregator:
         results = []
         
         for rule_key, rule in self.aggregation_rules.items():
-            key = rule['extractor'](event)
+            rule['extractor'](event)
             buffer = self.event_buffers[rule_key]
             
             # Add event to buffer

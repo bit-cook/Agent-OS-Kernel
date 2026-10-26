@@ -11,7 +11,6 @@ Tests cover:
 import unittest
 import time
 import threading
-from unittest.mock import MagicMock, patch
 
 from agent_os_kernel.core.cache_system_enhanced import (
     CacheEntry,

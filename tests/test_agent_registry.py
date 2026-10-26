@@ -1,6 +1,5 @@
 """测试Agent注册表"""
 
-import pytest
 
 
 class TestAgentRegistryExists:

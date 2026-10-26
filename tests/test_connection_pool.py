@@ -3,21 +3,17 @@
 Connection Pool Tests - 测试连接池功能
 """
 
-import asyncio
 import pytest
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 from agent_os_kernel.core.connection_pool import (
     ConnectionPool,
-    Connection,
     ConnectionBackend,
     ConnectionConfig,
     ConnectionState,
     ConnectionInfo,
-    ConnectionAcquireError,
     ConnectionTimeoutError,
-    ConnectionHealthError,
     create_connection_pool,
 )
 

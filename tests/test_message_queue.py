@@ -6,7 +6,6 @@ import os
 import sys
 import tempfile
 import threading
-import time
 import unittest
 from pathlib import Path
 
@@ -18,8 +17,6 @@ from agent_os_kernel.core.message_queue import (
     MessagePriority,
     MessageStatus,
     PriorityMessageQueue,
-    MessageBroker,
-    Subscription,
     create_message_broker,
 )
 

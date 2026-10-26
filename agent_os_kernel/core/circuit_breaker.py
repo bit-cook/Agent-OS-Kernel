@@ -9,7 +9,7 @@ cascade failures and improving system resilience.
 import asyncio
 import time
 from enum import Enum
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable, Optional, Dict
 from functools import wraps
 import threading
@@ -243,7 +243,7 @@ class CircuitBreaker:
             with self._state_lock:
                 self._record_success()
             return result
-        except Exception as e:
+        except Exception:
             with self._state_lock:
                 self._record_failure()
             raise
@@ -278,7 +278,7 @@ class CircuitBreaker:
             with self._state_lock:
                 self._record_success()
             return result
-        except Exception as e:
+        except Exception:
             with self._state_lock:
                 self._record_failure()
             raise

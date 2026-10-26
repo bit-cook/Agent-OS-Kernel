@@ -7,9 +7,7 @@
 - 公开监听必须显式授权；匿名变更请求一律 401
 """
 
-import os
 import pytest
-from pathlib import Path
 
 
 class TestFileToolWorkspaceRoot:

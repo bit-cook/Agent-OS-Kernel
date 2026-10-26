@@ -12,7 +12,6 @@ Plugin System for Agent-OS-Kernel
 import importlib
 import importlib.util
 import inspect
-import os
 import sys
 import threading
 import uuid
@@ -20,7 +19,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Type, Union
+from typing import Any, Callable, Dict, List, Optional
 from datetime import datetime
 
 

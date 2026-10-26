@@ -13,15 +13,13 @@ Features:
 """
 
 import os
-import sys
 import json
 import time
 import hashlib
 import threading
 import logging
-import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Callable, Set, Union
+from typing import Any, Dict, List, Optional, Callable, Union
 from dataclasses import dataclass, field
 from enum import Enum
 from watchdog.observers import Observer

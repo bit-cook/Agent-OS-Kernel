@@ -1,6 +1,5 @@
 """测试高级功能"""
 
-import pytest
 
 
 class TestAdvancedFeatures:

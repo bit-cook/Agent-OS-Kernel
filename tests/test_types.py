@@ -1,6 +1,5 @@
 """测试类型定义"""
 
-import pytest
 
 
 class TestAgentState:

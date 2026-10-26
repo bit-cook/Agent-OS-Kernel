@@ -3,7 +3,6 @@ from abc import abstractmethod
 Tests for Agent Communication Module
 """
 
-import asyncio
 import pytest
 from agent_os_kernel.agents.communication import (
     create_messenger,

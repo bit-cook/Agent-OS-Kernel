@@ -5,16 +5,13 @@ OpenAI Provider Implementation
 完整的 OpenAI API 实现
 """
 
-import asyncio
 import logging
 from typing import Dict, Any, List, Optional, AsyncIterator
 from dataclasses import dataclass
-from datetime import datetime
 
 from .provider import (
     LLMProvider,
     LLMConfig,
-    Message,
     ChatMessage,
     StreamEvent,
     StreamEventType

@@ -11,15 +11,12 @@ Tests cover:
 
 import pytest
 import time
-import tempfile
-import os
 from datetime import datetime, timedelta, timezone
 
 from agent_os_kernel.core.event_system_advanced import (
     Event,
     EventPriority,
     EventType,
-    EventFilter,
     EventFilterChain,
     TypeEventFilter,
     PriorityEventFilter,
@@ -124,8 +121,8 @@ class TestEventFiltering:
         system_event = Event(EventType.SYSTEM, EventPriority.NORMAL, "test")
         user_event = Event(EventType.USER, EventPriority.NORMAL, "test")
         
-        assert filter.filter(system_event) == True
-        assert filter.filter(user_event) == False
+        assert filter.filter(system_event)
+        assert not filter.filter(user_event)
     
     def test_priority_event_filter(self):
         """Test filtering by minimum priority"""
@@ -134,8 +131,8 @@ class TestEventFiltering:
         high_event = Event(EventType.SYSTEM, EventPriority.HIGH, "test")
         low_event = Event(EventType.SYSTEM, EventPriority.LOW, "test")
         
-        assert filter.filter(high_event) == True
-        assert filter.filter(low_event) == False
+        assert filter.filter(high_event)
+        assert not filter.filter(low_event)
     
     def test_source_event_filter(self):
         """Test filtering by source"""
@@ -144,8 +141,8 @@ class TestEventFiltering:
         event_a = Event(EventType.SYSTEM, EventPriority.NORMAL, "source_a")
         event_c = Event(EventType.SYSTEM, EventPriority.NORMAL, "source_c")
         
-        assert filter.filter(event_a) == True
-        assert filter.filter(event_c) == False
+        assert filter.filter(event_a)
+        assert not filter.filter(event_c)
     
     def test_composite_event_filter_and(self):
         """Test composite filter with AND logic"""
@@ -157,9 +154,9 @@ class TestEventFiltering:
         event_wrong_type = Event(EventType.USER, EventPriority.HIGH, "test")
         event_wrong_priority = Event(EventType.SYSTEM, EventPriority.LOW, "test")
         
-        assert composite.filter(event_valid) == True
-        assert composite.filter(event_wrong_type) == False
-        assert composite.filter(event_wrong_priority) == False
+        assert composite.filter(event_valid)
+        assert not composite.filter(event_wrong_type)
+        assert not composite.filter(event_wrong_priority)
     
     def test_composite_event_filter_or(self):
         """Test composite filter with OR logic"""
@@ -171,9 +168,9 @@ class TestEventFiltering:
         event_priority = Event(EventType.USER, EventPriority.CRITICAL, "test")
         event_neither = Event(EventType.USER, EventPriority.LOW, "test")
         
-        assert composite.filter(event_type) == True
-        assert composite.filter(event_priority) == True
-        assert composite.filter(event_neither) == False
+        assert composite.filter(event_type)
+        assert composite.filter(event_priority)
+        assert not composite.filter(event_neither)
     
     def test_event_filter_chain(self):
         """Test chaining multiple filters"""
@@ -183,7 +180,7 @@ class TestEventFiltering:
         
         event = Event(EventType.SYSTEM, EventPriority.HIGH, "test")
         
-        assert chain.filter(event) == True
+        assert chain.filter(event)
 
 
 class TestEventAggregation:
@@ -384,11 +381,11 @@ class TestEventTracing:
         
         trace_id = tracer.start_tracing()
         assert trace_id is not None
-        assert tracer.tracing_active == True
+        assert tracer.tracing_active
         
         stopped_id = tracer.stop_tracing()
         assert stopped_id == trace_id
-        assert tracer.tracing_active == False
+        assert not tracer.tracing_active
     
     def test_record_event(self):
         """Test recording events in trace"""
@@ -469,15 +466,15 @@ class TestAdvancedEventSystem:
         """Test starting and stopping the event system"""
         system = AdvancedEventSystem()
         
-        assert system.start() == True
-        assert system._running == True
+        assert system.start()
+        assert system._running
         
-        assert system.start() == False  # Already started
+        assert not system.start()  # Already started
         
-        assert system.stop() == True
-        assert system._running == False
+        assert system.stop()
+        assert not system._running
         
-        assert system.stop() == False  # Already stopped
+        assert not system.stop()  # Already stopped
     
     def test_publish_event(self):
         """Test publishing events to the system"""
@@ -487,7 +484,7 @@ class TestAdvancedEventSystem:
         event = Event(EventType.SYSTEM, EventPriority.HIGH, "test_source")
         
         result = system.publish_event(event)
-        assert result == True
+        assert result
         assert event in system.event_history
     
     def test_publish_filtered_event(self):
@@ -500,11 +497,11 @@ class TestAdvancedEventSystem:
         
         # This should be filtered out
         system_event = Event(EventType.SYSTEM, EventPriority.HIGH, "test")
-        assert system.publish_event(system_event) == False
+        assert not system.publish_event(system_event)
         
         # This should pass
         data_event = Event(EventType.DATA, EventPriority.HIGH, "test")
-        assert system.publish_event(data_event) == True
+        assert system.publish_event(data_event)
     
     def test_process_events(self):
         """Test processing events from queue"""
@@ -557,7 +554,7 @@ class TestAdvancedEventSystem:
         
         assert stats['queue_size'] == 3
         assert stats['history_size'] == 3
-        assert stats['tracing_active'] == True
+        assert stats['tracing_active']
 
 
 if __name__ == "__main__":

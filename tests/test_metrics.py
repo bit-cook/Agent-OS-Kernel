@@ -1,6 +1,5 @@
 """测试指标收集器"""
 
-import pytest
 
 
 class TestMetricsCollectorExists:

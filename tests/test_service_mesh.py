@@ -5,23 +5,18 @@ Tests for Service Mesh Module - Agent-OS-Kernel 服务网格模块测试
 
 import pytest
 import time
-import threading
 from agent_os_kernel.core.service_mesh import (
     CircuitState,
     LoadBalancingStrategy,
     ServiceInstance,
-    ServiceInfo,
     CircuitBreaker,
     CircuitBreakerOpen,
-    ServiceRegistry,
     LoadBalancer,
     ServiceClient,
     ServiceNotFound,
-    NoHealthyInstance,
     ServiceMesh,
     create_service_mesh,
     create_service_registry,
-    create_load_balancer,
     create_circuit_breaker,
 )
 

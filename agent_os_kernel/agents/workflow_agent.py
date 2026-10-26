@@ -6,11 +6,10 @@
 
 import asyncio
 import logging
-from typing import Dict, List, Any, Optional, Callable
+from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
-from abc import ABC, abstractmethod
 
 logger = logging.getLogger(__name__)
 

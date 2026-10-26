@@ -1,6 +1,5 @@
 """测试安全策略"""
 
-import pytest
 
 
 class TestSecurityPolicyExists:

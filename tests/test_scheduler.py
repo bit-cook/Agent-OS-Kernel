@@ -1,6 +1,5 @@
 """测试调度器"""
 
-import pytest
 
 
 class TestAgentScheduler:

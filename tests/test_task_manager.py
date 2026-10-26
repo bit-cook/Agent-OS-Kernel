@@ -1,6 +1,5 @@
 """测试任务管理器"""
 
-import pytest
 
 
 class TestTaskManagerExists:

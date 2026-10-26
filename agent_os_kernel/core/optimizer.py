@@ -8,16 +8,13 @@ Performance Optimization Tools - Agent-OS-Kernel 性能优化工具
 import time
 import threading
 import queue
-import hashlib
-import json
 from typing import (
     Dict, Any, Optional, Callable, TypeVar, Generic,
     List, Tuple
 )
-from dataclasses import dataclass, field
-from concurrent.futures import ThreadPoolExecutor, Future
+from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
-import weakref
 import logging
 
 
@@ -356,8 +353,6 @@ class ThreadPoolOptimizer:
         **kwargs
     ) -> Any:
         """提交任务并等待结果"""
-        task_id = f"sync_{int(time.time() * 1000)}"
-        
         future = self._executor.submit(func, *args, **kwargs)
         return future.result(timeout=self.config.task_timeout)
     

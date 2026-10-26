@@ -1,6 +1,5 @@
 """测试管道"""
 
-import pytest
 
 
 class TestPipelineExists:

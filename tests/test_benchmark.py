@@ -4,7 +4,6 @@ Tests for Performance Benchmark Tools - Agent-OS-Kernel 性能基准测试工具
 """
 
 import time
-import threading
 import pytest
 from agent_os_kernel.core.benchmark import (
     LatencyResult,

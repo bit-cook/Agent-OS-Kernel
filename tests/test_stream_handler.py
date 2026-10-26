@@ -1,6 +1,5 @@
 """测试流处理器"""
 
-import pytest
 
 
 class TestStreamHandlerExists:

@@ -1,8 +1,8 @@
 """任务管理器"""
 
 from datetime import datetime
-from datetime import timezone, timezone
-from typing import Dict, Optional, List, Callable
+from datetime import timezone
+from typing import Dict, Optional, Callable
 from enum import Enum
 import asyncio
 

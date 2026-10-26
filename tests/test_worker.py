@@ -1,6 +1,5 @@
 """测试Worker"""
 
-import pytest
 
 
 class TestWorkerPoolExists:

@@ -4,7 +4,6 @@
 支持: Claude 3.5, Claude 3, Claude 2
 """
 
-import os
 import json
 import logging
 from typing import List, Dict, Optional, AsyncIterator

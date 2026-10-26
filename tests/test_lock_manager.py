@@ -1,6 +1,5 @@
 """测试锁管理器"""
 
-import pytest
 
 
 class TestLockManagerExists:

@@ -6,7 +6,6 @@ import sys
 sys.path.insert(0, '.')
 
 import asyncio
-from datetime import datetime
 
 
 async def test_events():
@@ -80,7 +79,7 @@ async def test_metrics():
     print("=" * 50)
     
     from agent_os_kernel.core.metrics import (
-        MetricsCollector, MetricType
+        MetricsCollector
     )
     
     # 创建收集器
@@ -114,7 +113,7 @@ async def test_plugins():
     print("=" * 50)
     
     from agent_os_kernel.core.plugin_system import (
-        PluginManager, BasePlugin, PluginState
+        PluginManager
     )
     
     # 创建插件管理器

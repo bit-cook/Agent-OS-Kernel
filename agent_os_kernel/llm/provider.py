@@ -4,11 +4,10 @@
 参考 AIOS 架构设计，支持多种 LLM Provider。
 """
 
-import os
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, AsyncIterator
+from typing import Any, Dict, List, Optional
 from enum import Enum
 
 logger = logging.getLogger(__name__)

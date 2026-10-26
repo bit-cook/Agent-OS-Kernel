@@ -9,8 +9,8 @@ Provides time window functionality including:
 """
 
 from collections import defaultdict
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple, Union
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime, timedelta
 import math
 

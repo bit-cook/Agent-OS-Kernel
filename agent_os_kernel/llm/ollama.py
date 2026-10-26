@@ -4,7 +4,6 @@
 支持: Qwen, Llama, Mistral, Gemma, 等
 """
 
-import os
 import json
 import logging
 from typing import List, Dict, Optional, AsyncIterator

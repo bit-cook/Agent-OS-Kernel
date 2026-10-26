@@ -4,7 +4,6 @@
 
 import pytest
 import time
-from unittest.mock import Mock, patch
 
 from agent_os_kernel.core.retry_mechanism import (
     RetryCondition,

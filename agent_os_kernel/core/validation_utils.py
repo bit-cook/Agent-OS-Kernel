@@ -2,7 +2,7 @@
 验证工具模块 - 提供数据验证功能
 """
 
-from typing import Any, Dict, List, Optional, Callable, Pattern
+from typing import Any, Dict, List, Callable, Pattern
 from dataclasses import dataclass
 import re
 

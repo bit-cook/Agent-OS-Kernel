@@ -1,6 +1,5 @@
 """测试任务队列"""
 
-import pytest
 
 
 class TestTaskQueueExists:

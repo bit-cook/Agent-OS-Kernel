@@ -1,6 +1,5 @@
 """测试可观测性"""
 
-import pytest
 from agent_os_kernel.core.observability import (
     Observability, Event, Session, EventType
 )

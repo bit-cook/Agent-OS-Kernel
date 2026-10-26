@@ -10,7 +10,7 @@
 
 from typing import Dict, List, Callable, Any, Optional, Set
 from enum import Enum
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import wraps
 import threading
 

@@ -8,9 +8,8 @@ import asyncio
 import logging
 import time
 from typing import Dict, Optional, Tuple
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from collections import deque
-from datetime import datetime, timezone, timedelta, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -181,9 +180,7 @@ class MultiLimiter:
         return success, max_wait
     
     async def wait(self, timeout: float = 30.0, **limits) -> bool:
-        """等待所有限制通过"""
-        start_time = time.time()
-        
+        """等待所有限制通过（各限流器自行 enforce 自身 timeout）"""
         async with self._lock:
             limiters_to_wait = {}
             for name, key in limits.items():

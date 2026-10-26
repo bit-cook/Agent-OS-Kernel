@@ -1,6 +1,5 @@
 """测试缓存系统"""
 
-import pytest
 
 
 class TestCacheSystemExists:

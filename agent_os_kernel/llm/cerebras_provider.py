@@ -4,7 +4,6 @@
 支持: Llama 3.1, Llama 3.2, Qwen 等高速推理模型
 """
 
-import os
 import json
 import logging
 from typing import List, Dict, Optional, AsyncIterator, Any
@@ -177,7 +176,7 @@ class CerebrasProvider(LLMProvider):
         **kwargs
     ) -> Dict[str, Any]:
         """发送聊天请求"""
-        from .provider import ChatMessage, Message
+        from .provider import Message
         # 转换为 Message 格式
         msg_list = [
             Message(role=msg.role, content=msg.content)

@@ -1,10 +1,9 @@
 """批处理器"""
 
 from datetime import datetime
-from datetime import timezone, timezone
-from typing import Dict, List, Optional, Any
+from datetime import timezone
+from typing import Dict, List, Any
 from enum import Enum
-import asyncio
 
 
 class AggregationType(Enum):

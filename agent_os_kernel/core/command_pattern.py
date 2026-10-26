@@ -13,7 +13,7 @@ Features:
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, TypeVar, Generic, Type
+from typing import Any, Dict, List, Optional, TypeVar
 from dataclasses import dataclass, field
 from enum import Enum
 import threading
@@ -680,7 +680,7 @@ def create_command_pattern_demo():
     print(f"Commands in queue: {queue.get_pending_count()}")
     
     # Execute all commands
-    results = queue.execute_all()
+    queue.execute_all()
     print(f"Document after: {document}")
     print(f"Executed commands: {queue.get_executed_count()}")
     

@@ -6,7 +6,6 @@
 import pytest
 import asyncio
 import time
-from datetime import datetime
 from agent_os_kernel.core.countdown_timer import (
     CountdownTimer,
     CountdownTimerManager,

@@ -1,6 +1,5 @@
 """测试异步队列"""
 
-import pytest
 
 
 class TestAsyncQueueExists:

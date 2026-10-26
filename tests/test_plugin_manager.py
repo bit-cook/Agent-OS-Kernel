@@ -1,6 +1,5 @@
 """测试插件管理器"""
 
-import pytest
 from agent_os_kernel.core.plugin_system import (
     PluginManager, PluginState, PluginInfo, BasePlugin
 )

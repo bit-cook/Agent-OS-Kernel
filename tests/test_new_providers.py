@@ -1,8 +1,7 @@
 """测试新的 LLM Providers (AI21, Cerebras, Cloudflare)"""
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from agent_os_kernel.llm.provider import LLMConfig, ProviderType, LLMProvider
+from agent_os_kernel.llm.provider import LLMConfig, ProviderType
 from agent_os_kernel.llm.ai21_provider import AI21Provider
 from agent_os_kernel.llm.cerebras_provider import CerebrasProvider
 from agent_os_kernel.llm.cloudflare_provider import CloudflareProvider

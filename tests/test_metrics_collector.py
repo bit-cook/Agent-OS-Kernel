@@ -3,24 +3,18 @@
 Tests for Metrics Collector - Agent-OS-Kernel 指标收集器测试
 """
 
-import time
 import pytest
 import threading
 from agent_os_kernel.core.metrics_collector import (
-    MetricType,
     ExportFormat,
     Counter,
     Gauge,
     Histogram,
-    MetricsRegistry,
-    MetricSample,
     create_metrics_registry,
     create_counter,
     create_gauge,
     create_histogram,
     counter,
-    gauge,
-    histogram,
     export_metrics,
     get_default_registry,
 )

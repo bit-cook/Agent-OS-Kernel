@@ -15,7 +15,6 @@ import re
 import hashlib
 import json
 from collections import defaultdict
-from functools import wraps
 import threading
 
 
@@ -226,7 +225,6 @@ class AuthenticationMiddleware(Middleware):
         """生成令牌"""
         import base64
         import hmac
-        import hashlib
         
         header = {"alg": self.algorithm, "typ": "JWT"}
         payload = {

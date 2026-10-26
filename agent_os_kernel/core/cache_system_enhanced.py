@@ -10,8 +10,6 @@ This module provides a multi-tier, distributed caching system with support for:
 
 import time
 import threading
-import hashlib
-import json
 import logging
 from abc import ABC, abstractmethod
 from collections import OrderedDict, defaultdict

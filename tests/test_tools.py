@@ -1,6 +1,5 @@
 """测试工具"""
 
-import pytest
 
 
 class TestToolResult:

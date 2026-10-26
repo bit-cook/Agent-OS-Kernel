@@ -6,12 +6,11 @@
 支持cron表达式调度、间隔执行和任务链执行。
 """
 
-from typing import Dict, List, Any, Optional, Callable, Set, Union
+from typing import Dict, List, Any, Optional, Callable, Set
 from dataclasses import dataclass, field
 from enum import Enum
 from collections import defaultdict, deque
 import asyncio
-import re
 import logging
 from datetime import datetime, timedelta
 from croniter import croniter

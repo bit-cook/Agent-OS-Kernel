@@ -9,7 +9,7 @@ import logging
 from typing import Dict, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
-from datetime import timezone, timezone, timedelta
+from datetime import timezone
 from uuid import uuid4
 
 from .agent_definition import AgentDefinition

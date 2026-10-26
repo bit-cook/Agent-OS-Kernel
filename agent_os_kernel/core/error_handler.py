@@ -497,7 +497,7 @@ def handle_errors(
             try:
                 return func(*args, **kwargs)
             except Exception as e:
-                error_info = handler.capture_exception(e, context)
+                handler.capture_exception(e, context)
                 if reraise:
                     raise
                 return fallback

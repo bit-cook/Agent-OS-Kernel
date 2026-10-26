@@ -1,6 +1,5 @@
 """测试内核"""
 
-import pytest
 
 
 class TestKernel:

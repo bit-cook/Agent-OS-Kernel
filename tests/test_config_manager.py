@@ -1,6 +1,5 @@
 """测试配置管理器"""
 
-import pytest
 from agent_os_kernel.core.config_manager import ConfigManager
 
 

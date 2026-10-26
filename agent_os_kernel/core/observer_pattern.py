@@ -12,7 +12,7 @@ Features:
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, List, Set, TypeVar, Optional
+from typing import Any, Callable, Dict, List, TypeVar, Optional
 from dataclasses import dataclass, field
 from enum import Enum
 import threading
@@ -317,7 +317,7 @@ def create_observer_pattern_demo():
     
     # Subscribe
     sub1_id = news_subject.subscribe(subscriber1)
-    sub2_id = news_subject.subscribe(subscriber2)
+    news_subject.subscribe(subscriber2)
     
     # Publish news
     news_subject.notify("breaking_news", {"headline": "Important event!", "content": "..."})

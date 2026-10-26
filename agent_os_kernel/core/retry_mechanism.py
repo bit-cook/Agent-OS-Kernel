@@ -13,7 +13,7 @@
 import asyncio
 import functools
 import time
-from typing import Any, Callable, Optional, Type, Union
+from typing import Any, Callable, Optional, Type
 
 
 class RetryExhaustedError(Exception):

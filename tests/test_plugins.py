@@ -1,6 +1,5 @@
 """测试插件"""
 
-import pytest
 
 
 class TestPluginManager:

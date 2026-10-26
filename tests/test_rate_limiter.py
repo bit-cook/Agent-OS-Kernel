@@ -1,6 +1,5 @@
 """测试速率限制器"""
 
-import pytest
 
 
 class TestRateLimiterExists:

@@ -4,7 +4,6 @@
 支持: Jurassic-2 (J2), J2-Core, J2-Ultra
 """
 
-import os
 import json
 import logging
 from typing import List, Dict, Optional, AsyncIterator, Any
@@ -197,7 +196,7 @@ class AI21Provider(LLMProvider):
         **kwargs
     ) -> Dict[str, Any]:
         """发送聊天请求"""
-        from .provider import ChatMessage, Message
+        from .provider import Message
         # 转换为 Message 格式
         msg_list = [
             Message(role=msg.role, content=msg.content)

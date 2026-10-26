@@ -4,12 +4,11 @@ Agent Migration - Agent热迁移
 支持Agent状态保存、跨节点迁移、状态恢复
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Any
 from datetime import datetime
-from datetime import timezone, timezone
+from datetime import timezone
 import asyncio
-import pickle
 import hashlib
 
 

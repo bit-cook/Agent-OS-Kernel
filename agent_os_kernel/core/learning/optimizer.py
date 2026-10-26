@@ -7,12 +7,10 @@
 3. 自动调整策略参数
 """
 
-import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 from dataclasses import dataclass, field
-from datetime import timezone, datetime, timezone, timedelta
-import re
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 

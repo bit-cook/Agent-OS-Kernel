@@ -9,14 +9,13 @@
 - L3: 磁盘缓存 (最慢但持久化)
 """
 
-import json
 import hashlib
 import logging
 import pickle
 import os
 from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta, timedelta
+from datetime import datetime, timedelta
 from enum import Enum
 import threading
 

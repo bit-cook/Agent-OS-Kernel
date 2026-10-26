@@ -17,7 +17,7 @@ import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set, Union
+from typing import Any, Dict, List, Optional, Set
 from queue import PriorityQueue
 import psutil
 
@@ -524,16 +524,18 @@ class AgentPool:
             self.add_agent(new_agent)
     
     async def _scale_down(self):
-        """Remove agents from the pool"""
+        """Remove agents from the pool（不低于 min_size）"""
+        if self.size <= self.min_size:
+            return
         target_size = max(self.size - 1, self.min_size)
-        # Remove the least priority, least loaded agent
+        # Remove the least priority, least loaded agent（直到 target_size）
         candidates = sorted(
             self._agents.values(),
             key=lambda a: (a.priority.value, a.current_load)
         )
         if candidates:
             agent_to_remove = candidates[0]
-            if agent_to_remove.current_load == 0:
+            if agent_to_remove.current_load == 0 and self.size > target_size:
                 self.remove_agent(agent_to_remove.id)
     
     def check_pool_resources(self) -> Dict[str, float]:
