@@ -31,6 +31,7 @@ class OpenAIConfig:
     organization: Optional[str] = None
     max_retries: int = 3
     timeout: float = 60.0
+    model: str = "gpt-4o"
 
 
 class OpenAIProvider(LLMProvider):
@@ -105,7 +106,7 @@ class OpenAIProvider(LLMProvider):
         """获取配置"""
         return LLMConfig(
             provider=self.PROVIDER_NAME,
-            model=self.config.model if hasattr(self.config, 'model') else "gpt-4o",
+            model=self.config.model,
             api_key=self.config.api_key,
             base_url=self.config.base_url,
             max_tokens=4096,
@@ -202,8 +203,10 @@ class OpenAIProvider(LLMProvider):
     
     async def _stream_chat(self, **params) -> AsyncIterator[StreamEvent]:
         """流式聊天请求"""
-        async with self._client.chat.completions.create(**params) as stream:
-            async for chunk in stream:
+        # openai SDK: create() 返回协程，await 后得到可异步迭代的 stream
+        # （不是 async context manager）
+        stream = await self._client.chat.completions.create(**params)
+        async for chunk in stream:
                 choice = chunk.choices[0]
                 
                 if choice.delta.content:
@@ -254,7 +257,7 @@ class OpenAIProvider(LLMProvider):
         try:
             import tiktoken
             encoding = tiktoken.encoding_for_model(model)
-            return len.encode(text)
+            return len(encoding.encode(text))
         except ImportError:
             # 粗略估计
             return len(text) // 4
@@ -286,8 +289,7 @@ def create_openai_provider(
     """创建 OpenAI Provider"""
     config = OpenAIConfig(
         api_key=api_key,
-        base_url=base_url
+        base_url=base_url,
+        model=model
     )
-    provider = OpenAIProvider(config)
-    provider.config.model = model
-    return provider
+    return OpenAIProvider(config)
