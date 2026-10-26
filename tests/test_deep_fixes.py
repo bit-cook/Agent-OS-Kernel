@@ -55,8 +55,11 @@ class TestLockManagerBlockingWait:
 
         async def contender():
             lock = await lm.acquire(
-                "res", "owner2", lock_type=LockType.MUTEX,
-                blocking=True, timeout_seconds=5.0,
+                "res",
+                "owner2",
+                lock_type=LockType.MUTEX,
+                blocking=True,
+                timeout_seconds=5.0,
             )
             acquired.append(lock)
 
@@ -81,8 +84,11 @@ class TestLockManagerBlockingWait:
         await lm.acquire("res", "owner1")
 
         lock = await lm.acquire(
-            "res", "owner2", lock_type=LockType.MUTEX,
-            blocking=True, timeout_seconds=0.2,
+            "res",
+            "owner2",
+            lock_type=LockType.MUTEX,
+            blocking=True,
+            timeout_seconds=0.2,
         )
         assert lock is None
         # 超时不破坏原锁
@@ -100,11 +106,14 @@ class TestBatchClearResults:
     def test_old_results_removed_recent_kept(self):
         proc = BatchProcessor()
         proc._results["old"] = BatchResult(
-            item_id="old", success=True,
+            item_id="old",
+            success=True,
             completed_at=datetime.now() - timedelta(hours=2),
         )
         proc._results["recent"] = BatchResult(
-            item_id="recent", success=True, completed_at=datetime.now(),
+            item_id="recent",
+            success=True,
+            completed_at=datetime.now(),
         )
 
         proc.clear_results()
@@ -115,7 +124,8 @@ class TestBatchClearResults:
     def test_explicit_cutoff(self):
         proc = BatchProcessor()
         proc._results["a"] = BatchResult(
-            item_id="a", success=True,
+            item_id="a",
+            success=True,
             completed_at=datetime(2020, 1, 1),
         )
         proc.clear_results(completed_before=datetime(2021, 1, 1))
@@ -127,6 +137,7 @@ class TestCalculatorHardening:
 
     def setup_method(self):
         from agent_os_kernel.tools.builtin import CalculatorTool
+
         self.calc = CalculatorTool()
 
     def test_normal_expressions(self):
@@ -178,12 +189,14 @@ class TestKernelLLMIntegration:
     def _mock_provider(self, response: str):
         from agent_os_kernel.llm.provider import LLMConfig
         from agent_os_kernel.llm.mock_provider import MockProvider
+
         m = MockProvider(LLMConfig(provider="mock", model="mock-model", api_key="k"))
-        m.set_response("code", response)   # 覆盖内置触发器（上下文含工具描述）
+        m.set_response("code", response)  # 覆盖内置触发器（上下文含工具描述）
         return m
 
     def test_provider_step_done_sentinel(self):
         from agent_os_kernel import AgentOSKernel
+
         kernel = AgentOSKernel(llm_provider=self._mock_provider("分析完成。\n[DONE]"))
         pid = kernel.spawn_agent(name="A", task="总结", priority=20, context={"task": "总结"})
         kernel.run(max_iterations=5)
@@ -195,6 +208,7 @@ class TestKernelLLMIntegration:
 
     def test_max_steps_convergence(self):
         from agent_os_kernel import AgentOSKernel
+
         kernel = AgentOSKernel(llm_provider=self._mock_provider("继续处理..."))
         pid = kernel.spawn_agent(name="B", task="t", priority=20)
         kernel.scheduler.processes[pid].max_steps = 3
@@ -203,7 +217,8 @@ class TestKernelLLMIntegration:
 
     def test_simulation_mode_default(self):
         from agent_os_kernel import AgentOSKernel
-        kernel = AgentOSKernel()   # 无 provider：模拟模式
+
+        kernel = AgentOSKernel()  # 无 provider：模拟模式
         pid = kernel.spawn_agent(name="C", task="t", priority=20)
         kernel.run(max_iterations=2)
         proc = kernel.scheduler.processes.get(pid)
@@ -228,13 +243,14 @@ class TestKernelLLMIntegration:
     def test_api_default_provider_selection(self):
         from agent_os_kernel.api.server import _build_default_provider
         import os
+
         old = os.environ.get("AOSK_LLM_PROVIDER")
         try:
             os.environ.pop("AOSK_LLM_PROVIDER", None)
             assert type(_build_default_provider()).__name__ == "MockProvider"
             os.environ["AOSK_LLM_PROVIDER"] = "openai"
             os.environ.pop("AOSK_LLM_API_KEY", None)
-            assert _build_default_provider() is None      # 缺 key -> 模拟回退
+            assert _build_default_provider() is None  # 缺 key -> 模拟回退
             os.environ["AOSK_LLM_API_KEY"] = "sk-test"
             assert type(_build_default_provider()).__name__ == "OpenAIProvider"
             os.environ["AOSK_LLM_PROVIDER"] = "none"

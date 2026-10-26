@@ -65,10 +65,7 @@ class TestTieredCache(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.cache = TieredCache(
-            level=CacheLevel.L1,
-            max_size=3,
-            eviction_policy=EvictionPolicy.LRU,
-            ttl=60.0
+            level=CacheLevel.L1, max_size=3, eviction_policy=EvictionPolicy.LRU, ttl=60.0
         )
 
     def test_basic_put_get(self):
@@ -124,11 +121,7 @@ class TestTieredCache(unittest.TestCase):
 
     def test_eviction_lru(self):
         """Test LRU eviction policy."""
-        cache = TieredCache(
-            level=CacheLevel.L1,
-            max_size=3,
-            eviction_policy=EvictionPolicy.LRU
-        )
+        cache = TieredCache(level=CacheLevel.L1, max_size=3, eviction_policy=EvictionPolicy.LRU)
 
         cache.put("key1", "value1")
         cache.put("key2", "value2")
@@ -148,10 +141,7 @@ class TestTieredCache(unittest.TestCase):
     def test_ttl_expiration(self):
         """Test that TTL-based expiration works."""
         cache = TieredCache(
-            level=CacheLevel.L1,
-            max_size=100,
-            eviction_policy=EvictionPolicy.LRU,
-            ttl=0.1
+            level=CacheLevel.L1, max_size=100, eviction_policy=EvictionPolicy.LRU, ttl=0.1
         )
 
         cache.put("key1", "value1", ttl=0.1)
@@ -162,11 +152,7 @@ class TestTieredCache(unittest.TestCase):
 
     def test_thread_safety(self):
         """Test cache operations are thread-safe."""
-        cache = TieredCache(
-            level=CacheLevel.L1,
-            max_size=1000,
-            eviction_policy=EvictionPolicy.LRU
-        )
+        cache = TieredCache(level=CacheLevel.L1, max_size=1000, eviction_policy=EvictionPolicy.LRU)
 
         def writer():
             for i in range(100):
@@ -198,12 +184,7 @@ class TestMultiTierCache(unittest.TestCase):
 
     def test_multi_tier_cache(self):
         """Test basic multi-tier cache operations."""
-        cache = MultiTierCache(
-            l1_size=3,
-            l2_size=10,
-            l3_size=100,
-            default_ttl=60.0
-        )
+        cache = MultiTierCache(l1_size=3, l2_size=10, l3_size=100, default_ttl=60.0)
 
         # Put should go to L1
         cache.put("key1", "value1")
@@ -215,11 +196,7 @@ class TestMultiTierCache(unittest.TestCase):
 
     def test_promotion_on_access(self):
         """Test that entries are promoted to L1 on access."""
-        cache = MultiTierCache(
-            l1_size=1,
-            l2_size=10,
-            l3_size=100
-        )
+        cache = MultiTierCache(l1_size=1, l2_size=10, l3_size=100)
 
         # Directly put into L2 (internal)
         cache._tiers[CacheLevel.L2].put("key1", "l2_value")
@@ -248,11 +225,7 @@ class TestMultiTierCache(unittest.TestCase):
 
     def test_tier_stats(self):
         """Test getting tier statistics."""
-        cache = MultiTierCache(
-            l1_size=100,
-            l2_size=200,
-            l3_size=300
-        )
+        cache = MultiTierCache(l1_size=100, l2_size=200, l3_size=300)
 
         cache.put("key1", "value1")
 
@@ -268,11 +241,7 @@ class TestMultiTierCache(unittest.TestCase):
     def test_lfu_policy(self):
         """Test LFU eviction policy in multi-tier."""
         # Test LFU eviction behavior using a single tier
-        tier = TieredCache(
-            level=CacheLevel.L1,
-            max_size=2,
-            eviction_policy=EvictionPolicy.LFU
-        )
+        tier = TieredCache(level=CacheLevel.L1, max_size=2, eviction_policy=EvictionPolicy.LFU)
 
         tier.put("key1", "value1")
         tier.put("key2", "value2")

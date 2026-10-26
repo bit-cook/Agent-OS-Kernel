@@ -13,6 +13,7 @@ from datetime import timezone
 
 class AgentStatus(Enum):
     """Agent 状态"""
+
     CREATED = "created"
     IDLE = "idle"
     RUNNING = "running"
@@ -25,6 +26,7 @@ class AgentStatus(Enum):
 @dataclass
 class AgentConstraints:
     """Agent 约束条件"""
+
     max_iterations: int = 100
     max_execution_time: float = 300.0  # 秒
     allowed_tools: List[str] = field(default_factory=list)
@@ -33,7 +35,7 @@ class AgentConstraints:
     require_approval: bool = False
     output_format: Optional[str] = None
     memory_retention: bool = True
-    
+
     def to_dict(self) -> Dict:
         return {
             "max_iterations": self.max_iterations,
@@ -50,32 +52,32 @@ class AgentConstraints:
 @dataclass
 class AgentDefinition:
     """Agent 定义 - 完整的 Agent 配置
-    
+
     参考 CrewAI 的 role/goal/backstory 设计
     """
-    
+
     # 基础信息
     name: str
     role: str  # 角色，如 "Senior Researcher"
     goal: str  # 目标，如 "Discover breakthrough technologies"
     backstory: str  # 背景，如 "Expert researcher with 10 years experience"
-    
+
     # 可选覆盖
     agent_id: Optional[str] = None
     description: Optional[str] = None
-    
+
     # 工具
     tools: List[str] = field(default_factory=list)
-    
+
     # 约束
     constraints: AgentConstraints = field(default_factory=AgentConstraints)
-    
+
     # 元数据
     metadata: Dict[str, Any] = field(default_factory=dict)
-    
+
     # 创建时间
     created_at: datetime = field(default_factory=datetime.utcnow)
-    
+
     def to_dict(self) -> Dict:
         """转换为字典"""
         return {
@@ -90,16 +92,16 @@ class AgentDefinition:
             "metadata": self.metadata,
             "created_at": self.created_at.isoformat(),
         }
-    
+
     @classmethod
-    def from_dict(cls, data: Dict) -> 'AgentDefinition':
+    def from_dict(cls, data: Dict) -> "AgentDefinition":
         """从字典创建"""
         constraints_data = data.get("constraints", {})
         if isinstance(constraints_data, dict):
             constraints = AgentConstraints(**constraints_data)
         else:
             constraints = constraints_data
-        
+
         return cls(
             agent_id=data.get("agent_id"),
             name=data["name"],
@@ -110,9 +112,13 @@ class AgentDefinition:
             tools=data.get("tools", []),
             constraints=constraints,
             metadata=data.get("metadata", {}),
-            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else datetime.now(timezone.utc),
+            created_at=(
+                datetime.fromisoformat(data["created_at"])
+                if data.get("created_at")
+                else datetime.now(timezone.utc)
+            ),
         )
-    
+
     def __repr__(self) -> str:
         return f"AgentDefinition({self.name}, role={self.role})"
 
@@ -120,27 +126,27 @@ class AgentDefinition:
 @dataclass
 class TaskDefinition:
     """Task 定义 - 完整的 Task 配置
-    
+
     参考 CrewAI 的 Task 设计
     """
-    
+
     description: str  # 任务描述
     expected_output: str  # 预期输出
     agent_name: str  # 执行的 Agent 名称
-    
+
     # 依赖
     depends_on: List[str] = field(default_factory=list)  # 依赖的 Task
-    
+
     # 优先级和配置
     priority: int = 50
     timeout: float = 300.0  # 超时时间
-    
+
     # 验证
     validation_criteria: Optional[str] = None
-    
+
     # 元数据
     metadata: Dict[str, Any] = field(default_factory=dict)
-    
+
     def to_dict(self) -> Dict:
         return {
             "description": self.description,
@@ -152,9 +158,9 @@ class TaskDefinition:
             "validation_criteria": self.validation_criteria,
             "metadata": self.metadata,
         }
-    
+
     @classmethod
-    def from_dict(cls, data: Dict) -> 'TaskDefinition':
+    def from_dict(cls, data: Dict) -> "TaskDefinition":
         return cls(
             description=data["description"],
             expected_output=data["expected_output"],
@@ -170,22 +176,22 @@ class TaskDefinition:
 @dataclass
 class CrewDefinition:
     """Crew 定义 - Agent 团队配置
-    
+
     参考 CrewAI 的 Crew 设计
     """
-    
+
     name: str
     agents: List[AgentDefinition]
     tasks: List[TaskDefinition]
-    
+
     # 编排模式
     process_mode: str = "sequential"  # sequential, hierarchical, consensual
-    
+
     # 共享配置
     memory_enabled: bool = True
     embedder: Optional[Dict] = None
     max_iterations: int = 10
-    
+
     def to_dict(self) -> Dict:
         return {
             "name": self.name,

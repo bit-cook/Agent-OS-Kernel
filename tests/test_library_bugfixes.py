@@ -23,14 +23,16 @@ class TestCacheTTL:
 
     @pytest.mark.asyncio
     async def test_ttl_read_write_cycle(self):
-        cache = CacheSystem(default_ttl=3600)   # 原来这样构造后 get 必 TypeError
+        cache = CacheSystem(default_ttl=3600)  # 原来这样构造后 get 必 TypeError
         await cache.set("k", "v")
         assert await cache.get("k") == "v"
         assert await cache.exists("k")
 
     def test_is_expired_with_aware_timestamps(self):
         entry = CacheEntry(
-            key="x", value=1, ttl_seconds=0.001,
+            key="x",
+            value=1,
+            ttl_seconds=0.001,
             created_at=datetime.now(timezone.utc) - timedelta(seconds=1),
         )
         assert entry.is_expired() is True
@@ -46,6 +48,7 @@ class TestCompressorImportanceFilter:
 
     def test_importance_filter_multiple_messages(self):
         from agent_os_kernel.core.optimization.compressor import CompressionConfig
+
         c = ContextCompressor(CompressionConfig(max_tokens=10000))
         msgs = [
             {"role": "system", "content": "You are helpful."},
@@ -54,7 +57,7 @@ class TestCompressorImportanceFilter:
             {"role": "user", "content": "谢谢"},
         ]
         result = c.compress_messages(msgs, strategy=CompressionStrategy.IMPORTANCE_FILTER)
-        assert len(result) >= 2                      # 原来这里就崩
+        assert len(result) >= 2  # 原来这里就崩
         assert [m["content"] for m in result] == [m["content"] for m in msgs]  # 顺序保持
 
 
@@ -66,11 +69,11 @@ class TestBatchProcessorFlush:
         p = BatchProcessor(batch_size=3)
         for i in range(7):
             await p.add_task({"n": i})
-        assert p.get_statistics()["processed_count"] == 6   # 两个满批
+        assert p.get_statistics()["processed_count"] == 6  # 两个满批
         await p.flush()
-        assert p.get_statistics()["processed_count"] == 7   # 余 1
+        assert p.get_statistics()["processed_count"] == 7  # 余 1
         await p.flush()
-        assert p.get_statistics()["processed_count"] == 7   # 原来这里变 8+
+        assert p.get_statistics()["processed_count"] == 7  # 原来这里变 8+
 
 
 class TestAsyncQueueSingleDelivery:
@@ -86,7 +89,7 @@ class TestAsyncQueueSingleDelivery:
             for i in range(3):
                 await q.publish("news", {"i": i})
             await asyncio.sleep(0.5)
-            assert len(received) == 3                  # 原来 6
+            assert len(received) == 3  # 原来 6
         finally:
             await q.stop()
 
@@ -101,7 +104,7 @@ class TestSemaphoreMultiHolder:
         assert all(results)
         assert await m.acquire_semaphore("pool", "w4", max_concurrent=3) is False
         releases = [await m.release("pool", f"w{i}") for i in range(3)]
-        assert all(releases)                           # 原来后两个 False
+        assert all(releases)  # 原来后两个 False
         assert not m.is_locked("pool")
 
 
@@ -127,6 +130,7 @@ class TestCostTrackerReset:
 
     def test_reset_no_args_clears_everything(self):
         from agent_os_kernel.core.cost_tracker import CostTracker
+
         ct = CostTracker()
         ct.record("mock", "m", 100, 50)
         assert ct.get_global_stats()["total_requests"] == 1
@@ -142,6 +146,7 @@ class TestAgentRegistryTimezone:
     @pytest.mark.asyncio
     async def test_stats_and_list_active(self):
         from agent_os_kernel.core.agent_registry import AgentRegistry
+
         r = AgentRegistry()
         await r.register(agent_id="a1", name="A", role="worker")
         assert r.get_stats()["total_agents"] == 1
@@ -154,10 +159,9 @@ class TestReadWriteLockMultiReader:
     @pytest.mark.asyncio
     async def test_all_readers_release_then_write(self):
         from agent_os_kernel.core.distributed_lock import ReadWriteLockBackend, LockType
+
         b = ReadWriteLockBackend()
-        assert all([
-            await b.acquire("cfg", f"r{i}", LockType.READ, 30, 60) for i in range(3)
-        ])
+        assert all([await b.acquire("cfg", f"r{i}", LockType.READ, 30, 60) for i in range(3)])
         assert all([await b.release("cfg", f"r{i}") for i in range(3)])
         assert await b.acquire("cfg", "w1", LockType.WRITE, 30, 60)
         assert await b.release("cfg", "w1")
@@ -168,7 +172,8 @@ class TestClaudeIntegratedKernelStep:
 
     def test_step_runs_and_audits(self):
         from agent_os_kernel.integrations.claude_integration import ClaudeIntegratedKernel
-        k = ClaudeIntegratedKernel()   # 无 key -> mock LLM
+
+        k = ClaudeIntegratedKernel()  # 无 key -> mock LLM
         pid = k.spawn_agent(name="CA", task="演示", priority=20)
         k.run(max_iterations=2)
         logs = k.storage.get_audit_logs(agent_pid=pid)
@@ -181,6 +186,7 @@ class TestPluginManagerStats:
 
     def test_get_stats_and_list_loaded(self):
         from agent_os_kernel.core.plugin_system import PluginManager
+
         m = PluginManager()
         stats = m.get_stats()
         assert stats["total_plugins"] == 0

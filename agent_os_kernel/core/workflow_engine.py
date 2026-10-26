@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 class TaskStatus(Enum):
     """任务状态枚举"""
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -28,6 +29,7 @@ class TaskStatus(Enum):
 
 class WorkflowStatus(Enum):
     """工作流状态枚举"""
+
     CREATED = "created"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -39,6 +41,7 @@ class WorkflowStatus(Enum):
 @dataclass
 class TaskResult:
     """任务执行结果"""
+
     task_id: str
     status: TaskStatus
     result: Any = None
@@ -59,6 +62,7 @@ class TaskResult:
 @dataclass
 class TaskConfig:
     """任务配置"""
+
     task_id: str
     func: Callable
     dependencies: List[str] = field(default_factory=list)
@@ -75,7 +79,7 @@ class TaskConfig:
 
 class Task:
     """任务类"""
-    
+
     def __init__(self, config: TaskConfig):
         self.task_id = config.task_id
         self.func = config.func
@@ -87,13 +91,13 @@ class Task:
         self.metadata = config.metadata
         self.parallel = config.parallel
         self.error_handling = config.error_handling
-        
+
         self.status = TaskStatus.PENDING
         self.result: Optional[Any] = None
         self.error: Optional[str] = None
         self.retry_attempt = 0
         self._result_obj: Optional[TaskResult] = None
-    
+
     @property
     def result_obj(self) -> TaskResult:
         """获取任务结果对象"""
@@ -104,47 +108,47 @@ class Task:
                 result=self.result,
                 error=self.error,
                 retry_count=self.retry_attempt,
-                metadata=self.metadata
+                metadata=self.metadata,
             )
         return self._result_obj
 
 
 class Workflow:
     """工作流类 - 支持DAG结构"""
-    
+
     def __init__(self, workflow_id: str, name: str = None):
         self.workflow_id = workflow_id
         self.name = name or workflow_id
         self.tasks: Dict[str, Task] = {}
         self.task_graph: Dict[str, Set[str]] = defaultdict(set)  # 任务ID -> 依赖任务ID
         self.reverse_graph: Dict[str, Set[str]] = defaultdict(set)  # 任务ID -> 依赖它的任务ID
-        
+
         self.status = WorkflowStatus.CREATED
         self.results: Dict[str, TaskResult] = {}
         self.global_result: Any = None
         self.start_time: Optional[float] = None
         self.end_time: Optional[float] = None
         self.error: Optional[str] = None
-        
+
         self._task_completed: Dict[str, bool] = {}
-    
+
     def add_task(self, task: Task) -> None:
         """添加任务到工作流
-        
+
         允许前向引用依赖（被依赖的任务可以后添加）——
         循环/缺失依赖在 get_execution_order() / 执行期才报错，
         与 tests/test_workflow_engine.py::test_cycle_detection 契约一致。
         """
         if task.task_id in self.tasks:
             raise ValueError(f"任务 {task.task_id} 已存在")
-        
+
         self.tasks[task.task_id] = task
-        
+
         # 更新任务图（不要求依赖已存在）
         for dep in task.dependencies:
             self.task_graph[task.task_id].add(dep)
             self.reverse_graph[dep].add(task.task_id)
-    
+
     def get_execution_order(self) -> List[str]:
         """获取拓扑排序后的执行顺序 (Kahn算法)"""
         # 缺失依赖检查（前向引用未补齐）：图定型时拒绝
@@ -152,35 +156,35 @@ class Workflow:
             for dep in self.task_graph.get(task_id, []):
                 if dep not in self.tasks:
                     raise ValueError(f"依赖任务 {dep} 不存在")
-        
+
         in_degree: Dict[str, int] = {task_id: 0 for task_id in self.tasks}
-        
+
         # 计算入度
         for task_id in self.tasks:
             for dep in self.task_graph.get(task_id, []):
                 if dep in in_degree:
                     in_degree[task_id] += 1
-        
+
         # 使用队列进行拓扑排序
         queue = [task_id for task_id, degree in in_degree.items() if degree == 0]
         order = []
-        
+
         while queue:
             current = queue.pop(0)
             order.append(current)
-            
+
             # 更新依赖当前任务的任务入度
             for dependent in self.reverse_graph.get(current, []):
                 if dependent in in_degree:
                     in_degree[dependent] -= 1
                     if in_degree[dependent] == 0:
                         queue.append(dependent)
-        
+
         if len(order) != len(self.tasks):
             raise ValueError("工作流存在循环依赖")
-        
+
         return order
-    
+
     def get_ready_tasks(self) -> List[str]:
         """获取当前可执行的任务"""
         ready = []
@@ -188,9 +192,10 @@ class Workflow:
             if task.status == TaskStatus.PENDING:
                 # 检查所有依赖是否完成
                 deps = self.task_graph.get(task_id, set())
-                if all(self.tasks.get(dep, None) and 
-                       self.tasks[dep].status == TaskStatus.COMPLETED 
-                       for dep in deps):
+                if all(
+                    self.tasks.get(dep, None) and self.tasks[dep].status == TaskStatus.COMPLETED
+                    for dep in deps
+                ):
                     # 检查条件
                     if task.condition is None:
                         ready.append(task_id)
@@ -198,7 +203,7 @@ class Workflow:
                         if task.condition(self.results):
                             ready.append(task_id)
         return ready
-    
+
     def validate(self) -> bool:
         """验证工作流DAG结构"""
         try:
@@ -206,7 +211,7 @@ class Workflow:
             return len(order) == len(self.tasks)
         except ValueError:
             return False
-    
+
     def reset(self) -> None:
         """重置工作流状态"""
         self.status = WorkflowStatus.CREATED
@@ -216,7 +221,7 @@ class Workflow:
         self.end_time = None
         self.error = None
         self._task_completed = {}
-        
+
         for task in self.tasks.values():
             task.status = TaskStatus.PENDING
             task.result = None
@@ -227,74 +232,77 @@ class Workflow:
 
 class WorkflowEngine:
     """工作流引擎"""
-    
+
     def __init__(self, max_concurrent: int = 10):
         self.max_concurrent = max_concurrent
         self.workflows: Dict[str, Workflow] = {}
         self.running_workflows: Set[str] = set()
-        
+
         self._semaphore = asyncio.Semaphore(max_concurrent)
-    
+
     def create_workflow(self, workflow_id: str, name: str = None) -> Workflow:
         """创建工作流"""
         workflow = Workflow(workflow_id, name)
         self.workflows[workflow_id] = workflow
         return workflow
-    
+
     def get_workflow(self, workflow_id: str) -> Optional[Workflow]:
         """获取工作流"""
         return self.workflows.get(workflow_id)
-    
+
     def delete_workflow(self, workflow_id: str) -> bool:
         """删除工作流"""
         if workflow_id in self.running_workflows:
             return False
         return self.workflows.pop(workflow_id, None) is not None
-    
-    async def execute_task(self, workflow: Workflow, task_id: str, 
-                          context: Dict[str, Any], 
-                          task_results: Dict[str, TaskResult]) -> TaskResult:
+
+    async def execute_task(
+        self,
+        workflow: Workflow,
+        task_id: str,
+        context: Dict[str, Any],
+        task_results: Dict[str, TaskResult],
+    ) -> TaskResult:
         """执行单个任务"""
         task = workflow.tasks[task_id]
         task.status = TaskStatus.RUNNING
-        
+
         import time
+
         start_time = time.time()
-        
+
         try:
             # 准备任务输入
             task_input = {}
             for dep_id in task.dependencies:
                 if dep_id in task_results:
                     task_input[dep_id] = task_results[dep_id].result
-            
+
             # 执行任务函数
             async_func = asyncio.iscoroutinefunction(task.func)
-            
+
             if async_func:
                 if task.timeout:
                     result = await asyncio.wait_for(
-                        task.func(task_input, context),
-                        timeout=task.timeout
+                        task.func(task_input, context), timeout=task.timeout
                     )
                 else:
                     result = await task.func(task_input, context)
             else:
                 if task.timeout:
                     result = await asyncio.wait_for(
-                        asyncio.to_thread(task.func, task_input, context),
-                        timeout=task.timeout
+                        asyncio.to_thread(task.func, task_input, context), timeout=task.timeout
                     )
                 else:
                     result = await asyncio.to_thread(task.func, task_input, context)
-            
+
             task.status = TaskStatus.COMPLETED
             task.result = result
             task.error = None
-            
+
         except Exception as e:
             task.retry_attempt += 1
-            
+
             if task.retry_attempt <= task.retry_count:
                 task.status = TaskStatus.PENDING
                 await asyncio.sleep(task.retry_delay)
@@ -304,9 +312,9 @@ class WorkflowEngine:
                 task.status = TaskStatus.FAILED
                 task.error = str(e)
                 logger.error(f"任务 {task_id} 执行失败: {e}")
-        
+
         end_time = time.time()
-        
+
         # 创建结果对象
         task_result = TaskResult(
             task_id=task_id,
@@ -316,41 +324,42 @@ class WorkflowEngine:
             retry_count=task.retry_attempt,
             start_time=start_time,
             end_time=end_time,
-            metadata=task.metadata
+            metadata=task.metadata,
         )
-        
+
         task._result_obj = task_result
         workflow.results[task_id] = task_result
-        
+
         return task_result
-    
+
     async def run(self, workflow_id: str, context: Dict[str, Any] = None) -> Workflow:
         """运行工作流"""
         workflow = self.workflows.get(workflow_id)
         if workflow is None:
             raise ValueError(f"工作流 {workflow_id} 不存在")
-        
+
         if not workflow.validate():
             raise ValueError("工作流验证失败")
-        
+
         workflow.reset()
         workflow.status = WorkflowStatus.RUNNING
         workflow.start_time = None
         self.running_workflows.add(workflow_id)
-        
+
         import time
+
         workflow.start_time = time.time()
         context = context or {}
-        
+
         try:
             # 获取执行顺序
             execution_order = workflow.get_execution_order()
-            
+
             # 使用队列管理任务执行
             task_queue = set(execution_order)
             task_results: Dict[str, TaskResult] = {}
             completed = set()
-            
+
             while task_queue:
                 # 查找可执行的任务
                 ready_tasks = []
@@ -364,24 +373,24 @@ class WorkflowEngine:
                             else:
                                 if task.condition(task_results):
                                     ready_tasks.append(task_id)
-                
+
                 if not ready_tasks and len(completed) < len(execution_order):
                     # 检查是否有任务可以并行执行
                     parallel_tasks = [
-                        t for t in task_queue 
-                        if workflow.tasks[t].status == TaskStatus.PENDING 
+                        t
+                        for t in task_queue
+                        if workflow.tasks[t].status == TaskStatus.PENDING
                         and workflow.tasks[t].parallel
                     ]
                     if parallel_tasks:
                         ready_tasks = parallel_tasks
-                
+
                 if not ready_tasks:
                     # 没有就绪任务：若有任务在跑则等待，否则说明剩余任务
                     # 被失败/缺失依赖卡住（error_handling="continue" 路径），
                     # 标记为跳过避免死循环
                     any_running = any(
-                        workflow.tasks[t].status == TaskStatus.RUNNING
-                        for t in execution_order
+                        workflow.tasks[t].status == TaskStatus.RUNNING for t in execution_order
                     )
                     if any_running:
                         await asyncio.sleep(0.1)
@@ -399,27 +408,26 @@ class WorkflowEngine:
                             completed.add(task_id)
                     task_queue.clear()
                     break
-                
+
                 # 执行准备好的任务
                 async with self._semaphore:
                     for task_id in ready_tasks:
                         task_queue.remove(task_id)
-                        
+
                         # 检查是否应该跳过
                         task = workflow.tasks[task_id]
                         if task.condition and not task.condition(task_results):
                             task.status = TaskStatus.SKIPPED
                             workflow.results[task_id] = TaskResult(
-                                task_id=task_id,
-                                status=TaskStatus.SKIPPED
+                                task_id=task_id, status=TaskStatus.SKIPPED
                             )
                             completed.add(task_id)
                             continue
-                        
+
                         # 执行任务
                         result = await self.execute_task(workflow, task_id, context, task_results)
                         task_results[task_id] = result
-                        
+
                         if result.status == TaskStatus.COMPLETED:
                             completed.add(task_id)
                         else:
@@ -430,56 +438,58 @@ class WorkflowEngine:
                                 self.running_workflows.discard(workflow_id)
                                 workflow.end_time = time.time()
                                 return workflow
-            
+
             # 检查工作流是否成功完成
             failed_tasks = [
-                tid for tid, result in workflow.results.items()
+                tid
+                for tid, result in workflow.results.items()
                 if result.status == TaskStatus.FAILED
             ]
-            
+
             if failed_tasks:
                 workflow.status = WorkflowStatus.FAILED
                 workflow.error = f"以下任务失败: {failed_tasks}"
             else:
                 workflow.status = WorkflowStatus.COMPLETED
                 workflow.global_result = {
-                    task_id: result.result 
-                    for task_id, result in workflow.results.items()
+                    task_id: result.result for task_id, result in workflow.results.items()
                 }
-        
+
         except Exception as e:
             workflow.status = WorkflowStatus.FAILED
             workflow.error = str(e)
             logger.exception("工作流执行失败")
-        
+
         finally:
             self.running_workflows.discard(workflow_id)
             workflow.end_time = time.time()
-        
+
         return workflow
-    
+
     def run_sync(self, workflow_id: str, context: Dict[str, Any] = None) -> Workflow:
         """同步运行工作流"""
         return asyncio.run(self.run(workflow_id, context))
-    
+
     def get_status(self, workflow_id: str) -> Optional[Dict[str, Any]]:
         """获取工作流状态"""
         workflow = self.workflows.get(workflow_id)
         if workflow is None:
             return None
-        
-        completed = sum(1 for r in workflow.results.values() 
-                       if r.status in (TaskStatus.COMPLETED, TaskStatus.SKIPPED))
-        failed = sum(1 for r in workflow.results.values() 
-                    if r.status == TaskStatus.FAILED)
-        
+
+        completed = sum(
+            1
+            for r in workflow.results.values()
+            if r.status in (TaskStatus.COMPLETED, TaskStatus.SKIPPED)
+        )
+        failed = sum(1 for r in workflow.results.values() if r.status == TaskStatus.FAILED)
+
         return {
             "workflow_id": workflow_id,
             "status": workflow.status.value,
             "progress": f"{completed}/{len(workflow.tasks)}",
             "completed": completed,
             "failed": failed,
-            "total": len(workflow.tasks)
+            "total": len(workflow.tasks),
         }
 
 

@@ -20,13 +20,13 @@ from typing import Optional, Callable, Any, Dict, List, TypeVar
 import asyncio
 from functools import wraps
 
-
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 @dataclass
 class BulkheadConfig:
     """Configuration for bulkhead behavior."""
+
     max_concurrent: int = 10  # Maximum concurrent operations
     max_wait_time: float = 30.0  # Maximum time to wait for semaphore (seconds)
     timeout: float = 60.0  # Operation timeout (seconds)
@@ -37,6 +37,7 @@ class BulkheadConfig:
 @dataclass
 class BulkheadState:
     """Current state of a bulkhead."""
+
     active_count: int = 0
     waiting_count: int = 0
     total_executed: int = 0
@@ -44,7 +45,7 @@ class BulkheadState:
     total_timed_out: int = 0
     last_failure_time: Optional[float] = None
     is_isolated: bool = False
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert state to dictionary."""
         return {
@@ -60,42 +61,46 @@ class BulkheadState:
 
 class BulkheadError(Exception):
     """Base exception for bulkhead-related errors."""
+
     pass
 
 
 class BulkheadFullError(BulkheadError):
     """Raised when bulkhead is at capacity."""
+
     pass
 
 
 class BulkheadTimeoutError(BulkheadError):
     """Raised when operation times out."""
+
     pass
 
 
 class BulkheadIsolatedError(BulkheadError):
     """Raised when bulkhead is isolated due to failures."""
+
     pass
 
 
 class BulkheadBase(ABC):
     """Abstract base class for bulkhead implementations."""
-    
+
     @abstractmethod
     def execute(self, func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
         """Execute a function with bulkhead protection."""
         pass
-    
+
     @abstractmethod
     def get_state(self) -> BulkheadState:
         """Get current bulkhead state."""
         pass
-    
+
     @abstractmethod
     def reset_state(self) -> None:
         """Reset bulkhead state."""
         pass
-    
+
     @abstractmethod
     def isolate(self, isolate: bool = True) -> None:
         """Manually isolate/unisolate the bulkhead."""
@@ -105,15 +110,15 @@ class BulkheadBase(ABC):
 class SemaphoreBulkhead(BulkheadBase):
     """
     Semaphore-based Bulkhead Implementation
-    
+
     Uses a semaphore to limit concurrent access to resources.
     Provides resource isolation and failure containment.
     """
-    
+
     def __init__(self, config: Optional[BulkheadConfig] = None):
         """
         Initialize the bulkhead.
-        
+
         Args:
             config: Bulkhead configuration (uses defaults if not provided)
         """
@@ -121,20 +126,22 @@ class SemaphoreBulkhead(BulkheadBase):
         self._semaphore = threading.Semaphore(self.config.max_concurrent)
         self._state = BulkheadState()
         self._lock = threading.RLock()
-        self._isolation_lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
-    
+        self._isolation_lock = (
+            threading.RLock()
+        )  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
+
     def execute(self, func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
         """
         Execute a function with bulkhead protection.
-        
+
         Args:
             func: Function to execute
             *args: Positional arguments for function
             **kwargs: Keyword arguments for function
-            
+
         Returns:
             Result of the function
-            
+
         Raises:
             BulkheadFullError: If bulkhead is at capacity
             BulkheadTimeoutError: If operation times out
@@ -145,10 +152,10 @@ class SemaphoreBulkhead(BulkheadBase):
             raise BulkheadIsolatedError(
                 f"Bulkhead '{self.config.isolation_name}' is isolated due to failures"
             )
-        
+
         # Try to acquire semaphore with timeout
         acquired = self._semaphore.acquire(timeout=self.config.max_wait_time)
-        
+
         if not acquired:
             with self._lock:
                 self._state.total_timed_out += 1
@@ -156,66 +163,60 @@ class SemaphoreBulkhead(BulkheadBase):
                 f"Bulkhead '{self.config.isolation_name}' timeout: "
                 f"waited {self.config.max_wait_time}s for semaphore"
             )
-        
+
         # Track execution
         with self._lock:
             self._state.active_count += 1
-        
+
         start_time = time.time()
         result = None
         exception = None
-        
+
         try:
             # Execute with timeout
             remaining_time = self.config.timeout - (time.time() - start_time)
-            
+
             if remaining_time <= 0:
                 raise BulkheadTimeoutError(
                     f"Bulkhead '{self.config.isolation_name}' timeout: "
                     f"operation exceeded {self.config.timeout}s"
                 )
-            
+
             # Use threading wrapper for timeout support
-            result = self._execute_with_timeout(
-                func, remaining_time, *args, **kwargs
-            )
-            
+            result = self._execute_with_timeout(func, remaining_time, *args, **kwargs)
+
         except Exception as e:
             exception = e
             with self._lock:
                 self._state.total_failed += 1
                 self._state.last_failure_time = time.time()
-            
+
             # Auto-isolate on failure if configured
             if self.config.failure_isolation:
                 self.isolate(True)
-            
+
             raise
-            
+
         finally:
             # Update state on completion
             with self._lock:
                 self._state.active_count -= 1
                 self._state.total_executed += 1
-            
+
             self._semaphore.release()
-        
+
         if exception:
             raise exception
         return result
-    
+
     def _execute_with_timeout(
-        self, 
-        func: Callable[..., T], 
-        timeout: float,
-        *args: Any, 
-        **kwargs: Any
+        self, func: Callable[..., T], timeout: float, *args: Any, **kwargs: Any
     ) -> T:
         """Execute function with timeout using threading."""
         result = None
         exception = None
         thread_completed = threading.Event()
-        
+
         def worker():
             nonlocal result, exception
             try:
@@ -224,24 +225,24 @@ class SemaphoreBulkhead(BulkheadBase):
                 exception = e
             finally:
                 thread_completed.set()
-        
+
         thread = threading.Thread(target=worker)
         thread.daemon = True
         thread.start()
-        
+
         completed = thread_completed.wait(timeout=timeout)
-        
+
         if not completed:
             # Timeout - thread is still running
             raise BulkheadTimeoutError(
                 f"Bulkhead '{self.config.isolation_name}' timeout: "
                 f"operation exceeded {timeout}s"
             )
-        
+
         if exception:
             raise exception
         return result
-    
+
     def get_state(self) -> BulkheadState:
         """Get current bulkhead state."""
         with self._lock:
@@ -254,28 +255,28 @@ class SemaphoreBulkhead(BulkheadBase):
                 last_failure_time=self._state.last_failure_time,
                 is_isolated=self._state.is_isolated,
             )
-    
+
     def reset_state(self) -> None:
         """Reset bulkhead state."""
         with self._lock:
             self._state = BulkheadState()
             # Reset isolation
             self._state.is_isolated = False
-    
+
     def isolate(self, isolate: bool = True) -> None:
         """
         Manually isolate/unisolate the bulkhead.
-        
+
         Args:
             isolate: True to isolate, False to unisolate
         """
         with self._isolation_lock:
             self._state.is_isolated = isolate
-    
+
     def get_available_slots(self) -> int:
         """Get number of available slots in the bulkhead."""
-        return self._semaphore._value if hasattr(self._semaphore, '_value') else 0
-    
+        return self._semaphore._value if hasattr(self._semaphore, "_value") else 0
+
     @property
     def config_copy(self) -> BulkheadConfig:
         """Get a copy of the current configuration."""
@@ -291,26 +292,24 @@ class SemaphoreBulkhead(BulkheadBase):
 class BulkheadRegistry:
     """
     Registry for managing multiple bulkhead instances.
-    
+
     Provides centralized management of bulkheads with isolation groups.
     """
-    
+
     def __init__(self):
         self._bulkheads: Dict[str, BulkheadBase] = {}
         self._lock = threading.RLock()
-    
+
     def get_or_create(
-        self, 
-        name: str, 
-        config: Optional[BulkheadConfig] = None
+        self, name: str, config: Optional[BulkheadConfig] = None
     ) -> SemaphoreBulkhead:
         """
         Get existing bulkhead or create new one.
-        
+
         Args:
             name: Name of the bulkhead
             config: Optional configuration for new bulkheads
-            
+
         Returns:
             Existing or new bulkhead instance
         """
@@ -318,11 +317,11 @@ class BulkheadRegistry:
             if name not in self._bulkheads:
                 self._bulkheads[name] = SemaphoreBulkhead(config)
             return self._bulkheads[name]
-    
+
     def get(self, name: str) -> Optional[SemaphoreBulkhead]:
         """Get bulkhead by name."""
         return self._bulkheads.get(name)
-    
+
     def remove(self, name: str) -> bool:
         """Remove bulkhead from registry."""
         with self._lock:
@@ -330,26 +329,25 @@ class BulkheadRegistry:
                 del self._bulkheads[name]
                 return True
             return False
-    
+
     def list_bulkheads(self) -> List[str]:
         """List all bulkhead names."""
         with self._lock:
             return list(self._bulkheads.keys())
-    
+
     def get_all_states(self) -> Dict[str, Dict[str, Any]]:
         """Get state of all bulkheads."""
         with self._lock:
             return {
-                name: bulkhead.get_state().to_dict()
-                for name, bulkhead in self._bulkheads.items()
+                name: bulkhead.get_state().to_dict() for name, bulkhead in self._bulkheads.items()
             }
-    
+
     def reset_all(self) -> None:
         """Reset all bulkheads in the registry."""
         with self._lock:
             for bulkhead in self._bulkheads.values():
                 bulkhead.reset_state()
-    
+
     def isolate_all(self, isolate: bool = True) -> None:
         """Isolate or unisolate all bulkheads."""
         with self._lock:
@@ -374,21 +372,22 @@ def bulkhead(
     max_concurrent: int = 10,
     max_wait_time: float = 30.0,
     timeout: float = 60.0,
-    failure_isolation: bool = True
+    failure_isolation: bool = True,
 ) -> Callable:
     """
     Decorator for applying bulkhead protection to functions.
-    
+
     Args:
         name: Optional bulkhead name (defaults to function name)
         max_concurrent: Maximum concurrent operations
         max_wait_time: Maximum wait time for semaphore
         timeout: Operation timeout
         failure_isolation: Enable failure isolation
-        
+
     Returns:
         Decorated function
     """
+
     def decorator(func: Callable) -> Callable:
         config = BulkheadConfig(
             max_concurrent=max_concurrent,
@@ -397,50 +396,49 @@ def bulkhead(
             failure_isolation=failure_isolation,
             isolation_name=name or func.__name__,
         )
-        bulkhead_instance = get_registry().get_or_create(
-            name or func.__name__, config
-        )
-        
+        bulkhead_instance = get_registry().get_or_create(name or func.__name__, config)
+
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             return bulkhead_instance.execute(func, *args, **kwargs)
-        
+
         @wraps(func)
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             return await bulkhead_instance.execute_async(func, *args, **kwargs)
-        
+
         # Check if function is async
         import asyncio
+
         if asyncio.iscoroutinefunction(func):
             return async_wrapper
         return wrapper
-    
+
     return decorator
 
 
 class AsyncSemaphoreBulkhead(BulkheadBase):
     """
     Async-compatible Semaphore Bulkhead Implementation
-    
+
     Uses asyncio semaphore for async operations with the same bulkhead features.
     """
-    
+
     def __init__(self, config: Optional[BulkheadConfig] = None):
         """Initialize the async bulkhead."""
         self.config = config or BulkheadConfig()
         self._semaphore = asyncio.Semaphore(self.config.max_concurrent)
         self._state = BulkheadState()
         self._lock = asyncio.Lock()
-    
+
     async def execute(self, func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
         """
         Execute an async function with bulkhead protection.
-        
+
         Args:
             func: Async function to execute
             *args: Positional arguments
             **kwargs: Keyword arguments
-            
+
         Returns:
             Result of the function
         """
@@ -449,45 +447,39 @@ class AsyncSemaphoreBulkhead(BulkheadBase):
             raise BulkheadIsolatedError(
                 f"Bulkhead '{self.config.isolation_name}' is isolated due to failures"
             )
-        
+
         # Try to acquire semaphore with timeout
         try:
-            await asyncio.wait_for(
-                self._semaphore.acquire(),
-                timeout=self.config.max_wait_time
-            )
+            await asyncio.wait_for(self._semaphore.acquire(), timeout=self.config.max_wait_time)
         except asyncio.TimeoutError:
-            with (await self._lock):
+            with await self._lock:
                 self._state.total_timed_out += 1
             raise BulkheadTimeoutError(
                 f"Bulkhead '{self.config.isolation_name}' timeout: "
                 f"waited {self.config.max_wait_time}s for semaphore"
             )
-        
+
         # Track execution
         async with self._lock:
             self._state.active_count += 1
-        
+
         start_time = time.time()
         result = None
         exception = None
-        
+
         try:
             # Execute with timeout
             remaining_time = self.config.timeout - (time.time() - start_time)
-            
+
             if remaining_time <= 0:
                 raise BulkheadTimeoutError(
                     f"Bulkhead '{self.config.isolation_name}' timeout: "
                     f"operation exceeded {self.config.timeout}s"
                 )
-            
+
             # Execute the async function
-            result = await asyncio.wait_for(
-                func(*args, **kwargs),
-                timeout=remaining_time
-            )
-            
+            result = await asyncio.wait_for(func(*args, **kwargs), timeout=remaining_time)
+
         except asyncio.TimeoutError:
             async with self._lock:
                 self._state.total_timed_out += 1
@@ -495,33 +487,33 @@ class AsyncSemaphoreBulkhead(BulkheadBase):
                 f"Bulkhead '{self.config.isolation_name}' timeout: "
                 f"operation exceeded {self.config.timeout}s"
             )
-            
+
         except Exception as e:
             exception = e
             async with self._lock:
                 self._state.total_failed += 1
                 self._state.last_failure_time = time.time()
-            
+
             if self.config.failure_isolation:
                 await self.isolate(True)
-            
+
             raise
-            
+
         finally:
             async with self._lock:
                 self._state.active_count -= 1
                 self._state.total_executed += 1
-            
+
             self._semaphore.release()
-        
+
         if exception:
             raise exception
         return result
-    
+
     async def execute_async(self, func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
         """Alias for execute for async functions."""
         return await self.execute(func, *args, **kwargs)
-    
+
     def get_state(self) -> BulkheadState:
         """Get current bulkhead state."""
         # Note: This is a simplified sync version for async bulkhead
@@ -534,12 +526,12 @@ class AsyncSemaphoreBulkhead(BulkheadBase):
             last_failure_time=self._state.last_failure_time,
             is_isolated=self._state.is_isolated,
         )
-    
+
     def reset_state(self) -> None:
         """Reset bulkhead state."""
         self._state = BulkheadState()
         self._state.is_isolated = False
-    
+
     async def isolate(self, isolate: bool = True) -> None:
         """Isolate or unisolate the bulkhead."""
         async with self._lock:
@@ -553,11 +545,11 @@ def create_bulkhead(
     max_wait_time: float = 30.0,
     timeout: float = 60.0,
     failure_isolation: bool = True,
-    async_mode: bool = False
+    async_mode: bool = False,
 ) -> BulkheadBase:
     """
     Create a new bulkhead instance.
-    
+
     Args:
         name: Name for the bulkhead
         max_concurrent: Maximum concurrent operations
@@ -565,7 +557,7 @@ def create_bulkhead(
         timeout: Operation timeout
         failure_isolation: Enable failure isolation
         async_mode: Use async-compatible implementation
-        
+
     Returns:
         Bulkhead instance
     """
@@ -576,8 +568,8 @@ def create_bulkhead(
         failure_isolation=failure_isolation,
         isolation_name=name,
     )
-    
+
     if async_mode:
         return AsyncSemaphoreBulkhead(config)
-    
+
     return SemaphoreBulkhead(config)

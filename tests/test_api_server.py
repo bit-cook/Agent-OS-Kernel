@@ -30,8 +30,9 @@ def test_health(client):
 
 
 def test_create_and_get_agent(client):
-    r = client.post("/api/v1/agents", headers=HEADERS,
-                    json={"name": "ApiAgent", "task": "test", "priority": 40})
+    r = client.post(
+        "/api/v1/agents", headers=HEADERS, json={"name": "ApiAgent", "task": "test", "priority": 40}
+    )
     assert r.status_code == 200
     body = r.json()
     assert body["state"] == "ready"
@@ -66,8 +67,7 @@ def test_delete_agent_is_real(client):
 def test_context_shares_kernel_state(client):
     r = client.post("/api/v1/agents", headers=HEADERS, json={"name": "A", "task": "t"})
     aid = r.json()["agent_id"]
-    r = client.post("/api/v1/context", headers=HEADERS,
-                    json={"agent_id": aid, "content": "hello"})
+    r = client.post("/api/v1/context", headers=HEADERS, json={"agent_id": aid, "content": "hello"})
     assert r.status_code == 200
     r = client.get(f"/api/v1/context/{aid}")
     assert r.status_code == 200
@@ -77,8 +77,7 @@ def test_context_shares_kernel_state(client):
 def test_task_submit_and_query(client):
     r = client.post("/api/v1/agents", headers=HEADERS, json={"name": "A", "task": "t"})
     aid = r.json()["agent_id"]
-    r = client.post("/api/v1/tasks", headers=HEADERS,
-                    json={"agent_id": aid, "task": "do it"})
+    r = client.post("/api/v1/tasks", headers=HEADERS, json={"agent_id": aid, "task": "do it"})
     assert r.status_code == 200
     tid = r.json()["task_id"]
     r = client.get(f"/api/v1/tasks/{tid}")
@@ -89,8 +88,7 @@ def test_task_submit_and_query(client):
 
 
 def test_task_submit_unknown_agent_404(client):
-    r = client.post("/api/v1/tasks", headers=HEADERS,
-                    json={"agent_id": "nope", "task": "x"})
+    r = client.post("/api/v1/tasks", headers=HEADERS, json={"agent_id": "nope", "task": "x"})
     assert r.status_code == 404
 
 
@@ -106,8 +104,9 @@ def test_mutation_without_key_rejected(client):
 
 
 def test_mutation_with_wrong_key_rejected(client):
-    r = client.post("/api/v1/agents", headers={"X-API-Key": "wrong"},
-                    json={"name": "X", "task": "t"})
+    r = client.post(
+        "/api/v1/agents", headers={"X-API-Key": "wrong"}, json={"name": "X", "task": "t"}
+    )
     assert r.status_code == 401
 
 
@@ -186,9 +185,15 @@ class TestAgentStepEndpoint:
     """POST /api/v1/agents/{id}/step：API 层真实驱动 LLM step（审查 P1-06）"""
 
     def test_step_drives_real_llm_call(self, client):
-        create = client.post("/api/v1/agents", headers=HEADERS, json={
-            "name": "StepAgent", "task": "验证 step 端点", "priority": 30,
-        })
+        create = client.post(
+            "/api/v1/agents",
+            headers=HEADERS,
+            json={
+                "name": "StepAgent",
+                "task": "验证 step 端点",
+                "priority": 30,
+            },
+        )
         assert create.status_code == 200
         agent_id = create.json()["agent_id"]
 
@@ -203,7 +208,11 @@ class TestAgentStepEndpoint:
         audit = client.get("/api/v1/audit")
         assert audit.status_code == 200
         entries = audit.json()
-        logs = entries if isinstance(entries, list) else entries.get("logs", entries.get("entries", []))
+        logs = (
+            entries
+            if isinstance(entries, list)
+            else entries.get("logs", entries.get("entries", []))
+        )
         llm_logs = [l for l in logs if "llm" in str(l.get("resource", ""))]
         assert llm_logs, "audit should record the LLM step"
         assert llm_logs[-1]["details"]["mode"] == "provider"

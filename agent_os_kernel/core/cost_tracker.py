@@ -17,26 +17,26 @@ logger = logging.getLogger(__name__)
 @dataclass
 class CostEntry:
     """成本条目"""
-    
+
     id: str
     provider: str  # openai, anthropic, deepseek, etc.
     model: str
     input_tokens: int
     output_tokens: int
-    
+
     # 成本信息
     input_cost: float  # USD
     output_cost: float  # USD
     total_cost: float
-    
+
     # 元数据
     agent_id: Optional[str] = None
     task_id: Optional[str] = None
     session_id: Optional[str] = None
-    
+
     # 时间
     created_at: datetime = field(default_factory=datetime.utcnow)
-    
+
     def to_dict(self) -> Dict:
         return {
             "id": self.id,
@@ -57,11 +57,11 @@ class CostEntry:
 @dataclass
 class CostLimit:
     """成本限制"""
-    
+
     max_cost_usd: float = 10.0  # 最大成本
     max_tokens: int = 100000  # 最大 token
     period_hours: Optional[int] = None  # 周期 (小时)
-    
+
     def to_dict(self) -> Dict:
         return {
             "max_cost_usd": self.max_cost_usd,
@@ -72,13 +72,13 @@ class CostLimit:
 
 class CostTracker:
     """成本追踪器
-    
+
     功能:
     - 追踪 API 调用成本
     - 设置成本限制
     - 生成成本报告
     """
-    
+
     # 定价表 (USD per 1M tokens)
     PRICING = {
         "openai": {
@@ -124,48 +124,40 @@ class CostTracker:
             "qwen-max": {"input": 0.4, "output": 1.2},
         },
     }
-    
-    def __init__(
-        self,
-        limits: Optional[CostLimit] = None,
-        default_provider: str = "openai"
-    ):
+
+    def __init__(self, limits: Optional[CostLimit] = None, default_provider: str = "openai"):
         """初始化成本追踪器"""
         self.limits = limits or CostLimit()
         self.default_provider = default_provider
-        
+
         self._entries: List[CostEntry] = []
         self._session_totals: Dict[str, Dict[str, Any]] = {}
         self._agent_totals: Dict[str, Dict[str, Any]] = {}
         self._lock = Lock()
-        
+
         logger.info(
             f"CostTracker initialized "
             f"(max_cost=${self.limits.max_cost_usd}, max_tokens={self.limits.max_tokens})"
         )
-    
+
     def calculate_cost(
-        self,
-        provider: str,
-        model: str,
-        input_tokens: int,
-        output_tokens: int
+        self, provider: str, model: str, input_tokens: int, output_tokens: int
     ) -> Dict[str, float]:
         """计算成本"""
         # 获取定价
         provider_pricing = self.PRICING.get(provider, {})
         model_pricing = provider_pricing.get(model, {"input": 1.0, "output": 3.0})
-        
+
         input_cost = (input_tokens / 1_000_000) * model_pricing["input"]
         output_cost = (output_tokens / 1_000_000) * model_pricing["output"]
         total = input_cost + output_cost
-        
+
         return {
             "input_cost": input_cost,
             "output_cost": output_cost,
             "total_cost": total,
         }
-    
+
     def record(
         self,
         provider: str,
@@ -174,15 +166,13 @@ class CostTracker:
         output_tokens: int,
         agent_id: Optional[str] = None,
         task_id: Optional[str] = None,
-        session_id: Optional[str] = None
+        session_id: Optional[str] = None,
     ) -> CostEntry:
         """记录成本"""
         with self._lock:
             # 计算成本
-            costs = self.calculate_cost(
-                provider, model, input_tokens, output_tokens
-            )
-            
+            costs = self.calculate_cost(provider, model, input_tokens, output_tokens)
+
             entry = CostEntry(
                 id=str(uuid4())[:8],
                 provider=provider,
@@ -196,97 +186,67 @@ class CostTracker:
                 task_id=task_id,
                 session_id=session_id,
             )
-            
+
             self._entries.append(entry)
-            
+
             # 更新会话总计
             if session_id:
                 if session_id not in self._session_totals:
-                    self._session_totals[session_id] = {
-                        "cost": 0.0,
-                        "tokens": 0,
-                        "requests": 0
-                    }
+                    self._session_totals[session_id] = {"cost": 0.0, "tokens": 0, "requests": 0}
                 self._session_totals[session_id]["cost"] += entry.total_cost
-                self._session_totals[session_id]["tokens"] += (
-                    input_tokens + output_tokens
-                )
+                self._session_totals[session_id]["tokens"] += input_tokens + output_tokens
                 self._session_totals[session_id]["requests"] += 1
-            
+
             # 更新 Agent 总计
             if agent_id:
                 if agent_id not in self._agent_totals:
-                    self._agent_totals[agent_id] = {
-                        "cost": 0.0,
-                        "tokens": 0,
-                        "requests": 0
-                    }
+                    self._agent_totals[agent_id] = {"cost": 0.0, "tokens": 0, "requests": 0}
                 self._agent_totals[agent_id]["cost"] += entry.total_cost
-                self._agent_totals[agent_id]["tokens"] += (
-                    input_tokens + output_tokens
-                )
+                self._agent_totals[agent_id]["tokens"] += input_tokens + output_tokens
                 self._agent_totals[agent_id]["requests"] += 1
-            
+
             # 检查限制
             self._check_limits(session_id, agent_id)
-            
+
             logger.debug(f"Cost recorded: {entry.total_cost:.4f} ({provider}/{model})")
             return entry
-    
-    def _check_limits(
-        self,
-        session_id: Optional[str],
-        agent_id: Optional[str]
-    ):
+
+    def _check_limits(self, session_id: Optional[str], agent_id: Optional[str]):
         """检查成本限制"""
         # 检查全局限制
         total_cost = sum(e.total_cost for e in self._entries)
-        total_tokens = sum(
-            e.input_tokens + e.output_tokens 
-            for e in self._entries
-        )
-        
+        total_tokens = sum(e.input_tokens + e.output_tokens for e in self._entries)
+
         if total_cost > self.limits.max_cost_usd:
             logger.warning(
                 f"⚠️ Cost limit exceeded: ${total_cost:.2f} > ${self.limits.max_cost_usd}"
             )
-        
+
         if total_tokens > self.limits.max_tokens:
-            logger.warning(
-                f"⚠️ Token limit exceeded: {total_tokens} > {self.limits.max_tokens}"
-            )
-    
+            logger.warning(f"⚠️ Token limit exceeded: {total_tokens} > {self.limits.max_tokens}")
+
     def get_session_stats(self, session_id: str) -> Optional[Dict[str, Any]]:
         """获取会话统计"""
         return self._session_totals.get(session_id)
-    
+
     def get_agent_stats(self, agent_id: str) -> Optional[Dict[str, Any]]:
         """获取 Agent 统计"""
         return self._agent_totals.get(agent_id)
-    
+
     def get_global_stats(self) -> Dict[str, Any]:
         """获取全局统计"""
         total_cost = sum(e.total_cost for e in self._entries)
-        total_tokens = sum(
-            e.input_tokens + e.output_tokens 
-            for e in self._entries
-        )
-        
+        total_tokens = sum(e.input_tokens + e.output_tokens for e in self._entries)
+
         # 按 Provider 统计
         by_provider: Dict[str, Dict[str, Any]] = {}
         for entry in self._entries:
             if entry.provider not in by_provider:
-                by_provider[entry.provider] = {
-                    "cost": 0.0,
-                    "tokens": 0,
-                    "requests": 0
-                }
+                by_provider[entry.provider] = {"cost": 0.0, "tokens": 0, "requests": 0}
             by_provider[entry.provider]["cost"] += entry.total_cost
-            by_provider[entry.provider]["tokens"] += (
-                entry.input_tokens + entry.output_tokens
-            )
+            by_provider[entry.provider]["tokens"] += entry.input_tokens + entry.output_tokens
             by_provider[entry.provider]["requests"] += 1
-        
+
         return {
             "total_cost": total_cost,
             "total_tokens": total_tokens,
@@ -296,12 +256,8 @@ class CostTracker:
             "by_provider": by_provider,
             "limits": self.limits.to_dict(),
         }
-    
-    def get_report(
-        self,
-        session_id: Optional[str] = None,
-        agent_id: Optional[str] = None
-    ) -> str:
+
+    def get_report(self, session_id: Optional[str] = None, agent_id: Optional[str] = None) -> str:
         """生成成本报告"""
         if session_id:
             stats = self._session_totals.get(session_id)
@@ -312,7 +268,7 @@ class CostTracker:
 - **Total Tokens**: {stats["tokens"]:,}
 - **Total Requests**: {stats["requests"]}
 """
-        
+
         if agent_id:
             stats = self._agent_totals.get(agent_id)
             if stats:
@@ -323,28 +279,36 @@ class CostTracker:
 - **Total Requests**: {stats["requests"]}
 """
         return "No data available"
-    
+
     def export_csv(self, filepath: str):
         """导出为 CSV"""
         import csv
-        
-        with open(filepath, 'w', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=[
-                "id", "provider", "model", "input_tokens", "output_tokens",
-                "input_cost", "output_cost", "total_cost",
-                "agent_id", "task_id", "session_id", "created_at"
-            ])
+
+        with open(filepath, "w", newline="") as f:
+            writer = csv.DictWriter(
+                f,
+                fieldnames=[
+                    "id",
+                    "provider",
+                    "model",
+                    "input_tokens",
+                    "output_tokens",
+                    "input_cost",
+                    "output_cost",
+                    "total_cost",
+                    "agent_id",
+                    "task_id",
+                    "session_id",
+                    "created_at",
+                ],
+            )
             writer.writeheader()
             for entry in self._entries:
                 writer.writerow(entry.to_dict())
-        
+
         logger.info(f"Cost data exported to {filepath}")
-    
-    def reset(
-        self,
-        session_id: Optional[str] = None,
-        agent_id: Optional[str] = None
-    ):
+
+    def reset(self, session_id: Optional[str] = None, agent_id: Optional[str] = None):
         """重置统计：指定 session/agent 则只清对应部分；都不指定则全清"""
         with self._lock:
             if not session_id and not agent_id:
@@ -358,17 +322,11 @@ class CostTracker:
             if session_id:
                 if session_id in self._session_totals:
                     del self._session_totals[session_id]
-                self._entries = [
-                    e for e in self._entries 
-                    if e.session_id != session_id
-                ]
-            
+                self._entries = [e for e in self._entries if e.session_id != session_id]
+
             if agent_id:
                 if agent_id in self._agent_totals:
                     del self._agent_totals[agent_id]
-                self._entries = [
-                    e for e in self._entries 
-                    if e.agent_id != agent_id
-                ]
-            
+                self._entries = [e for e in self._entries if e.agent_id != agent_id]
+
             logger.info(f"CostTracker reset for session={session_id}, agent={agent_id}")

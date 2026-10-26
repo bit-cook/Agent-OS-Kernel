@@ -18,19 +18,22 @@ import logging
 
 class CircuitState(Enum):
     """Circuit breaker states."""
-    CLOSED = "closed"      # Normal operation, requests allowed
-    OPEN = "open"          # Circuit tripped, requests blocked
+
+    CLOSED = "closed"  # Normal operation, requests allowed
+    OPEN = "open"  # Circuit tripped, requests blocked
     HALF_OPEN = "half_open"  # Testing recovery, limited requests
 
 
 class CircuitError(Exception):
     """Exception raised when circuit breaker is open."""
+
     pass
 
 
 @dataclass
 class CircuitMetrics:
     """Metrics for circuit breaker monitoring."""
+
     total_requests: int = 0
     successful_requests: int = 0
     failed_requests: int = 0
@@ -40,7 +43,7 @@ class CircuitMetrics:
     state_transitions: int = 0
     consecutive_failures: int = 0
     consecutive_successes: int = 0
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert metrics to dictionary."""
         return {
@@ -54,8 +57,7 @@ class CircuitMetrics:
             "consecutive_failures": self.consecutive_failures,
             "consecutive_successes": self.consecutive_successes,
             "failure_rate": (
-                self.failed_requests / self.total_requests 
-                if self.total_requests > 0 else 0.0
+                self.failed_requests / self.total_requests if self.total_requests > 0 else 0.0
             ),
         }
 
@@ -63,12 +65,13 @@ class CircuitMetrics:
 @dataclass
 class CircuitConfig:
     """Configuration for circuit breaker."""
-    failure_threshold: int = 5           # Failures before opening circuit
-    success_threshold: int = 3           # Successes in half-open to close
-    timeout_seconds: float = 30.0        # Time before attempting recovery
-    half_open_max_requests: int = 3       # Max requests in half-open state
-    window_size_seconds: float = 60.0    # Sliding window for failure counting
-    
+
+    failure_threshold: int = 5  # Failures before opening circuit
+    success_threshold: int = 3  # Successes in half-open to close
+    timeout_seconds: float = 30.0  # Time before attempting recovery
+    half_open_max_requests: int = 3  # Max requests in half-open state
+    window_size_seconds: float = 60.0  # Sliding window for failure counting
+
     def __post_init__(self):
         """Validate configuration."""
         if self.failure_threshold <= 0:
@@ -82,12 +85,12 @@ class CircuitConfig:
 class CircuitBreaker:
     """
     Circuit Breaker implementation for preventing cascade failures.
-    
+
     States:
         - CLOSED: Normal operation, requests pass through
         - OPEN: Circuit tripped, requests are rejected
         - HALF_OPEN: Testing recovery, limited requests allowed
-    
+
     Example:
         >>> breaker = CircuitBreaker(failure_threshold=5, timeout_seconds=30)
         >>> try:
@@ -95,7 +98,7 @@ class CircuitBreaker:
         >>> except CircuitError:
         >>>     print("Circuit is open!")
     """
-    
+
     def __init__(
         self,
         name: str = "default",
@@ -104,7 +107,7 @@ class CircuitBreaker:
     ):
         """
         Initialize circuit breaker.
-        
+
         Args:
             name: Identifier for this circuit breaker
             config: Configuration settings
@@ -113,9 +116,11 @@ class CircuitBreaker:
         self.name = name
         self.config = config or CircuitConfig()
         self.on_state_change = on_state_change
-        
+
         self._state = CircuitState.CLOSED
-        self._state_lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
+        self._state_lock = (
+            threading.RLock()
+        )  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
         self._failure_count = 0
         self._success_count = 0
         self._last_failure_time: Optional[float] = None
@@ -123,31 +128,29 @@ class CircuitBreaker:
         self._failure_times: list = []
         self._metrics = CircuitMetrics()
         self._half_open_requests = 0
-        
+
     @property
     def state(self) -> CircuitState:
         """Get current circuit state."""
         return self._state
-    
+
     @property
     def metrics(self) -> CircuitMetrics:
         """Get current metrics."""
         return self._metrics
-    
+
     def _try_open(self) -> bool:
         """Try to open the circuit based on failure count."""
         self._cleanup_old_failures()
         return self._failure_count >= self.config.failure_threshold
-    
+
     def _cleanup_old_failures(self):
         """Remove failures outside the sliding window."""
         current_time = time.time()
         cutoff = current_time - self.config.window_size_seconds
-        self._failure_times = [
-            t for t in self._failure_times if t > cutoff
-        ]
+        self._failure_times = [t for t in self._failure_times if t > cutoff]
         self._failure_count = len(self._failure_times)
-    
+
     def _change_state(self, new_state: CircuitState):
         """Change circuit state with callback."""
         old_state = self._state
@@ -161,37 +164,37 @@ class CircuitBreaker:
                     logging.getLogger(__name__).debug(
                         "suppressed exception: %s", _suppressed
                     )  # Don't let callback failures affect circuit
-    
+
     def _record_failure(self):
         """Record a failure and potentially open circuit."""
         current_time = time.time()
         self._failure_times.append(current_time)
         self._failure_count += 1
         self._last_failure_time = current_time
-        
+
         self._metrics.failed_requests += 1
         self._metrics.total_requests += 1
         self._metrics.consecutive_failures += 1
         self._metrics.consecutive_successes = 0
-        
+
         if self._try_open():
             self._change_state(CircuitState.OPEN)
-    
+
     def _record_success(self):
         """Record a success and potentially close circuit."""
         current_time = time.time()
         self._last_success_time = current_time
-        
+
         self._metrics.successful_requests += 1
         self._metrics.total_requests += 1
         self._metrics.consecutive_successes += 1
         self._metrics.consecutive_failures = 0
-        
+
         if self._state == CircuitState.HALF_OPEN:
             self._half_open_requests += 1
             if self._half_open_requests >= self.config.success_threshold:
                 self._change_state(CircuitState.CLOSED)
-    
+
     def _should_allow_request(self) -> bool:
         """Check if request should be allowed."""
         if self._state == CircuitState.CLOSED:
@@ -212,19 +215,19 @@ class CircuitBreaker:
                 return True
             return False
         return False
-    
+
     def call(self, func: Callable, *args, **kwargs) -> Any:
         """
         Execute a function through the circuit breaker.
-        
+
         Args:
             func: Function to execute
             *args: Positional arguments for function
             **kwargs: Keyword arguments for function
-            
+
         Returns:
             Result from function
-            
+
         Raises:
             CircuitError: If circuit is open
             Exception: Any exception from the function
@@ -234,10 +237,9 @@ class CircuitBreaker:
                 self._metrics.rejected_requests += 1
                 self._metrics.total_requests += 1
                 raise CircuitError(
-                    f"Circuit '{self.name}' is OPEN. "
-                    f"Requests are blocked until timeout."
+                    f"Circuit '{self.name}' is OPEN. " f"Requests are blocked until timeout."
                 )
-        
+
         try:
             result = func(*args, **kwargs)
             with self._state_lock:
@@ -247,19 +249,19 @@ class CircuitBreaker:
             with self._state_lock:
                 self._record_failure()
             raise
-    
+
     async def call_async(self, func: Callable, *args, **kwargs) -> Any:
         """
         Execute an async function through the circuit breaker.
-        
+
         Args:
             func: Async function to execute
             *args: Positional arguments for function
             **kwargs: Keyword arguments for function
-            
+
         Returns:
             Result from async function
-            
+
         Raises:
             CircuitError: If circuit is open
             Exception: Any exception from the function
@@ -269,10 +271,9 @@ class CircuitBreaker:
                 self._metrics.rejected_requests += 1
                 self._metrics.total_requests += 1
                 raise CircuitError(
-                    f"Circuit '{self.name}' is OPEN. "
-                    f"Requests are blocked until timeout."
+                    f"Circuit '{self.name}' is OPEN. " f"Requests are blocked until timeout."
                 )
-        
+
         try:
             result = await func(*args, **kwargs)
             with self._state_lock:
@@ -282,7 +283,7 @@ class CircuitBreaker:
             with self._state_lock:
                 self._record_failure()
             raise
-    
+
     def reset(self):
         """Reset circuit breaker to initial closed state."""
         with self._state_lock:
@@ -294,18 +295,18 @@ class CircuitBreaker:
             self._last_success_time = None
             self._half_open_requests = 0
             self._metrics = CircuitMetrics()
-    
+
     def force_open(self):
         """Force circuit breaker to open state."""
         with self._state_lock:
             self._change_state(CircuitState.OPEN)
             self._last_failure_time = time.time()
-    
+
     def force_close(self):
         """Force circuit breaker to close state."""
         with self._state_lock:
             self._change_state(CircuitState.CLOSED)
-    
+
     def get_info(self) -> Dict[str, Any]:
         """Get circuit breaker status information."""
         return {
@@ -323,15 +324,15 @@ class CircuitBreaker:
 class CircuitBreakerManager:
     """
     Manager for multiple circuit breakers.
-    
+
     Provides centralized management of circuit breakers for different
     services or dependencies.
     """
-    
+
     def __init__(self):
         self._breakers: Dict[str, CircuitBreaker] = {}
         self._lock = threading.RLock()  # RLock: 允许同一线程重入（持锁方法调用加锁成员不致自死锁）
-    
+
     def get_or_create(
         self,
         name: str,
@@ -340,12 +341,12 @@ class CircuitBreakerManager:
     ) -> CircuitBreaker:
         """
         Get existing circuit breaker or create new one.
-        
+
         Args:
             name: Circuit breaker name
             config: Configuration for new breaker
             on_state_change: State change callback
-            
+
         Returns:
             CircuitBreaker instance
         """
@@ -357,11 +358,11 @@ class CircuitBreakerManager:
                     on_state_change=on_state_change,
                 )
             return self._breakers[name]
-    
+
     def get(self, name: str) -> Optional[CircuitBreaker]:
         """Get circuit breaker by name."""
         return self._breakers.get(name)
-    
+
     def remove(self, name: str) -> bool:
         """Remove circuit breaker by name."""
         with self._lock:
@@ -369,20 +370,17 @@ class CircuitBreakerManager:
                 del self._breakers[name]
                 return True
             return False
-    
+
     def reset_all(self):
         """Reset all circuit breakers."""
         with self._lock:
             for breaker in self._breakers.values():
                 breaker.reset()
-    
+
     def get_all_info(self) -> Dict[str, Dict[str, Any]]:
         """Get info for all circuit breakers."""
         with self._lock:
-            return {
-                name: breaker.get_info() 
-                for name, breaker in self._breakers.items()
-            }
+            return {name: breaker.get_info() for name, breaker in self._breakers.items()}
 
 
 # Global circuit breaker manager instance
@@ -396,12 +394,12 @@ def circuit_breaker(
 ):
     """
     Decorator to add circuit breaker protection to a function.
-    
+
     Args:
         name: Circuit breaker name (defaults to function name)
         config: Circuit breaker configuration
         on_state_change: State change callback
-        
+
     Example:
         @circuit_breaker(name="api_calls", failure_threshold=3)
         async def call_api(url):
@@ -409,6 +407,7 @@ def circuit_breaker(
                 async with session.get(url) as response:
                     return await response.json()
     """
+
     def decorator(func):
         breaker_name = name or func.__name__
         breaker = circuit_breaker_manager.get_or_create(
@@ -416,18 +415,22 @@ def circuit_breaker(
             config=config,
             on_state_change=on_state_change,
         )
-        
+
         if asyncio.iscoroutinefunction(func):
+
             @wraps(func)
             async def async_wrapper(*args, **kwargs):
                 return await breaker.call_async(func, *args, **kwargs)
+
             return async_wrapper
         else:
+
             @wraps(func)
             def sync_wrapper(*args, **kwargs):
                 return breaker.call(func, *args, **kwargs)
+
             return sync_wrapper
-    
+
     return decorator
 
 

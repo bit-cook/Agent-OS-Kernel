@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ProviderInfo:
     """Provider 信息"""
+
     type: ProviderType
     name: str
     description: str
@@ -30,7 +31,7 @@ class ProviderInfo:
 
 class LLMProviderFactory:
     """LLM Provider 工厂"""
-    
+
     # Provider 注册表
     PROVIDERS: Dict[str, ProviderInfo] = {
         "openai": ProviderInfo(
@@ -38,28 +39,28 @@ class LLMProviderFactory:
             name="OpenAI",
             description="GPT-4, GPT-4 Turbo, GPT-3.5 Turbo",
             requires_api_key=True,
-            default_model="gpt-4o"
+            default_model="gpt-4o",
         ),
         "anthropic": ProviderInfo(
             type=ProviderType.ANTHROPIC,
             name="Anthropic",
             description="Claude 3.5, Claude 3, Claude 2",
             requires_api_key=True,
-            default_model="claude-sonnet-4-20250514"
+            default_model="claude-sonnet-4-20250514",
         ),
         "deepseek": ProviderInfo(
             type=ProviderType.DEEPSEEK,
             name="DeepSeek",
             description="DeepSeek Chat, DeepSeek Reasoner",
             requires_api_key=True,
-            default_model="deepseek-chat"
+            default_model="deepseek-chat",
         ),
         "groq": ProviderInfo(
             type=ProviderType.GROQ,
             name="Groq",
             description="High-speed inference (Llama, Gemma, Mixtral)",
             requires_api_key=True,
-            default_model="llama-3.3-70b-versatile"
+            default_model="llama-3.3-70b-versatile",
         ),
         "ollama": ProviderInfo(
             type=ProviderType.OLLAMA,
@@ -67,7 +68,7 @@ class LLMProviderFactory:
             description="Local LLM (Qwen, Llama, Mistral)",
             requires_api_key=False,
             local=True,
-            default_model="qwen2.5:7b"
+            default_model="qwen2.5:7b",
         ),
         "vllm": ProviderInfo(
             type=ProviderType.VLLM,
@@ -75,80 +76,77 @@ class LLMProviderFactory:
             description="High-performance inference engine",
             requires_api_key=False,
             local=True,
-            default_model="meta-llama/Llama-3.1-8B-Instruct"
+            default_model="meta-llama/Llama-3.1-8B-Instruct",
         ),
         "kimi": ProviderInfo(
             type=ProviderType.KIMI,
             name="Kimi (Moonshot AI)",
             description="kimi-k2.5 (强化推理), Long context (8K-200K)",
             requires_api_key=True,
-            default_model="kimi-k2.5"
+            default_model="kimi-k2.5",
         ),
         "minimax": ProviderInfo(
             type=ProviderType.MINIMAX,
             name="MiniMax",
             description="MiniMax chat models",
             requires_api_key=True,
-            default_model="abab6.5s-chat"
+            default_model="abab6.5s-chat",
         ),
         "qwen": ProviderInfo(
             type=ProviderType.QWEN,
             name="Qwen (Alibaba)",
             description="Qwen-Max, Qwen-Plus",
             requires_api_key=True,
-            default_model="qwen-turbo"
+            default_model="qwen-turbo",
         ),
         "ai21": ProviderInfo(
             type=ProviderType.AI21,
             name="AI21 Labs",
             description="Jurassic-2 (J2), J2-Core, J2-Ultra",
             requires_api_key=True,
-            default_model="j2-ultra"
+            default_model="j2-ultra",
         ),
         "cerebras": ProviderInfo(
             type=ProviderType.CEREBRAS,
             name="Cerebras",
             description="High-speed cloud inference (Llama 3.1, Qwen)",
             requires_api_key=True,
-            default_model="llama-3.1-8b"
+            default_model="llama-3.1-8b",
         ),
         "cloudflare": ProviderInfo(
             type=ProviderType.CLOUDFLARE,
             name="Cloudflare Workers AI",
             description="Edge AI (Llama, Mistral, Embeddings)",
             requires_api_key=True,
-            default_model="@cf/meta/llama-3-8b-instruct"
+            default_model="@cf/meta/llama-3-8b-instruct",
         ),
     }
-    
+
     def __init__(self):
         self._active_providers: Dict[str, LLMProvider] = {}
         self._default_provider: Optional[str] = None
-    
+
     def create(self, config: LLMConfig) -> LLMProvider:
         """创建 Provider 实例"""
         logger.info(f"Created provider: {config.provider.value} ({config.model})")
         return None  # 实际实现需要具体 Provider 类
-    
+
     def create_from_dict(self, config_data: Dict) -> LLMProvider:
         """从字典创建 Provider"""
         config = LLMConfig.from_dict(config_data)
         return self.create(config)
-    
-    def create_mock(self, model: str = "mock-model") -> 'MockProvider':
+
+    def create_mock(self, model: str = "mock-model") -> "MockProvider":
         """创建 Mock Provider (用于测试)"""
         from .mock_provider import MockProvider
-        config = LLMConfig(
-            provider="mock",
-            model=model,
-            api_key="mock-key"
-        )
+
+        config = LLMConfig(provider="mock", model=model, api_key="mock-key")
         return MockProvider(config)
-    
+
     def list_providers(self) -> List[ProviderInfo]:
         """列出所有 Provider"""
         return list(self.PROVIDERS.values())
-    
+
     def get_provider_info(self, provider_type: str) -> Optional[ProviderInfo]:
         """获取 Provider 信息"""
         return self.PROVIDERS.get(provider_type)
@@ -171,6 +169,6 @@ def create_provider(config: LLMConfig) -> LLMProvider:
     return get_factory().create(config)
 
 
-def create_mock_provider(model: str = "mock-model") -> 'MockProvider':
+def create_mock_provider(model: str = "mock-model") -> "MockProvider":
     """便捷创建 Mock Provider"""
     return get_factory().create_mock(model)

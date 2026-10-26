@@ -52,10 +52,9 @@ class CerebrasProvider(LLMProvider):
             raise ValueError("Cerebras API key is required. Set CEREBRAS_API_KEY env variable.")
 
         self._client = self._create_client()
-        self._client.headers.update({
-            "Authorization": f"Bearer {self.config.api_key}",
-            "Content-Type": "application/json"
-        })
+        self._client.headers.update(
+            {"Authorization": f"Bearer {self.config.api_key}", "Content-Type": "application/json"}
+        )
         logger.info(f"Cerebras provider initialized with model: {self.config.model}")
 
     async def shutdown(self):
@@ -65,10 +64,7 @@ class CerebrasProvider(LLMProvider):
             self._client = None
 
     async def complete(
-        self,
-        messages: List[Message],
-        tools: List[Dict] = None,
-        stream: bool = False
+        self, messages: List[Message], tools: List[Dict] = None, stream: bool = False
     ) -> LLMResponse:
         """发送完成请求"""
         if not self._client:
@@ -80,8 +76,8 @@ class CerebrasProvider(LLMProvider):
             "messages": self._format_messages(messages),
             "max_tokens": self.config.max_tokens,
             "temperature": self.config.temperature,
-            "top_p": self.config.top_p if hasattr(self.config, 'top_p') else 1.0,
-            "stream": stream
+            "top_p": self.config.top_p if hasattr(self.config, "top_p") else 1.0,
+            "stream": stream,
         }
 
         if tools:
@@ -99,9 +95,7 @@ class CerebrasProvider(LLMProvider):
         return self._parse_response(data)
 
     async def stream_complete(
-        self,
-        messages: List[Message],
-        tools: List[Dict] = None
+        self, messages: List[Message], tools: List[Dict] = None
     ) -> AsyncIterator[str]:
         """流式完成"""
         if not self._client:
@@ -112,8 +106,8 @@ class CerebrasProvider(LLMProvider):
             "messages": self._format_messages(messages),
             "max_tokens": self.config.max_tokens,
             "temperature": self.config.temperature,
-            "top_p": self.config.top_p if hasattr(self.config, 'top_p') else 1.0,
-            "stream": True
+            "top_p": self.config.top_p if hasattr(self.config, "top_p") else 1.0,
+            "stream": True,
         }
 
         if tools:
@@ -151,10 +145,10 @@ class CerebrasProvider(LLMProvider):
             usage={
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
-                "total_tokens": prompt_tokens + completion_tokens
+                "total_tokens": prompt_tokens + completion_tokens,
             },
             finish_reason=choice.get("finish_reason", "stop"),
-            tool_calls=message.get("tool_calls")
+            tool_calls=message.get("tool_calls"),
         )
 
     async def count_tokens(self, text: str, model: str = "llama-3.1-8b") -> int:
@@ -168,26 +162,24 @@ class CerebrasProvider(LLMProvider):
 
     async def chat(
         self,
-        messages: List['ChatMessage'],
+        messages: List["ChatMessage"],
         model: Optional[str] = None,
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
         stream: bool = False,
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """发送聊天请求"""
         from .provider import Message
+
         # 转换为 Message 格式
-        msg_list = [
-            Message(role=msg.role, content=msg.content)
-            for msg in messages
-        ]
+        msg_list = [Message(role=msg.role, content=msg.content) for msg in messages]
         response = await self.complete(msg_list, stream=stream)
         return {
             "content": response.content,
             "model": response.model,
             "usage": response.usage,
-            "finish_reason": response.finish_reason
+            "finish_reason": response.finish_reason,
         }
 
     def get_config(self) -> LLMConfig:
@@ -197,4 +189,5 @@ class CerebrasProvider(LLMProvider):
 
 # 注册 Provider
 from .provider import register_provider
+
 register_provider(ProviderType.CEREBRAS, CerebrasProvider)

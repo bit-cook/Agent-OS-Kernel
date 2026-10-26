@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 class LockType(Enum):
     """锁类型"""
+
     MUTEX = "mutex"  # 互斥锁
     READ_WRITE = "rw"  # 读写锁
     SEMAPHORE = "semaphore"  # 信号量
@@ -25,6 +26,7 @@ class LockType(Enum):
 
 class LockStatus(Enum):
     """锁状态"""
+
     UNLOCKED = "unlocked"
     LOCKED = "locked"
     WAITING = "waiting"
@@ -34,6 +36,7 @@ class LockStatus(Enum):
 @dataclass
 class Lock:
     """锁"""
+
     lock_id: str
     name: str
     lock_type: LockType
@@ -43,7 +46,7 @@ class Lock:
     expires_at: Optional[datetime] = None
     timeout_seconds: Optional[float] = None
     metadata: Dict = field(default_factory=dict)
-    
+
     def is_valid(self) -> bool:
         """检查是否有效"""
         if self.expires_at is None:
@@ -53,74 +56,66 @@ class Lock:
 
 class LockManager:
     """锁管理器"""
-    
-    def __init__(
-        self,
-        default_timeout: float = 30.0,
-        max_concurrent: int = 100
-    ):
+
+    def __init__(self, default_timeout: float = 30.0, max_concurrent: int = 100):
         """
         初始化锁管理器
-        
+
         Args:
             default_timeout: 默认超时
             max_concurrent: 最大并发锁数
         """
         self.default_timeout = default_timeout
         self.max_concurrent = max_concurrent
-        
+
         self._locks: Dict[str, Lock] = {}
         self._waiting: Dict[str, asyncio.Queue] = {}
         self._semaphore_holders: Dict[str, set] = {}
         self._read_locks: Dict[str, int] = {}  # 读写锁的读计数
         self._lock = asyncio.Lock()
-        self._stats = {
-            "acquired": 0,
-            "released": 0,
-            "timeouts": 0,
-            "deadlocks": 0
-        }
-        
+        self._stats = {"acquired": 0, "released": 0, "timeouts": 0, "deadlocks": 0}
+
         logger.info("LockManager initialized")
-    
+
     async def acquire(
         self,
         name: str,
         owner_id: str,
         lock_type: LockType = LockType.MUTEX,
         timeout_seconds: float = None,
-        blocking: bool = True
+        blocking: bool = True,
     ) -> Optional[Lock]:
         """
         获取锁
-        
+
         Args:
             name: 锁名称
             owner_id: 所有者 ID
             lock_type: 锁类型
             timeout_seconds: 超时时间
             blocking: 是否阻塞
-            
+
         Returns:
             锁对象或 None
         """
         lock_id = f"{name}_{owner_id}"
         timeout = timeout_seconds or self.default_timeout
-        
+
         # 阻塞等待的重试循环：等待必须在 self._lock 临界区之外，
         # 否则 release() 永远拿不到锁（自死锁）；原实现把
         # create_task 的结果丢弃后继续建新锁，互斥被破坏。
-        deadline = (
-            asyncio.get_event_loop().time() + timeout if timeout > 0 else None
-        )
-        
+        deadline = asyncio.get_event_loop().time() + timeout if timeout > 0 else None
+
         while True:
             waiter: asyncio.Queue = None
             async with self._lock:
                 if name in self._locks:
                     existing_lock = self._locks[name]
-                    
-                    if lock_type == LockType.READ_WRITE and existing_lock.lock_type == LockType.READ_WRITE:
+
+                    if (
+                        lock_type == LockType.READ_WRITE
+                        and existing_lock.lock_type == LockType.READ_WRITE
+                    ):
                         # 读锁：可以多个同时获取
                         if owner_id in self._read_locks:
                             self._read_locks[owner_id] += 1
@@ -130,18 +125,22 @@ class LockManager:
                             self._read_locks[owner_id] = 1
                             self._stats["acquired"] += 1
                             return self._locks[name]
-                    
+
                     # 等待或超时
                     if not blocking:
                         return None
-                    
+
                     if name not in self._waiting:
                         self._waiting[name] = asyncio.Queue()
                     waiter = self._waiting[name]
                 else:
                     # 创建新锁
-                    expires_at = datetime.now(timezone.utc) + timedelta(seconds=timeout) if timeout > 0 else None
-                    
+                    expires_at = (
+                        datetime.now(timezone.utc) + timedelta(seconds=timeout)
+                        if timeout > 0
+                        else None
+                    )
+
                     lock = Lock(
                         lock_id=lock_id,
                         name=name,
@@ -149,20 +148,20 @@ class LockManager:
                         owner_id=owner_id,
                         status=LockStatus.LOCKED,
                         expires_at=expires_at,
-                        timeout_seconds=timeout
+                        timeout_seconds=timeout,
                     )
-                    
+
                     self._locks[name] = lock
-                    
+
                     if lock_type == LockType.READ_WRITE:
                         self._read_locks[owner_id] = self._read_locks.get(owner_id, 0) + 1
-                    
+
                     self._stats["acquired"] += 1
-                    
+
                     logger.debug(f"Lock acquired: {name} by {owner_id}")
-                    
+
                     return lock
-            
+
             # 锁被占用且 blocking：在临界区外等待释放通知（release() 会 put），
             # 醒来后回到循环顶部重试
             if deadline is not None:
@@ -175,24 +174,24 @@ class LockManager:
                     return None
             else:
                 await waiter.get()
-    
+
     async def release(self, name: str, owner_id: str) -> bool:
         """
         释放锁
-        
+
         Args:
             name: 锁名称
             owner_id: 所有者 ID
-            
+
         Returns:
             是否成功
         """
         async with self._lock:
             if name not in self._locks:
                 return False
-            
+
             lock = self._locks[name]
-            
+
             # 信号量：按持有者集合逐个释放（不要求 owner 匹配单一记录）
             if lock.lock_type == LockType.SEMAPHORE:
                 holders = self._semaphore_holders.get(name, set())
@@ -211,94 +210,77 @@ class LockManager:
                 self._stats["released"] += 1
                 logger.debug(f"Semaphore released: {name} by {owner_id}")
                 return True
-            
+
             if lock.owner_id != owner_id:
                 logger.warning(f"Lock release denied: {name} by {owner_id}")
                 return False
-            
+
             # 读锁处理
             if lock.lock_type == LockType.READ_WRITE:
                 self._read_locks[owner_id] -= 1
                 if self._read_locks[owner_id] <= 0:
                     del self._read_locks[owner_id]
-            
+
             del self._locks[name]
             self._stats["released"] += 1
-            
+
             # 通知等待者
             if name in self._waiting:
                 await self._waiting[name].put(True)
-            
+
             logger.debug(f"Lock released: {name} by {owner_id}")
-            
+
             return True
-    
+
     async def release_all(self, owner_id: str):
         """释放所有属于 owner 的锁"""
         async with self._lock:
             released = []
-            
+
             for name in list(self._locks.keys()):
                 if self._locks[name].owner_id == owner_id:
                     await self.release(name, owner_id)
                     released.append(name)
-            
+
             return released
-    
+
     async def acquire_timeout(
-        self,
-        name: str,
-        owner_id: str,
-        timeout_seconds: float = 5.0
+        self, name: str, owner_id: str, timeout_seconds: float = 5.0
     ) -> Optional[Lock]:
         """获取限时锁"""
-        return await self.acquire(
-            name,
-            owner_id,
-            LockType.TIMEOUT,
-            timeout_seconds,
-            blocking=True
-        )
-    
-    async def acquire_semaphore(
-        self,
-        name: str,
-        owner_id: str,
-        max_concurrent: int = None
-    ) -> bool:
+        return await self.acquire(name, owner_id, LockType.TIMEOUT, timeout_seconds, blocking=True)
+
+    async def acquire_semaphore(self, name: str, owner_id: str, max_concurrent: int = None) -> bool:
         """获取信号量（可多个持有者；持有者集合跟踪，支持逐个释放）"""
         async with self._lock:
             current = self._read_locks.get(name, 0)
             limit = max_concurrent or self.max_concurrent
-            
+
             if current >= limit:
                 return False
-            
+
             self._read_locks[name] = current + 1
             self._semaphore_holders.setdefault(name, set()).add(owner_id)
-            
+
             # _locks[name] 仅用于 is_locked 展示；权威持有者集合是
             # _semaphore_holders（原来每次覆盖 _locks[name] 导致只有最后
             # 一个持有者能 release，其他人恒 "release denied"）
             lock = Lock(
-                lock_id=f"{name}_sem",
-                name=name,
-                lock_type=LockType.SEMAPHORE,
-                owner_id=owner_id
+                lock_id=f"{name}_sem", name=name, lock_type=LockType.SEMAPHORE, owner_id=owner_id
             )
             self._locks[name] = lock
-            
+
             return True
-    
+
     def is_locked(self, name: str) -> bool:
         """检查是否已锁定"""
         return name in self._locks and self._locks[name].is_valid()
-    
+
     def get_lock_info(self, name: str) -> Optional[Dict]:
         """获取锁信息"""
         if name not in self._locks:
             return None
-        
+
         lock = self._locks[name]
         return {
             "name": lock.name,
@@ -306,34 +288,34 @@ class LockManager:
             "type": lock.lock_type.value,
             "status": lock.status.value,
             "created": lock.created_at.isoformat(),
-            "expires": lock.expires_at.isoformat() if lock.expires_at else None
+            "expires": lock.expires_at.isoformat() if lock.expires_at else None,
         }
-    
+
     def get_stats(self) -> Dict:
         """获取统计"""
         return {
             "acquired": self._stats["acquired"],
             "released": self._stats["released"],
             "timeouts": self._stats["timeouts"],
-            "active_locks": len(self._locks)
+            "active_locks": len(self._locks),
         }
 
 
 # 上下文管理器锁
 class async_lock:
     """异步锁上下文管理器（owner_id 可指定，默认 "context"）"""
-    
+
     def __init__(self, lock_manager: LockManager, name: str, owner_id: str = "context", **kwargs):
         self.lock_manager = lock_manager
         self.name = name
         self.owner_id = owner_id
         self.kwargs = kwargs
         self.lock: Optional[Lock] = None
-    
+
     async def __aenter__(self) -> Lock:
         self.lock = await self.lock_manager.acquire(self.name, self.owner_id, **self.kwargs)
         return self.lock
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if self.lock:
             await self.lock_manager.release(self.name, self.lock.owner_id)

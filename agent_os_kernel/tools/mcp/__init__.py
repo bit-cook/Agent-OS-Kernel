@@ -3,4 +3,4 @@
 from .client import MCPClient
 from .registry import MCPToolRegistry
 
-__all__ = ['MCPClient', 'MCPToolRegistry']
+__all__ = ["MCPClient", "MCPToolRegistry"]

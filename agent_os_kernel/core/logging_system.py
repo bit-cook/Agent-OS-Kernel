@@ -14,6 +14,7 @@ import json
 
 class LogLevel(Enum):
     """日志级别"""
+
     DEBUG = 10
     INFO = 20
     WARNING = 30
@@ -24,6 +25,7 @@ class LogLevel(Enum):
 @dataclass
 class LogRecord:
     """日志记录"""
+
     timestamp: str
     level: str
     message: str
@@ -35,46 +37,46 @@ class LogRecord:
 
 class StructuredLogger:
     """结构化日志器"""
-    
+
     def __init__(self, name: str = "Agent-OS", level: str = "INFO"):
         self.name = name
         self.level = LogLevel[level.upper()]
         self._handlers: List[callable] = []
-    
+
     def log(self, level: LogLevel, message: str, **extra):
         """记录日志"""
         if level.value < self.level.value:
             return
-        
+
         record = LogRecord(
             timestamp=datetime.now(timezone.utc).isoformat(),
             level=level.name,
             message=message,
-            extra=extra
+            extra=extra,
         )
-        
+
         for handler in self._handlers:
             handler(record)
-    
+
     def debug(self, message: str, **extra):
         self.log(LogLevel.DEBUG, message, **extra)
-    
+
     def info(self, message: str, **extra):
         self.log(LogLevel.INFO, message, **extra)
-    
+
     def warning(self, message: str, **extra):
         self.log(LogLevel.WARNING, message, **extra)
-    
+
     def error(self, message: str, **extra):
         self.log(LogLevel.ERROR, message, **extra)
-    
+
     def critical(self, message: str, **extra):
         self.log(LogLevel.CRITICAL, message, **extra)
-    
+
     def add_handler(self, handler: callable):
         """添加处理器"""
         self._handlers.append(handler)
-    
+
     def set_level(self, level: str):
         """设置级别"""
         self.level = LogLevel[level.upper()]
@@ -86,12 +88,12 @@ def default_handler(record: LogRecord):
         "timestamp": record.timestamp,
         "level": record.level,
         "message": record.message,
-        "module": record.module
+        "module": record.module,
     }
-    
+
     if record.extra:
         output["extra"] = record.extra
-    
+
     print(json.dumps(output))
 
 

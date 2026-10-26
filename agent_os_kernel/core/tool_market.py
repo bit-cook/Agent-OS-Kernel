@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ToolInfo:
     """工具信息"""
+
     tool_id: str
     name: str
     version: str
@@ -33,11 +34,8 @@ class ToolInfo:
 
 class ToolMarket:
     """工具市场"""
-    
-    def __init__(
-        self,
-        cache_dir: str = "~/.cache/agent-os-kernel/tools"
-    ):
+
+    def __init__(self, cache_dir: str = "~/.cache/agent-os-kernel/tools"):
         """
         初始化工具市场
         """
@@ -46,16 +44,13 @@ class ToolMarket:
         self._registry: Dict[str, ToolInfo] = {}
         self._load_functions: Dict[str, Callable] = {}
         logger.info(f"ToolMarket initialized: cache={self._cache_dir}")
-    
+
     async def initialize(self):
         """初始化"""
         await self._load_local_registry()
-    
+
     async def search(
-        self,
-        query: str = "",
-        category: str = None,
-        limit: int = 20
+        self, query: str = "", category: str = None, limit: int = 20
     ) -> List[ToolInfo]:
         """搜索工具"""
         results = []
@@ -68,7 +63,7 @@ class ToolMarket:
             if len(results) >= limit:
                 break
         return results
-    
+
     async def install(self, tool_id: str, version: str = "latest") -> bool:
         """安装工具"""
         tool = self._registry.get(tool_id)
@@ -77,7 +72,7 @@ class ToolMarket:
         tool.installed_at = datetime.now(timezone.utc)
         logger.info(f"Installed tool: {tool_id}")
         return True
-    
+
     async def uninstall(self, tool_id: str) -> bool:
         """卸载工具"""
         if tool_id in self._registry:
@@ -86,11 +81,11 @@ class ToolMarket:
             logger.info(f"Uninstalled tool: {tool_id}")
             return True
         return False
-    
+
     def register_loader(self, tool_id: str, loader: Callable):
         """注册自定义加载器"""
         self._load_functions[tool_id] = loader
-    
+
     async def _load_local_registry(self):
         """加载本地注册表"""
         registry_file = self._cache_dir / "registry.json"
@@ -99,12 +94,12 @@ class ToolMarket:
                 data = json.load(f)
                 for tool_data in data.get("tools", []):
                     self._registry[tool_data["tool_id"]] = ToolInfo(**tool_data)
-    
+
     def get_stats(self) -> Dict:
         """获取统计"""
         return {
             "total_tools": len(self._registry),
-            "installed_tools": sum(1 for t in self._registry.values() if t.installed_at)
+            "installed_tools": sum(1 for t in self._registry.values() if t.installed_at),
         }
 
 

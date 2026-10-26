@@ -15,6 +15,7 @@ class TestFileToolWorkspaceRoot:
 
     def test_read_outside_workspace_denied(self, tmp_path):
         from agent_os_kernel.tools.builtin import FileReadTool
+
         tool = FileReadTool(allowed_roots=[str(tmp_path)])
         result = tool.execute("/etc/passwd")
         assert result["success"] is False
@@ -22,6 +23,7 @@ class TestFileToolWorkspaceRoot:
 
     def test_read_dotdot_escape_denied(self, tmp_path):
         from agent_os_kernel.tools.builtin import FileReadTool
+
         tool = FileReadTool(allowed_roots=[str(tmp_path / "workspace")])
         result = tool.execute(str(tmp_path / "workspace" / ".." / "secret.txt"))
         assert result["success"] is False
@@ -29,6 +31,7 @@ class TestFileToolWorkspaceRoot:
 
     def test_read_symlink_escape_denied(self, tmp_path):
         from agent_os_kernel.tools.builtin import FileReadTool
+
         workspace = tmp_path / "workspace"
         workspace.mkdir()
         secret = tmp_path / "secret.txt"
@@ -42,6 +45,7 @@ class TestFileToolWorkspaceRoot:
 
     def test_read_inside_workspace_allowed(self, tmp_path):
         from agent_os_kernel.tools.builtin import FileReadTool
+
         (tmp_path / "ok.txt").write_text("hello workspace")
         tool = FileReadTool(allowed_roots=[str(tmp_path)])
         result = tool.execute(str(tmp_path / "ok.txt"))
@@ -50,6 +54,7 @@ class TestFileToolWorkspaceRoot:
 
     def test_write_outside_workspace_denied(self, tmp_path):
         from agent_os_kernel.tools.builtin import FileWriteTool
+
         tool = FileWriteTool(allowed_roots=[str(tmp_path / "workspace")])
         result = tool.execute(str(tmp_path / "evil.txt"), "pwned")
         assert result["success"] is False
@@ -58,6 +63,7 @@ class TestFileToolWorkspaceRoot:
 
     def test_write_inside_workspace_allowed(self, tmp_path):
         from agent_os_kernel.tools.builtin import FileWriteTool
+
         tool = FileWriteTool(allowed_roots=[str(tmp_path)])
         result = tool.execute("sub/dir/ok.txt", "data")
         assert result["success"] is True
@@ -69,6 +75,7 @@ class TestPythonExecuteFailClosed:
 
     def test_default_refuses_host_execution(self):
         from agent_os_kernel.tools.builtin import PythonExecuteTool
+
         tool = PythonExecuteTool()  # 未显式允许宿主执行
         result = tool.execute("print('should not run on host')")
         assert result["success"] is False
@@ -77,6 +84,7 @@ class TestPythonExecuteFailClosed:
 
     def test_explicit_opt_in_executes(self, tmp_path):
         from agent_os_kernel.tools.builtin import PythonExecuteTool
+
         tool = PythonExecuteTool(allow_host_execution=True, allowed_roots=[str(tmp_path)])
         result = tool.execute("print('2+2 =', 2+2)")
         assert result["success"] is True
@@ -88,6 +96,7 @@ class TestSandboxFailClosed:
 
     def test_no_docker_means_no_isolation(self):
         from agent_os_kernel.core.security import SandboxManager
+
         mgr = SandboxManager()
         if mgr.docker_available:
             pytest.skip("docker available on this host")
@@ -96,6 +105,7 @@ class TestSandboxFailClosed:
 
     def test_execute_without_isolation_fails_closed(self):
         from agent_os_kernel.core.security import SandboxManager
+
         mgr = SandboxManager()
         if mgr.docker_available:
             pytest.skip("docker available on this host")
@@ -113,6 +123,7 @@ class TestSandboxFailClosed:
 
     def test_explicit_host_fallback_uses_argv_no_shell(self, tmp_path):
         from agent_os_kernel.core.security import SandboxManager, SecurityPolicy
+
         mgr = SandboxManager()
         if mgr.docker_available:
             pytest.skip("docker available on this host")
@@ -121,9 +132,7 @@ class TestSandboxFailClosed:
             "workspace": str(tmp_path),
             "policy": SecurityPolicy(),
         }
-        result = mgr.execute_in_sandbox(
-            "agent-2", "echo safe", allow_host_fallback=True
-        )
+        result = mgr.execute_in_sandbox("agent-2", "echo safe", allow_host_fallback=True)
         assert result["success"] is True
         assert "safe" in result["stdout"]
 
@@ -133,6 +142,7 @@ class TestFileAccessPolicy:
 
     def test_prefix_sibling_not_matched(self):
         from agent_os_kernel.core.security import SandboxManager, SecurityPolicy
+
         mgr = SandboxManager()
         policy = SecurityPolicy(allowed_paths=["/tmp"], blocked_paths=["/etc"])
         mgr.containers["a"] = {"type": "process", "workspace": "/tmp", "policy": policy}
@@ -148,6 +158,7 @@ class TestWebFetchSSRF:
 
     def test_metadata_endpoint_blocked(self):
         from agent_os_kernel.tools.builtin import WebFetchTool
+
         tool = WebFetchTool()
         result = tool.execute("http://169.254.169.254/latest/meta-data/")
         assert result["success"] is False
@@ -155,6 +166,7 @@ class TestWebFetchSSRF:
 
     def test_localhost_blocked(self):
         from agent_os_kernel.tools.builtin import WebFetchTool
+
         tool = WebFetchTool()
         result = tool.execute("http://127.0.0.1:8080/admin")
         assert result["success"] is False
@@ -162,6 +174,7 @@ class TestWebFetchSSRF:
 
     def test_file_scheme_blocked(self):
         from agent_os_kernel.tools.builtin import WebFetchTool
+
         tool = WebFetchTool()
         result = tool.execute("file:///etc/passwd")
         assert result["success"] is False

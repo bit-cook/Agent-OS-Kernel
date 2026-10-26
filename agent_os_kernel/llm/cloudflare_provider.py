@@ -20,50 +20,20 @@ class CloudflareProvider(LLMProvider):
 
     # 支持的模型列表
     SUPPORTED_MODELS = {
-        "@cf/meta/llama-3-8b-instruct": {
-            "type": "chat",
-            "name": "Llama 3 8B"
-        },
-        "@cf/meta/llama-3-70b-instruct": {
-            "type": "chat",
-            "name": "Llama 3 70B"
-        },
-        "@cf/meta/llama-3.1-8b-instruct": {
-            "type": "chat",
-            "name": "Llama 3.1 8B"
-        },
-        "@cf/meta/llama-3.2-1b-chat": {
-            "type": "chat",
-            "name": "Llama 3.2 1B"
-        },
-        "@cf/meta/llama-3.2-3b-chat": {
-            "type": "chat",
-            "name": "Llama 3.2 3B"
-        },
-        "@cf/mistral/mistral-7b-instruct-v0.1": {
-            "type": "chat",
-            "name": "Mistral 7B"
-        },
-        "@cf/mistral/mistral-7b-instruct-v0.2": {
-            "type": "chat",
-            "name": "Mistral 7B v2"
-        },
-        "@cf/deepseek-ai/deepseek-coder-6.7b-base": {
-            "type": "chat",
-            "name": "DeepSeek Coder"
-        },
-        "@cf/openai/whisper": {
-            "type": "audio",
-            "name": "Whisper"
-        },
+        "@cf/meta/llama-3-8b-instruct": {"type": "chat", "name": "Llama 3 8B"},
+        "@cf/meta/llama-3-70b-instruct": {"type": "chat", "name": "Llama 3 70B"},
+        "@cf/meta/llama-3.1-8b-instruct": {"type": "chat", "name": "Llama 3.1 8B"},
+        "@cf/meta/llama-3.2-1b-chat": {"type": "chat", "name": "Llama 3.2 1B"},
+        "@cf/meta/llama-3.2-3b-chat": {"type": "chat", "name": "Llama 3.2 3B"},
+        "@cf/mistral/mistral-7b-instruct-v0.1": {"type": "chat", "name": "Mistral 7B"},
+        "@cf/mistral/mistral-7b-instruct-v0.2": {"type": "chat", "name": "Mistral 7B v2"},
+        "@cf/deepseek-ai/deepseek-coder-6.7b-base": {"type": "chat", "name": "DeepSeek Coder"},
+        "@cf/openai/whisper": {"type": "audio", "name": "Whisper"},
         "@cf/sentence-transformers/all-minilm-l6-v2": {
             "type": "embedding",
-            "name": "All-MiniLM L6 v2"
+            "name": "All-MiniLM L6 v2",
         },
-        "@cf/baai/bge-base-en-v1.5": {
-            "type": "embedding",
-            "name": "BGE Base"
-        },
+        "@cf/baai/bge-base-en-v1.5": {"type": "embedding", "name": "BGE Base"},
     }
 
     def __init__(self, config: LLMConfig):
@@ -86,20 +56,24 @@ class CloudflareProvider(LLMProvider):
     @property
     def base_url(self) -> str:
         account_id = self._account_id or os.getenv("CLOUDFLARE_ACCOUNT_ID", "")
-        return self.config.base_url or f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1"
+        return (
+            self.config.base_url
+            or f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1"
+        )
 
     async def initialize(self):
         """初始化 Cloudflare 客户端"""
         if not self.config.api_key:
-            raise ValueError("Cloudflare API token is required. Set CLOUDFLARE_API_TOKEN env variable.")
+            raise ValueError(
+                "Cloudflare API token is required. Set CLOUDFLARE_API_TOKEN env variable."
+            )
 
         self._account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID", "")
 
         self._client = self._create_client()
-        self._client.headers.update({
-            "Authorization": f"Bearer {self.config.api_key}",
-            "Content-Type": "application/json"
-        })
+        self._client.headers.update(
+            {"Authorization": f"Bearer {self.config.api_key}", "Content-Type": "application/json"}
+        )
         logger.info(f"Cloudflare provider initialized with model: {self.config.model}")
 
     async def shutdown(self):
@@ -109,10 +83,7 @@ class CloudflareProvider(LLMProvider):
             self._client = None
 
     async def complete(
-        self,
-        messages: List[Message],
-        tools: List[Dict] = None,
-        stream: bool = False
+        self, messages: List[Message], tools: List[Dict] = None, stream: bool = False
     ) -> LLMResponse:
         """发送完成请求"""
         if not self._client:
@@ -123,15 +94,14 @@ class CloudflareProvider(LLMProvider):
         for msg in messages:
             if msg.role == "system":
                 # Cloudflare 使用特殊的 system prompt 格式
-                formatted_messages.append({
-                    "role": msg.role,
-                    "content": msg.content
-                })
+                formatted_messages.append({"role": msg.role, "content": msg.content})
             else:
-                formatted_messages.append({
-                    "role": msg.role if msg.role != "assistant" else "assistant",
-                    "content": msg.content
-                })
+                formatted_messages.append(
+                    {
+                        "role": msg.role if msg.role != "assistant" else "assistant",
+                        "content": msg.content,
+                    }
+                )
 
         payload = {
             "messages": formatted_messages,
@@ -152,9 +122,7 @@ class CloudflareProvider(LLMProvider):
         return self._parse_response(data)
 
     async def stream_complete(
-        self,
-        messages: List[Message],
-        tools: List[Dict] = None
+        self, messages: List[Message], tools: List[Dict] = None
     ) -> AsyncIterator[str]:
         """流式完成"""
         if not self._client:
@@ -162,16 +130,18 @@ class CloudflareProvider(LLMProvider):
 
         formatted_messages = []
         for msg in messages:
-            formatted_messages.append({
-                "role": msg.role if msg.role != "assistant" else "assistant",
-                "content": msg.content
-            })
+            formatted_messages.append(
+                {
+                    "role": msg.role if msg.role != "assistant" else "assistant",
+                    "content": msg.content,
+                }
+            )
 
         payload = {
             "messages": formatted_messages,
             "max_tokens": self.config.max_tokens,
             "temperature": self.config.temperature,
-            "stream": True
+            "stream": True,
         }
 
         endpoint = f"{self.base_url}/chat/completions"
@@ -189,16 +159,16 @@ class CloudflareProvider(LLMProvider):
                     except json.JSONDecodeError:
                         pass
 
-    async def embeddings(self, texts: List[str], model: str = "@cf/sentence-transformers/all-minilm-l6-v2") -> List[List[float]]:
+    async def embeddings(
+        self, texts: List[str], model: str = "@cf/sentence-transformers/all-minilm-l6-v2"
+    ) -> List[List[float]]:
         """获取嵌入向量"""
         if not self._client:
             raise RuntimeError("Cloudflare provider not initialized")
 
         embeddings = []
         for text in texts:
-            payload = {
-                "text": text
-            }
+            payload = {"text": text}
 
             endpoint = f"{self.base_url}/embeddings"
 
@@ -215,7 +185,11 @@ class CloudflareProvider(LLMProvider):
     def _parse_response(self, data: Dict) -> LLMResponse:
         """解析响应"""
         # Cloudflare 返回格式
-        content = data.get("result", {}).get("response", "") if "result" in data else data.get("response", "")
+        content = (
+            data.get("result", {}).get("response", "")
+            if "result" in data
+            else data.get("response", "")
+        )
 
         # 解析 usage (Cloudflare 不总是返回详细 usage)
         usage = data.get("usage", {})
@@ -225,7 +199,7 @@ class CloudflareProvider(LLMProvider):
             usage = {
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
-                "total_tokens": prompt_tokens + completion_tokens
+                "total_tokens": prompt_tokens + completion_tokens,
             }
 
         return LLMResponse(
@@ -233,7 +207,7 @@ class CloudflareProvider(LLMProvider):
             model=data.get("model", self.config.model),
             usage=usage,
             finish_reason="stop",
-            tool_calls=None
+            tool_calls=None,
         )
 
     async def count_tokens(self, text: str, model: str = "@cf/meta/llama-3-8b-instruct") -> int:
@@ -255,26 +229,24 @@ class CloudflareProvider(LLMProvider):
 
     async def chat(
         self,
-        messages: List['ChatMessage'],
+        messages: List["ChatMessage"],
         model: Optional[str] = None,
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
         stream: bool = False,
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """发送聊天请求"""
         from .provider import Message
+
         # 转换为 Message 格式
-        msg_list = [
-            Message(role=msg.role, content=msg.content)
-            for msg in messages
-        ]
+        msg_list = [Message(role=msg.role, content=msg.content) for msg in messages]
         response = await self.complete(msg_list, stream=stream)
         return {
             "content": response.content,
             "model": response.model,
             "usage": response.usage,
-            "finish_reason": response.finish_reason
+            "finish_reason": response.finish_reason,
         }
 
     def get_config(self) -> LLMConfig:
@@ -284,4 +256,5 @@ class CloudflareProvider(LLMProvider):
 
 # 注册 Provider
 from .provider import register_provider
+
 register_provider(ProviderType.CLOUDFLARE, CloudflareProvider)
