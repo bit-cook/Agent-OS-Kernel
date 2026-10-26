@@ -170,3 +170,77 @@ class TestCalculatorHardening:
         r = self.calc.execute(expression="1+" * 400 + "1")
         assert not r["success"]
         assert "too long" in r["error"]
+
+
+class TestKernelLLMIntegration:
+    """内核 LLM provider 注入（审查 P1-06：默认 step 不再永远是假模拟）"""
+
+    def _mock_provider(self, response: str):
+        from agent_os_kernel.llm.provider import LLMConfig
+        from agent_os_kernel.llm.mock_provider import MockProvider
+        m = MockProvider(LLMConfig(provider="mock", model="mock-model", api_key="k"))
+        m.set_response("code", response)   # 覆盖内置触发器（上下文含工具描述）
+        return m
+
+    def test_provider_step_done_sentinel(self):
+        from agent_os_kernel import AgentOSKernel
+        kernel = AgentOSKernel(llm_provider=self._mock_provider("分析完成。\n[DONE]"))
+        pid = kernel.spawn_agent(name="A", task="总结", priority=20, context={"task": "总结"})
+        kernel.run(max_iterations=5)
+        # [DONE] -> agent 被真正终止
+        assert kernel.scheduler.processes.get(pid) is None
+        stats = kernel.cost_tracker.get_global_stats()
+        assert stats["total_requests"] >= 1
+        assert stats["total_tokens"] > 0
+
+    def test_max_steps_convergence(self):
+        from agent_os_kernel import AgentOSKernel
+        kernel = AgentOSKernel(llm_provider=self._mock_provider("继续处理..."))
+        pid = kernel.spawn_agent(name="B", task="t", priority=20)
+        kernel.scheduler.processes[pid].max_steps = 3
+        kernel.run(max_iterations=10)
+        assert kernel.scheduler.processes.get(pid) is None  # max_steps 收敛
+
+    def test_simulation_mode_default(self):
+        from agent_os_kernel import AgentOSKernel
+        kernel = AgentOSKernel()   # 无 provider：模拟模式
+        pid = kernel.spawn_agent(name="C", task="t", priority=20)
+        kernel.run(max_iterations=2)
+        proc = kernel.scheduler.processes.get(pid)
+        assert proc is not None and proc.steps_taken == 2
+        # 模拟模式不计 LLM 成本
+        assert kernel.cost_tracker.get_global_stats()["total_requests"] == 0
+
+    def test_provider_step_within_event_loop(self):
+        """provider 调用在事件循环内也要能工作（API 场景）"""
+        import asyncio
+        from agent_os_kernel import AgentOSKernel
+
+        async def scenario():
+            kernel = AgentOSKernel(llm_provider=self._mock_provider("[DONE]"))
+            pid = kernel.spawn_agent(name="D", task="t", priority=20, context={"task": "t"})
+            proc = kernel.scheduler.processes[pid]
+            return kernel.execute_agent_step(proc)
+
+        result = asyncio.run(scenario())
+        assert result["success"] and result["done"] is True
+
+    def test_api_default_provider_selection(self):
+        from agent_os_kernel.api.server import _build_default_provider
+        import os
+        old = os.environ.get("AOSK_LLM_PROVIDER")
+        try:
+            os.environ.pop("AOSK_LLM_PROVIDER", None)
+            assert type(_build_default_provider()).__name__ == "MockProvider"
+            os.environ["AOSK_LLM_PROVIDER"] = "openai"
+            os.environ.pop("AOSK_LLM_API_KEY", None)
+            assert _build_default_provider() is None      # 缺 key -> 模拟回退
+            os.environ["AOSK_LLM_API_KEY"] = "sk-test"
+            assert type(_build_default_provider()).__name__ == "OpenAIProvider"
+            os.environ["AOSK_LLM_PROVIDER"] = "none"
+            assert _build_default_provider() is None
+        finally:
+            os.environ.pop("AOSK_LLM_PROVIDER", None)
+            os.environ.pop("AOSK_LLM_API_KEY", None)
+            if old:
+                os.environ["AOSK_LLM_PROVIDER"] = old

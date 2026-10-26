@@ -88,6 +88,10 @@ class AgentProcess:
     # 父进程（用于进程树）
     parent_pid: Optional[str] = None
     child_pids: List[str] = field(default_factory=list)
+
+    # LLM 步数与完成控制
+    max_steps: int = 20                     # 单个 Agent 的最大推理步数
+    steps_taken: int = 0                    # 已执行的推理步数
     
     def is_active(self) -> bool:
         """是否处于活动状态"""

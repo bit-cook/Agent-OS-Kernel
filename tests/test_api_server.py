@@ -180,3 +180,34 @@ def test_audit_endpoint_real(client):
     r = client.get("/api/v1/audit?limit=10")
     assert r.status_code == 200
     assert isinstance(r.json()["logs"], list)
+
+
+class TestAgentStepEndpoint:
+    """POST /api/v1/agents/{id}/step：API 层真实驱动 LLM step（审查 P1-06）"""
+
+    def test_step_drives_real_llm_call(self, client):
+        create = client.post("/api/v1/agents", headers=HEADERS, json={
+            "name": "StepAgent", "task": "验证 step 端点", "priority": 30,
+        })
+        assert create.status_code == 200
+        agent_id = create.json()["agent_id"]
+
+        resp = client.post(f"/api/v1/agents/{agent_id}/step")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["step"] == 1
+        assert body["success"] is True
+        assert body["reasoning"]  # 真实 provider 响应内容
+
+        # 审计记录标注 provider 模式
+        audit = client.get("/api/v1/audit")
+        assert audit.status_code == 200
+        entries = audit.json()
+        logs = entries if isinstance(entries, list) else entries.get("logs", entries.get("entries", []))
+        llm_logs = [l for l in logs if "llm" in str(l.get("resource", ""))]
+        assert llm_logs, "audit should record the LLM step"
+        assert llm_logs[-1]["details"]["mode"] == "provider"
+
+    def test_step_unknown_agent_404(self, client):
+        resp = client.post("/api/v1/agents/nonexistent/step")
+        assert resp.status_code == 404

@@ -4,7 +4,7 @@
 > 审查对象：`bit-cook/Agent-OS-Kernel`<br>
 > Python 主线快照：`97b25eab8617adaad6f204e98f4d248b5f107b08`（2026-02-24）<br>
 > Rust 分支参考：`origin/rust-refactor-v3` / `97aab0c3651ff1e2ac610bf6fe51b2574e3e7cd1`（2026-03-08）<br>
-> 当前状态：**✅ 已解决（2026-10-26）——本报告 P0×4 / P1×5 / P2×3 共 12 项问题已全部修复并实测验证，成果已推送 GitHub（`main` + `rust-refactor-v3`）。修复明细见根目录 `CHANGELOG.md` 的 `[Unreleased]` 段与 `DELIVERY_REPORT.md`。下文为原始审查记录，留档。**
+> 当前状态：**✅ 已解决（2026-10-26，含 P1-06 内核 LLM 接入）——本报告 P0×4 / P1×7 / P2×3 共 14 项问题已全部修复并实测验证，成果已推送 GitHub（`main` + `rust-refactor-v3`）。修复明细见根目录 `CHANGELOG.md` 的 `[Unreleased]` 段与 `DELIVERY_REPORT.md`。下文为原始审查记录，留档。**
 
 ## 0. 决策摘要
 

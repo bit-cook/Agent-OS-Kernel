@@ -99,6 +99,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `scripts/check_docs_links.py`：文档内链检查
 
 
+### Fixed — 2026-10-26 晚 内核 LLM 接入（审查 P1-06）
+- AgentOSKernel 新增 llm_provider 注入：execute_agent_step 有 provider 时走
+  真实调用（上下文组消息、usage 入 CostTracker、[DONE] 哨兵或 max_steps
+  决定完成）；无 provider 保持模拟模式并在审计标注 simulation
+- CLI demo 默认注入 MockProvider（确定性无需 key），黄金路径走真实 LLM 路径
+- API 层：默认注入 MockProvider（AOSK_LLM_PROVIDER 可切 openai/anthropic/
+  minimax，缺 key 明确回退模拟）；新增 POST /api/v1/agents/{id}/step 端点
+  （API 层真实驱动单步 LLM 推理）；AOSK_AUTORUN=1 可开后台调度线程
+- 测试 +5（done 哨兵/max_steps 收敛/模拟模式/事件循环内调用/provider 选择），
+  另 +2 API step 端点测试；全量 673 passed / 0 failed
+
 ### Changed — 2026-02-24 Rust 重构（rust-refactor-v3）
 
 #### Rust Refactor (rust-refactor-v3)

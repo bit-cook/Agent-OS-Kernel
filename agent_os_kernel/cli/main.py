@@ -231,17 +231,30 @@ class CLI:
         return 0
     
     def _cmd_demo(self, args):
-        """运行演示（确定性 mock 运行：spawn → run → checkpoint → restore）"""
+        """运行演示（MockProvider 真实 LLM 路径：spawn → run → checkpoint → restore）"""
         from ..kernel import AgentOSKernel
-        kernel = AgentOSKernel()
-        
-        print("=== Agent OS Kernel 演示（确定性 mock） ===")
+        from ..llm.provider import LLMConfig
+        from ..llm.mock_provider import MockProvider
+
+        # 确定性 mock provider：无需 API key，响应可配置
+        mock = MockProvider(LLMConfig(provider="mock", model="mock-model", api_key="mock-key"))
+        if args.type == "checkpoint":
+            # 检查点演示需要 agent 在 run 后仍存活：不给 [DONE]
+            mock.set_response("code", "演示推理：任务进行中...")
+        else:
+            mock.set_response("code", "演示推理：任务已完成。\n[DONE]")
+        kernel = AgentOSKernel(llm_provider=mock)
+
+        print("=== Agent OS Kernel 演示（MockProvider，确定性） ===")
         pid = kernel.spawn_agent(name="DemoAgent", task="演示任务：计算 2+2", priority=30)
         kernel.run(max_iterations=2)
         stats = kernel.get_stats()
+        cost = kernel.cost_tracker.get_global_stats()
         print(f"运行完成: {stats['total_iterations']} 次迭代, "
               f"{stats['active_agents']} 个活动 Agent")
-        
+        print(f"LLM 用量: {cost['total_tokens']} tokens, {cost['total_requests']} 次请求, "
+              f"成本 ${cost['total_cost']:.6f}（provider=mock）")
+
         if args.type == "checkpoint":
             cid = kernel.create_checkpoint(pid, description="demo")
             if cid:
@@ -253,7 +266,7 @@ class CLI:
             else:
                 print("检查点创建失败", file=sys.stderr)
                 return 1
-        
+
         kernel.shutdown()
         return 0
     

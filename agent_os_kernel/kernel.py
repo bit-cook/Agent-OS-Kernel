@@ -18,6 +18,7 @@ Agent OS Kernel - 主内核
 
 import uuid
 import time
+import asyncio
 import logging
 from typing import Optional, Dict, Any, List, Callable
 from dataclasses import dataclass
@@ -27,6 +28,7 @@ from .core.context_manager import ContextManager, ContextPage
 from .core.scheduler import AgentScheduler, AgentProcess, ResourceQuota
 from .core.storage import StorageManager, StorageBackend
 from .core.security import SecurityPolicy, PermissionLevel
+from .core.cost_tracker import CostTracker
 from .tools.registry import ToolRegistry
 from .tools.builtin import (
     CalculatorTool,
@@ -101,16 +103,20 @@ class AgentOSKernel:
                  time_slice: float = 60.0,
                  storage_backend: Optional[StorageBackend] = None,
                  quota: Optional[ResourceQuota] = None,
-                 enable_sandbox: bool = False):
+                 enable_sandbox: bool = False,
+                 llm_provider=None):
         """
         初始化 Agent OS Kernel
-        
+
         Args:
             max_context_tokens: 最大上下文 token 数（默认 128K）
             time_slice: 调度时间片（秒）
             storage_backend: 存储后端（默认内存存储）
             quota: 资源配额配置
             enable_sandbox: 是否启用沙箱（需要 Docker）
+            llm_provider: LLM Provider 实例（LLMProvider 子类，如
+                MockProvider/OpenAIProvider）。None 时 agent step 保持
+                模拟模式并在审计中如实标注
         """
         logger.info("=" * 70)
         logger.info("Agent OS Kernel v%s - The Missing Kernel for AI Agents", self.VERSION)
@@ -156,6 +162,14 @@ class AgentOSKernel:
         # 钩子
         self.pre_step_hooks: List[Callable] = []
         self.post_step_hooks: List[Callable] = []
+
+        # LLM provider（None = 模拟模式，审计如实标注）
+        self.llm_provider = llm_provider
+        self.cost_tracker = CostTracker()
+        if llm_provider is not None:
+            logger.info("LLM provider: %s", self._provider_name())
+        else:
+            logger.info("LLM provider: none (agent steps run in simulation mode)")
         
         # 运行标志
         self._running = False
@@ -406,14 +420,16 @@ class AgentOSKernel:
     def execute_agent_step(self, process: AgentProcess) -> Dict[str, Any]:
         """
         执行 Agent 的一步推理
-        
-        子类应该重写这个方法来实现具体的 LLM 调用。
-        
+
+        配置了 llm_provider 时走真实调用（上下文作为消息、usage 入成本
+        追踪、[DONE] 哨兵或 max_steps 决定完成）；未配置时保持模拟行为
+        并明确记录 simulation 模式（扩展点，不是假装在生产运行）。
+
         Args:
             process: Agent 进程
-        
+
         Returns:
-            执行结果
+            执行结果 {'success', 'reasoning', 'done', 'error'?}
         """
         # 1. 执行前置钩子
         for hook in self.pre_step_hooks:
@@ -429,22 +445,37 @@ class AgentOSKernel:
         tokens_needed = len(context.split()) * 2  # 粗略估计
         if not self.scheduler.request_resources(process.pid, tokens_needed):
             return {'success': False, 'error': 'Resource quota exceeded', 'done': False}
-        
-        # 4. 模拟 LLM 推理（子类应该重写）
-        logger.info("[%s] Thinking...", process.name)
-        time.sleep(0.1)
-        
-        # 5. 模拟决策
-        reasoning = f"Processing task: {process.context.get('task', 'unknown')}"
-        
-        # 6. 记录审计日志（可观测性）
+
+        process.steps_taken += 1
+
+        # 4. LLM 推理：有 provider 走真实调用，否则模拟
+        if self.llm_provider is not None:
+            try:
+                reasoning, done = self._llm_step(process, context)
+            except Exception as e:
+                logger.error("[%s] LLM step failed: %s", process.name, e)
+                return {'success': False, 'error': f'LLM error: {e}', 'done': False}
+        else:
+            logger.info("[%s] Thinking... (simulation: no llm_provider configured)", process.name)
+            time.sleep(0.1)
+            reasoning = f"Processing task: {process.context.get('task', 'unknown')}"
+            done = False
+
+        # 5. 步数上限：真实 provider 也要能收敛
+        if not done and process.steps_taken >= process.max_steps:
+            logger.info("[%s] max_steps (%d) reached, marking done", process.name, process.max_steps)
+            done = True
+
+        # 6. 记录审计日志（真实 provider 名与 token 用量）
         self.storage.log_audit({
             'agent_pid': process.pid,
             'action': 'reasoning',
-            'resource': 'llm',
+            'resource': f"llm:{self._provider_name()}",
             'details': {
                 'context_length': len(context),
                 'reasoning': reasoning,
+                'step': process.steps_taken,
+                'mode': 'provider' if self.llm_provider is not None else 'simulation',
             },
             'result': 'success',
             'duration_ms': 0.0,
@@ -457,8 +488,63 @@ class AgentOSKernel:
         return {
             'success': True,
             'reasoning': reasoning,
-            'done': False  # 由具体实现决定
+            'done': done  # provider [DONE] 哨兵或 max_steps 决定
         }
+
+    def _provider_name(self) -> str:
+        if self.llm_provider is None:
+            return "simulation"
+        return getattr(self.llm_provider, 'provider_name', 'unknown')
+
+    def _run_provider_sync(self, coro):
+        """同步桥接异步 provider：已在事件循环内时放到独立线程执行"""
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(coro)
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+            return ex.submit(asyncio.run, coro).result(timeout=120)
+
+    def _llm_step(self, process: AgentProcess, context: str):
+        """真实 LLM 一步：返回 (reasoning, done)"""
+        from .llm.provider import ChatMessage
+
+        # 惰性初始化（provider.initialize 是 async）
+        if not getattr(self.llm_provider, '_initialized', True):
+            self._run_provider_sync(self.llm_provider.initialize())
+
+        messages = [
+            ChatMessage(role="system", content=(
+                f"You are agent '{process.name}' running inside the Agent OS Kernel. "
+                f"Work on the task step by step. Reply with the token [DONE] on its own "
+                f"line when the task is fully complete."
+            )),
+            ChatMessage(role="user", content=(
+                f"Task: {process.context.get('task', 'unknown')}\n\n"
+                f"Current context (step {process.steps_taken}/{process.max_steps}):\n{context}"
+            )),
+        ]
+
+        response = self._run_provider_sync(self.llm_provider.chat(messages))
+        content = response.get('content', '') if isinstance(response, dict) else str(response)
+        done = '[DONE]' in content
+
+        # 真实 token 用量 -> 成本追踪
+        usage = (response.get('usage') or {}) if isinstance(response, dict) else {}
+        if usage:
+            try:
+                self.cost_tracker.record(
+                    self._provider_name(),
+                    response.get('model', 'unknown'),
+                    int(usage.get('prompt_tokens', 0)),
+                    int(usage.get('completion_tokens', 0)),
+                    agent_id=process.pid,
+                )
+            except Exception as e:
+                logger.debug("cost tracking skipped: %s", e)
+
+        return content, done
     
     def run(self, max_iterations: Optional[int] = None):
         """

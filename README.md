@@ -518,6 +518,7 @@ agent-os-kernel serve --port 8000
 |-----|------|------|
 | `/api/v1/agents` | GET/POST | Agent 生命周期管理 |
 | `/api/v1/agents/{id}` | GET/DELETE | 查询 / 真实终止 |
+| `/api/v1/agents/{id}/step` | POST | Agent 单步推理（真实 LLM 调用） |
 | `/api/v1/agents/{id}/checkpoints` | POST | 创建检查点（进程状态+上下文页面） |
 | `/api/v1/checkpoints` | GET | 列出检查点 |
 | `/api/v1/checkpoints/{cid}/restore` | POST | 恢复为新 Agent |

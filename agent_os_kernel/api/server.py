@@ -37,6 +37,47 @@ from agent_os_kernel import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+def _build_default_provider():
+    """API 默认 LLM provider：AOSK_LLM_PROVIDER 未设置或 mock → MockProvider
+    （确定性、无需 key）；openai/anthropic/minimax → 对应真实 provider
+    （从环境变量读 key；缺失明确 warning 并回退模拟模式，绝不静默）。"""
+    import os
+    name = os.environ.get("AOSK_LLM_PROVIDER", "mock").strip().lower()
+    if name in ("", "none"):
+        return None
+    if name == "mock":
+        from ..llm.provider import LLMConfig
+        from ..llm.mock_provider import MockProvider
+        return MockProvider(LLMConfig(provider="mock", model="mock-model", api_key="mock-key"))
+    try:
+        from ..llm.provider import LLMConfig, ProviderType
+        cfg = LLMConfig(
+            provider=ProviderType.from_string(name),
+            model=os.environ.get("AOSK_LLM_MODEL", "gpt-4o-mini"),
+            api_key=os.environ.get("AOSK_LLM_API_KEY"),
+        )
+        if not cfg.api_key:
+            logger.warning("AOSK_LLM_PROVIDER=%s 但未设置 AOSK_LLM_API_KEY，回退模拟模式", name)
+            return None
+        if name == "openai":
+            from ..llm.openai_impl import create_openai_provider
+            p = create_openai_provider(cfg.api_key, model=cfg.model)
+        elif name == "anthropic":
+            from ..llm.anthropic import AnthropicProvider
+            p = AnthropicProvider(cfg)
+        elif name == "minimax":
+            from ..llm.minimax import MiniMaxProvider
+            p = MiniMaxProvider(cfg)
+        else:
+            logger.warning("未知 AOSK_LLM_PROVIDER=%s，回退模拟模式", name)
+            return None
+        logger.info("LLM provider: %s (model=%s)", name, cfg.model)
+        return p
+    except Exception as e:
+        logger.warning("AOSK_LLM_PROVIDER=%s 构造失败 (%s)，回退模拟模式", name, e)
+        return None
+
 LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
 
 
@@ -133,8 +174,21 @@ class AgentOSKernelAPI:
         @asynccontextmanager
         async def lifespan(app: FastAPI):
             # 启动：唯一内核实例，整个进程生命周期共享
-            self.kernel = AgentOSKernel()
-            logger.info("Kernel started")
+            # 默认注入 MockProvider（确定性、无需 key）；真实部署经
+            # AOSK_LLM_PROVIDER=openai/anthropic/... 切换（需对应 key）
+            self.kernel = AgentOSKernel(llm_provider=_build_default_provider())
+            # 后台调度线程（AOSK_AUTORUN=1 开启）：驱动 agent step
+            # （真实 LLM 调用）。默认关闭——显式单步经
+            # POST /api/v1/agents/{id}/step，保持控制面确定性。
+            import os
+            import threading
+            if os.environ.get("AOSK_AUTORUN", "").strip().lower() in ("1", "true", "yes"):
+                self._kernel_thread = threading.Thread(
+                    target=self.kernel.run, name="aosk-kernel-loop", daemon=True)
+                self._kernel_thread.start()
+                logger.info("Kernel started (autorun ON)")
+            else:
+                logger.info("Kernel started (autorun OFF; drive steps via POST /agents/{id}/step)")
             yield
             # 停止
             self.kernel.shutdown()
@@ -236,6 +290,24 @@ class AgentOSKernelAPI:
 
             self.metrics.counter("agents_deleted_total")
             return {"status": "deleted", "agent_id": agent_id}
+
+        @app.post("/api/v1/agents/{agent_id}/step", tags=["Agents"])
+        async def step_agent(agent_id: str):
+            """执行 Agent 单步推理（真实 LLM 调用，经内核 provider）"""
+            process = self.kernel.scheduler.processes.get(agent_id)
+            if process is None:
+                raise HTTPException(status_code=404, detail="Agent not found")
+
+            result = self.kernel.execute_agent_step(process)
+            if result.get("done"):
+                self.kernel.scheduler.terminate_process(agent_id, "completed")
+            return {
+                "agent_id": agent_id,
+                "step": process.steps_taken,
+                "done": result.get("done", False),
+                "reasoning": result.get("reasoning", ""),
+                "success": result.get("success", False),
+            }
 
         # ========== Tasks ==========
 
