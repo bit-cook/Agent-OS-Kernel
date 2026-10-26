@@ -162,7 +162,7 @@ compressed = compress_context(
 **解决方案**：
 ```python
 # 定期清理
-kernel.cleanup()
+kernel.shutdown()
 
 # 使用上下文压缩
 compressor = ContextCompressor(max_tokens=4000)
@@ -186,7 +186,7 @@ agent_pid = kernel.spawn_agent(
 )
 
 # 强制终止
-kernel.terminate(agent_pid)
+kernel.terminate_agent(agent_pid)
 ```
 
 #### 问题：Agent 崩溃

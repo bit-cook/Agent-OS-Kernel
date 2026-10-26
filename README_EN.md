@@ -10,7 +10,7 @@
 
 [![CI](https://github.com/bit-cook/Agent-OS-Kernel/actions/workflows/ci.yml/badge.svg)](https://github.com/bit-cook/Agent-OS-Kernel/actions)
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![Version](https://img.shields.io/badge/version-0.2.0--alpha-green.svg)](https://github.com/bit-cook/Agent-OS-Kernel/releases)
+[![Version](https://img.shields.io/badge/version-0.2.0-green.svg)](https://github.com/bit-cook/Agent-OS-Kernel/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 [English](./README_EN.md) | [中文](./README.md) | [Manifesto](./docs/MANIFESTO.md) | [Docs](docs/) | [Examples](./examples)

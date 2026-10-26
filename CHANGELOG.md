@@ -4,7 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### Fixed
+> 本段合并了 2026-10 两轮深度修复与 2026-02 Rust 重构的记录，按时间正序排列。
+
+### Fixed — 2026-10-26 第二轮深入检查
 - 修复 6 处运行时 NameError（测试未覆盖路径）：context_manager.ContextOverflowError
   未定义、metrics.get_all 缺 import copy、storage 缺 os/math/logger、
   resources/gpu 缺 _global_gpu_manager 单例、tools/base 缺 defaultdict
@@ -15,14 +17,15 @@ All notable changes to this project will be documented in this file.
   （now()-now()>1h），BatchResult 增加 completed_at，按 cutoff 真正清理
 
 ### Tests
-- 新增 tests/test_deep_fixes.py：7 项回归测试
-- 全量 662 passed / 0 failed
+- 新增 tests/test_deep_fixes.py：11 项回归测试（7 项深度检查 + 4 项计算器）
+- 全量 666 passed / 0 failed
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased] - 2026-10-24
 
-### Python Mainline Remediation (P0 security & golden-path closure)
+### Fixed — 2026-10-24 Python 主线整改（P0 安全与黄金路径）
+
+#### Python Mainline Remediation (P0 security & golden-path closure)
 
 按仓库自带审查报告（site/audit/report.md）的 P0 退出标准逐项修复，全部有执行验证：
 
@@ -95,9 +98,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `tests/test_api_server.py`：API 契约测试 11 项（黄金路径 + 认证 + 404）
 - `scripts/check_docs_links.py`：文档内链检查
 
-## [Unreleased] - 2026-02-24
 
-### Rust Refactor (rust-refactor-v3)
+### Changed — 2026-02-24 Rust 重构（rust-refactor-v3）
+
+#### Rust Refactor (rust-refactor-v3)
 
 #### Added
 - CLI binary target (`agent-os-kernel`)
@@ -130,7 +134,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Compiler warnings: 0
 - Release size: 2.0 MB
 
-## [1.0.0] - 2026-02-15
+## [0.2.0] - 2026-02-15  <!-- 版本号勘误: 原标 1.0.0, 与 git tag v0.2.0 / pyproject 对齐 -->
 
 ### Python Version
 

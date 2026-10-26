@@ -13,7 +13,7 @@
 [![CI](https://github.com/bit-cook/Agent-OS-Kernel/actions/workflows/ci.yml/badge.svg)](https://github.com/bit-cook/Agent-OS-Kernel/actions)
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![Rust Version](https://img.shields.io/badge/rust-1.75%2B-orange)](https://www.rust-lang.org/)
-[![Version](https://img.shields.io/badge/version-0.2.0--alpha-green.svg)](https://github.com/bit-cook/Agent-OS-Kernel/releases)
+[![Version](https://img.shields.io/badge/version-0.2.0-green.svg)](https://github.com/bit-cook/Agent-OS-Kernel/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 🦀 **Rust 重构版本已上线** · [分支 `rust-refactor-v3`](https://github.com/bit-cook/Agent-OS-Kernel/tree/rust-refactor-v3) · [快速开始](#-rust-重构版本快速开始)
@@ -170,8 +170,8 @@ Agent-OS-Kernel/
 │   │       └── registry.py
 │   └── api/                  # Web API
 │       ├── server.py         # FastAPI 服务
-│       └── static/           # Vue.js 管理界面
-├── tests/                   # 测试用例 (9+ 文件)
+│       └── static/           # 自包含管理界面 (index.html)
+├── tests/                   # 测试用例 (62 文件)
 ├── examples/                # 示例代码 (13+ 文件)
 │   ├── basic_usage.py
 │   ├── agent_spawning.py
@@ -577,12 +577,12 @@ agent-os-kernel serve --port 8000
 
 | 指标 | 数值 |
 |------|------|
-| **Python 文件** | 120+ |
-| **核心模块** | 74+ |
+| **Python 文件** | 131 |
+| **核心模块** | 100+ |
 | **LLM Providers** | 11+ |
-| **测试文件** | 59+ |
-| **示例代码** | 48+ |
-| **文档** | 41+ |
+| **测试文件** | 62 |
+| **示例代码** | 82 |
+| **文档** | 46 |
 
 ## 🚀 快速测试
 

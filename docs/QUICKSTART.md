@@ -1,5 +1,7 @@
 # Agent-OS-Kernel 快速入门指南
 
+> 本文所有代码示例均针对当前版本（0.2.0）实测可运行。
+
 ## 安装
 
 ```bash
@@ -8,11 +10,11 @@ git clone https://github.com/bit-cook/Agent-OS-Kernel.git
 cd Agent-OS-Kernel
 
 # 创建虚拟环境
-python -m venv venv
-source venv/bin/activate
+python -m venv .venv
+source .venv/bin/activate
 
-# 安装依赖
-pip install -r requirements.txt
+# 安装（含全部可选依赖）
+pip install -e ".[all]"
 ```
 
 ## 快速开始
@@ -20,101 +22,127 @@ pip install -r requirements.txt
 ### 1. 初始化内核
 
 ```python
+import agent_os_kernel
 from agent_os_kernel import AgentOSKernel
 
-kernel = AgentOSKernel()
-print(f"Kernel version: {kernel.version}")
+print(f"Kernel version: {agent_os_kernel.__version__}")
+
+kernel = AgentOSKernel(
+    max_context_tokens=128000,   # 上下文窗口（token）
+    time_slice=60.0,             # 调度时间片（秒）
+    enable_sandbox=False,        # True 需要 Docker
+)
 ```
 
-### 2. 配置
-
-```yaml
-# config.yaml
-app:
-  name: Agent-OS-Kernel
-  debug: true
-
-llm:
-  default_provider: openai
-  providers:
-    openai:
-      model: gpt-4
-      api_key: ${OPENAI_API_KEY}
-```
+### 2. 创建与运行 Agent
 
 ```python
-from agent_os_kernel.core.config_manager import ConfigManager
-
-config = ConfigManager("config.yaml")
-```
-
-### 3. 使用Agent
-
-```python
-from agent_os_kernel import AgentOSKernel
-
-kernel = AgentOSKernel()
-
-# 创建Agent
-agent = await kernel.create_agent(
+# 创建 Agent（类比操作系统 fork）
+agent_pid = kernel.spawn_agent(
     name="Assistant",
-    system_prompt="You are a helpful assistant."
+    task="分析这份日志并总结异常",
+    priority=50,
 )
 
-# 运行对话
-response = await agent.run("Hello!")
-print(response)
+# 查看状态
+info = kernel.get_agent(agent_pid)
+print(info["name"], info["status"])
+
+# 列出全部 Agent
+for agent in kernel.list_agents():
+    print(agent["name"], agent["status"])
 ```
 
-### 4. 使用Agent池
+### 3. Checkpoint 与恢复
+
+```python
+# 创建检查点（含该 Agent 的全部上下文页面）
+checkpoint_id = kernel.create_checkpoint(
+    agent_pid,
+    description="处理一半时存档",
+)
+
+# 之后任意时刻恢复到新进程
+new_pid = kernel.restore_checkpoint(checkpoint_id)
+
+# 优雅关闭
+kernel.shutdown()
+```
+
+### 4. Agent 池
 
 ```python
 from agent_os_kernel.core.agent_pool import AgentPool
+from agent_os_kernel.core.agent_definition import AgentDefinition
 
-pool = AgentPool(max_size=10)
+pool = AgentPool(max_size=10, idle_timeout=300.0)
 
-# 获取Agent
-agent = await pool.get_agent("worker-1")
+# 借用
+agent = await pool.acquire(AgentDefinition(
+    name="worker-1",
+    role="worker",
+    goal="处理任务",
+    backstory="通用工人",
+))
+
+# 归还
+await pool.release(agent)
+
+# 统计
+pool.get_stats()
 ```
 
 ### 5. 事件系统
 
 ```python
-from agent_os_kernel.core.event_bus import EventBus
+from agent_os_kernel.core.event_bus import EventBus, Event
 
-bus = EventBus()
+bus = EventBus(max_queue_size=10000)
 
-# 订阅事件
-@bus.on("agent.created")
-async def on_agent_created(event):
-    print(f"Agent created: {event.data['agent_id']}")
+# 订阅
+async def on_event(event: Event):
+    print(event.event_type, event.payload)
 
-# 发布事件
-await bus.publish("test.event", {"key": "value"})
+sub_id = bus.subscribe("agent.created", on_event)  # 同步方法
+
+# 发布
+await bus.publish(Event(
+    event_id="e-1",
+    event_type="agent.created",
+    payload={"agent_id": "a-1"},
+))
 ```
 
 ### 6. 熔断器
 
 ```python
-from agent_os_kernel.core.circuit_breaker import CircuitBreaker
+from agent_os_kernel.core.circuit_breaker import CircuitBreaker, CircuitConfig
 
 cb = CircuitBreaker(
-    failure_threshold=5,
-    timeout_seconds=30
+    name="llm-api",
+    config=CircuitConfig(failure_threshold=5, timeout_seconds=30),
 )
 
-result = await cb.call(risky_function)
+# 受保护调用（同步/异步）
+result = await cb.call_async(risky_async_function)
 ```
 
-### 7. 上下文管理
+### 7. 上下文管理（虚拟内存式）
 
 ```python
 from agent_os_kernel.core.context_manager import ContextManager
 
-ctx = ContextManager(max_tokens=128000)
+ctx = ContextManager(max_context_tokens=128000)
 
-# 管理对话上下文
-await ctx.add_message("user", "Hello!")
+# 分配页面
+page_id = ctx.allocate_page(
+    agent_pid="agent-1",
+    content="大量上下文内容...",
+    importance=0.8,
+)
+
+# 获取优化后的上下文（KV-Cache 友好的顺序）
+context = ctx.get_agent_context("agent-1")
 ```
 
 ## 运行测试
@@ -124,7 +152,7 @@ await ctx.add_message("user", "Hello!")
 pytest tests/ -v
 
 # 运行特定测试
-pytest tests/test_agent_pool.py -v
+pytest tests/test_kernel.py -v
 
 # 生成覆盖率报告
 pytest --cov=agent_os_kernel tests/
@@ -133,47 +161,33 @@ pytest --cov=agent_os_kernel tests/
 ## 运行示例
 
 ```bash
-# 基本示例
-python examples/basic/comprehensive_demo.py
+# 环境自检（黄金路径第一步）
+python -m agent_os_kernel doctor
 
-# Agent示例
-python examples/basic/agent_pool_demo.py
+# 确定性演示（mock provider，无需 API key）
+python -m agent_os_kernel demo
+
+# 启动 API 服务器（默认仅监听 127.0.0.1）
+python -m agent_os_kernel serve --port 8000
 ```
-
-## 配置说明
-
-| 配置项 | 说明 | 默认值 |
-|--------|------|--------|
-| app.debug | 调试模式 | false |
-| llm.default_provider | 默认LLM提供商 | openai |
-| agents.pool_size | Agent池大小 | 10 |
-| database.url | 数据库连接串 | - |
 
 ## 常见问题
 
-### Q: 如何添加新的LLM提供商?
+### Q: 如何添加新的 LLM 提供商？
 
-```python
-from agent_os_kernel.llm.base_provider import BaseLLMProvider
+继承 `agent_os_kernel.llm.provider.LLMProvider` 并实现四个抽象方法
+（`provider_name` / `supported_models` / `get_config` / `chat`），
+参考 `agent_os_kernel/llm/openai_impl.py`。
 
-class MyProvider(BaseLLMProvider):
-    async def complete(self, prompt: str) -> str:
-        # 实现逻辑
-        return "response"
-```
+### Q: 执行类工具安全吗？
 
-### Q: 如何扩展事件系统?
-
-```python
-# 自定义事件类型
-from agent_os_kernel.core.events import Event, EventType
-
-class CustomEvent(Event):
-    type = EventType.CUSTOM
-```
+默认 fail-closed：没有 Docker 沙箱时 `PythonExecuteTool` 返回
+`isolation_unavailable` 而不是静默在宿主执行；文件工具被限制在
+workspace 根内（防 `../` 与 symlink 逃逸）。详见 `docs/security.md`。
 
 ## 下一步
 
-- [API文档](API.md)
+- [API 文档](API.md)
 - [部署指南](DEPLOYMENT.md)
-- [性能基准](PERFORMANCE.md)
+- [安全说明](security.md)
+- [架构设计](architecture.md)

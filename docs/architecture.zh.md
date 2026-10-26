@@ -54,8 +54,7 @@ Agent OS Kernel (AOS-Kernel) 是一个专为 AI Agent 设计的操作系统内�
 ```python
 from agent_os_kernel import AgentOSKernel
 
-kernel = AgentOSKernel()
-kernel.initialize()
+kernel = AgentOSKernel()  # 构造函数即完成初始化
 
 # 创建 Agent
 agent_id = kernel.spawn_agent(
