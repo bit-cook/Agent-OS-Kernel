@@ -182,8 +182,10 @@ class ContextCompressor:
             total_tokens += msg_tokens
         
         # 按原始顺序排序
-        original_order = {msg.get("_index", i): msg for i, msg in enumerate(messages)}
-        result.sort(key=lambda x: original_order.get(x.get("_index", 0), 0))
+        # 按原始顺序排序（_index 不可靠：普通消息没有该字段；
+        # 原来按 original_order.get() 取到的是消息 dict 本身，比较即崩）
+        order = {id(msg): i for i, msg in enumerate(messages)}
+        result.sort(key=lambda x: order.get(id(x), len(messages)))
         
         return result
     

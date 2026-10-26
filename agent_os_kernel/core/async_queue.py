@@ -146,12 +146,13 @@ class AsyncQueue:
             await self._queues[topic].put(msg)
         
         self._stats["published"] += 1
-        
+
         logger.debug(f"Published message: {topic} -> {msg_id}")
-        
-        # 通知订阅者
-        await self._notify_subscribers(topic, msg)
-        
+
+        # 投递统一走队列消费者（_callbacks）：有序、可重试、有状态跟踪。
+        # 原来这里还会 _notify_subscribers(_subscribers set)，而 subscribe()
+        # 把同一回调同时注册进两个集合 —— 导致每条消息被投递两次。
+
         return msg_id
     
     async def _delayed_publish(self, msg: Message):

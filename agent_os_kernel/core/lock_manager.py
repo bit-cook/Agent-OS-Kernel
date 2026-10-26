@@ -73,6 +73,7 @@ class LockManager:
         
         self._locks: Dict[str, Lock] = {}
         self._waiting: Dict[str, asyncio.Queue] = {}
+        self._semaphore_holders: Dict[str, set] = {}
         self._read_locks: Dict[str, int] = {}  # 读写锁的读计数
         self._lock = asyncio.Lock()
         self._stats = {
@@ -194,6 +195,25 @@ class LockManager:
             
             lock = self._locks[name]
             
+            # 信号量：按持有者集合逐个释放（不要求 owner 匹配单一记录）
+            if lock.lock_type == LockType.SEMAPHORE:
+                holders = self._semaphore_holders.get(name, set())
+                if owner_id not in holders:
+                    logger.warning(f"Semaphore release denied: {name} by {owner_id}")
+                    return False
+                holders.discard(owner_id)
+                self._read_locks[name] = max(0, self._read_locks.get(name, 1) - 1)
+                if self._read_locks[name] <= 0:
+                    del self._locks[name]
+                    self._read_locks.pop(name, None)
+                    self._semaphore_holders.pop(name, None)
+                    # 通知等待者
+                    if name in self._waiting:
+                        await self._waiting[name].put(True)
+                self._stats["released"] += 1
+                logger.debug(f"Semaphore released: {name} by {owner_id}")
+                return True
+            
             if lock.owner_id != owner_id:
                 logger.warning(f"Lock release denied: {name} by {owner_id}")
                 return False
@@ -248,7 +268,7 @@ class LockManager:
         owner_id: str,
         max_concurrent: int = None
     ) -> bool:
-        """获取信号量"""
+        """获取信号量（可多个持有者；持有者集合跟踪，支持逐个释放）"""
         async with self._lock:
             current = self._read_locks.get(name, 0)
             limit = max_concurrent or self.max_concurrent
@@ -257,9 +277,13 @@ class LockManager:
                 return False
             
             self._read_locks[name] = current + 1
+            self._semaphore_holders.setdefault(name, set()).add(owner_id)
             
+            # _locks[name] 仅用于 is_locked 展示；权威持有者集合是
+            # _semaphore_holders（原来每次覆盖 _locks[name] 导致只有最后
+            # 一个持有者能 release，其他人恒 "release denied"）
             lock = Lock(
-                lock_id=f"{name}_{owner_id}",
+                lock_id=f"{name}_sem",
                 name=name,
                 lock_type=LockType.SEMAPHORE,
                 owner_id=owner_id
@@ -299,16 +323,17 @@ class LockManager:
 
 # 上下文管理器锁
 class async_lock:
-    """异步锁上下文管理器"""
+    """异步锁上下文管理器（owner_id 可指定，默认 "context"）"""
     
-    def __init__(self, lock_manager: LockManager, name: str, **kwargs):
+    def __init__(self, lock_manager: LockManager, name: str, owner_id: str = "context", **kwargs):
         self.lock_manager = lock_manager
         self.name = name
+        self.owner_id = owner_id
         self.kwargs = kwargs
         self.lock: Optional[Lock] = None
     
     async def __aenter__(self) -> Lock:
-        self.lock = await self.lock_manager.acquire(self.name, "context", **self.kwargs)
+        self.lock = await self.lock_manager.acquire(self.name, self.owner_id, **self.kwargs)
         return self.lock
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):

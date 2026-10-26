@@ -9,7 +9,7 @@ import logging
 from typing import Dict, Any, Optional, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from datetime import timezone, timezone, timedelta, timedelta
+from datetime import timezone, timedelta
 from enum import Enum
 import hashlib
 import json
@@ -37,8 +37,8 @@ class CacheEntry:
     """缓存条目"""
     key: str
     value: Any
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    accessed_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    accessed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     access_count: int = 0
     ttl_seconds: Optional[float] = None
     level: CacheLevel = CacheLevel.MEMORY

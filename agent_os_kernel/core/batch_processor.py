@@ -30,6 +30,7 @@ class Batch:
         self.aggregation = aggregation
         self.created_at = datetime.now(timezone.utc)
         self.processed_at = None
+        self.processed_count = 0
         self.results: List[Any] = []
     
     def add(self, item):
@@ -37,8 +38,10 @@ class Batch:
         self.items.append(item)
     
     def mark_processed(self):
-        """标记已处理"""
+        """标记已处理并清空待处理项（否则 flush 会重复计数同一批）"""
         self.processed_at = datetime.now(timezone.utc)
+        self.processed_count = len(self.items)
+        self.items = []
     
     def get_aggregated_value(self) -> Any:
         """获取聚合值"""
@@ -113,9 +116,10 @@ class BatchProcessor:
     
     async def _process_batch(self, batch: Batch):
         """处理批次"""
+        count = len(batch.items)          # 先快照数量（mark_processed 会清空 items）
         batch.mark_processed()
         self._stats["batch_count"] += 1
-        self._stats["processed_count"] += len(batch.items)
+        self._stats["processed_count"] += count
         self._stats["aggregated_value"] = batch.get_aggregated_value()
     
     async def flush(self):
