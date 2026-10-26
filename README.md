@@ -239,6 +239,18 @@ storage = StorageManager.from_postgresql(
     enable_vector=True
 )
 
+**Rust 内核的存储后端选择**：`AgentOSKernel::new()` 读取环境变量 `AOSK_DATABASE_URL`——
+有值且可连则用 PostgreSQL；无值或连接失败时回退内存后端（打印 warning，数据不落盘），
+开发/测试无需数据库即可启动内核。
+
+**Rust 内置工具**：`calculator`（安全表达式解析器，无 eval 语义）、`read_file`/`write_file`
+（workspace 根约束，防路径逃逸）、`execute_shell`（默认 fail-closed，需显式 opt-in）、
+`json_tool`、`search`。通过 `kernel.tools()` 访问注册表。
+
+**Rust LLM providers**（`llm-providers` feature，reqwest 实现）：OpenAI/MiniMax（OpenAI 兼容
+chat completions）与 Anthropic（messages API）。API key 经环境变量注入
+（`OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `MINIMAX_API_KEY`），缺失时明确报错而非静默。
+
 # 向量语义搜索
 results = storage.semantic_search(
     query="用户之前提到的需求",

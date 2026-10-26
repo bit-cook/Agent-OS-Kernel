@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- 存储层 memory 后端：`StorageBackend` enum（Postgres | Memory），`in_memory()` 与
+  `from_url_or_memory()`；内核读 `AOSK_DATABASE_URL`，无值/连不通自动回退内存，
+  不再强依赖 PostgreSQL 才能启动
+- 内置工具真实实现：calculator（递归下降表达式解析器，无 eval 语义）、
+  read_file/write_file（workspace 根约束）、execute_shell（默认 fail-closed，
+  显式 opt-in 后 argv 无 shell 执行）、json_tool、search；
+  `register_builtin_tools()` + 内核 `tool_registry` / `tools()`
+- `llm-providers` feature：OpenAI/MiniMax/Anthropic 真实 reqwest 客户端
+  （替代禁用的 async-openai），请求构造与响应解析为纯函数离线单测
+
+### Fixed
+- Cargo.toml 无效的 `[target.'cfg(feature="python")'.dependencies]` 配置
+  （Cargo 报警，feature 选择不生效）；pyo3 改 optional 接入 python feature
+- reqwest 改 default-features=false + rustls-tls，避免拖入 openssl-sys
+
+### Removed
+- 供应链噪音：vendor/、async-trait.crate、rustup-init.sh（无任何引用）
+
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased] - 2026-02-24
