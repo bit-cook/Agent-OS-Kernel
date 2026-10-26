@@ -476,6 +476,8 @@ class AgentPool:
                 await self._health_check()
                 await self._auto_scale()
                 await asyncio.sleep(self.auto_scale_interval)
+            except asyncio.CancelledError:
+                raise  # 取消必须传播，绝不被吞
             except Exception as e:
                 logger.error(f"Monitor loop error: {e}")
 
@@ -574,18 +576,33 @@ class AgentPool:
         logger.info("AgentPool started")
 
     async def stop(self):
-        """Stop the agent pool"""
+        """Stop the agent pool
+
+        有界 teardown：每一步都有超时上限。后台监控任务在特定 Python
+        版本 + 健康检查 wait_for 组合下可能延迟响应取消（CI 3.10/3.11
+        实测挂死 60s+），绝不允许 teardown 无限挂起。
+        """
         self._running = False
-        if self._monitor_task:
+        if self._monitor_task and not self._monitor_task.done():
             self._monitor_task.cancel()
             try:
-                await self._monitor_task
+                await asyncio.wait_for(self._monitor_task, timeout=5.0)
             except asyncio.CancelledError:
                 pass
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "Monitor task did not stop within 5s; abandoning it "
+                    "(it will be discarded when the loop closes)"
+                )
+            except Exception as e:
+                logger.warning(f"Monitor task stop error: {e}")
 
-        # Stop all agents
+        # Stop all agents（每个也有界）
         for agent in list(self._agents.values()):
-            await agent.stop()
+            try:
+                await asyncio.wait_for(agent.stop(), timeout=5.0)
+            except Exception as e:
+                logger.warning(f"Agent {getattr(agent, 'id', '?')} stop error: {e}")
 
         logger.info("AgentPool stopped")
 
