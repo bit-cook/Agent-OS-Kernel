@@ -29,9 +29,9 @@ async def demo_pipeline():
         print(f"  加载数据: {item}")
         return {"loaded": True}
     
-    pipeline.add_stage(PipelineStage(name="extract", handler=extract))
-    pipeline.add_stage(PipelineStage(name="transform", handler=transform))
-    pipeline.add_stage(PipelineStage(name="load", handler=load))
+    pipeline.add_stage("extract", extract)
+    pipeline.add_stage("transform", transform)
+    pipeline.add_stage("load", load)
     
     # 执行管道
     print("\n执行管道...")

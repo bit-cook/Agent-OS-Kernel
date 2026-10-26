@@ -14,7 +14,7 @@ async def demo_rate_limiter():
     print("=" * 60)
     
     # 创建速率限制器
-    limiter = RateLimiter(rate=10, period=60)  # 每60秒10次
+    limiter = RateLimiter(config=RateLimitConfig(requests_per_minute=10, window_seconds=60))
     
     # 尝试获取许可
     print("\n尝试获取许可...")

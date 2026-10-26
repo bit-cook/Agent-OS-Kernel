@@ -1,0 +1,17 @@
+{
+  "trajectory_id": "traj_1793005133_MetricsAgent",
+  "agent_name": "MetricsAgent",
+  "agent_pid": "metrics_9",
+  "task": "测试任务 9",
+  "start_time": 1793005133.444218,
+  "end_time": 1793005133.444378,
+  "steps_count": 3,
+  "outcome": "失败",
+  "success": false,
+  "total_tokens": 470,
+  "total_tools_used": 2,
+  "avg_confidence": 0.5,
+  "steps": [
+    {
+      "step_id": "step_0",
+      "phase": 

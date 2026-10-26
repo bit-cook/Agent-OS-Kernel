@@ -1,0 +1,17 @@
+{
+  "trajectory_id": "traj_1793006572_LearningAgent",
+  "agent_name": "LearningAgent",
+  "agent_pid": "pid_4",
+  "task": "任务 5",
+  "start_time": 1793006572.7473571,
+  "end_time": 1793006572.7474196,
+  "steps_count": 4,
+  "outcome": "失败",
+  "success": false,
+  "total_tokens": 500,
+  "total_tools_used": 5,
+  "avg_confidence": 0.4,
+  "steps": [
+    {
+      "step_id": "step_0",
+      "phase": 

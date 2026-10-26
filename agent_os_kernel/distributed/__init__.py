@@ -4,10 +4,11 @@
 # 导致 `import agent_os_kernel.distributed` 直接 ModuleNotFoundError）。
 # 现仅导出实际存在的 scheduler 与 migration。
 
-from .scheduler import DistributedScheduler
+from .scheduler import DistributedScheduler, create_distributed_scheduler
 from .migration import AgentMigration
 
 __all__ = [
     'DistributedScheduler',
+    'create_distributed_scheduler',
     'AgentMigration',
 ]

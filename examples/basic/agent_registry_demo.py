@@ -18,10 +18,9 @@ def demo_agent_registry():
     
     # 注册Agent
     print("\n注册Agent...")
-    registry.register(
+    await registry.register(
         agent_id="assistant",
         name="Assistant",
-        version="1.0.0",
         capabilities=["chat", "reasoning"]
     )
     

@@ -21,7 +21,7 @@ async def demo_cache():
         key="user:123",
         value={"name": "Alice", "role": "admin"},
         level=CacheLevel.MEMORY,
-        ttl=3600
+        ttl_seconds=3600
     )
     
     # 获取缓存

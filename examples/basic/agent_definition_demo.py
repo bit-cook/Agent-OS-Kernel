@@ -15,11 +15,11 @@ def demo_agent_definition():
     
     # 创建任务定义
     task = TaskDefinition(
-        task_id="research-task",
         description="Research AI trends",
-        expected_output="Report on AI trends"
+        expected_output="Report on AI trends",
+        agent_name="researcher"
     )
-    print(f"\n✅ 任务创建: {task.task_id}")
+    print(f"\n✅ 任务创建: {task.description}")
     
     # 创建Agent定义
     agent = AgentDefinition(

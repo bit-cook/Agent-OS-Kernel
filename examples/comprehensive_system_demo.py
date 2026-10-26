@@ -6,18 +6,18 @@
 """
 
 import asyncio
+from agent_os_kernel.core.rate_limiter import RateLimiter, RateLimitConfig
 from datetime import datetime
 
 # 导入核心组件
 from agent_os_kernel.core import (
     # 缓存
-    CacheSystem, get_cache_system,
+    CacheSystem,
     # 消息队列
     PriorityMessageQueue, MessageBroker,
     # 熔断器
     CircuitBreaker, CircuitConfig,
     # 限流器
-    RateLimiter, RateLimitConfig,
     # 重试机制
     RetryMechanism, RetryCondition,
     # 工作流
@@ -37,7 +37,7 @@ class AgentSystem:
     """完整的Agent系统示例"""
     
     def __init__(self):
-        self.cache = get_cache_system()
+        self.cache = CacheSystem()
         self.message_broker = MessageBroker()
         self.circuit_breaker = CircuitBreaker("api_calls")
         self.rate_limiter = RateLimiter(RateLimitConfig())
@@ -50,13 +50,13 @@ class AgentSystem:
         
         # 1. 检查缓存
         cache_key = f"task:{task_data['id']}"
-        cached_result = self.cache.get(cache_key)
+        cached_result = await self.cache.get(cache_key)
         if cached_result:
             print(f"✅ 缓存命中: {cache_key}")
             return cached_result
         
         # 2. 限流检查
-        if not self.rate_limiter.allow():
+        if not await self.rate_limiter.acquire():
             return {"error": "Rate limit exceeded"}
         
         # 3. 使用熔断器调用外部API
