@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- 修复 6 处运行时 NameError（测试未覆盖路径）：context_manager.ContextOverflowError
+  未定义、metrics.get_all 缺 import copy、storage 缺 os/math/logger、
+  resources/gpu 缺 _global_gpu_manager 单例、tools/base 缺 defaultdict
+- benchmark：失败调用不再混入延迟样本，新增 LatencyResult.error_count
+- lock_manager.acquire：阻塞路径修复互斥破坏（原实现丢弃 wait_task 后重复建锁），
+  改为临界区外等待 + 重试循环，超时正确返回 None
+- optimization/batch.clear_results：修复恒 False 的清理条件
+  （now()-now()>1h），BatchResult 增加 completed_at，按 cutoff 真正清理
+
+### Tests
+- 新增 tests/test_deep_fixes.py：7 项回归测试
+- 全量 662 passed / 0 failed
+
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased] - 2026-10-24
