@@ -782,8 +782,10 @@ class ContextManager:
             try:
                 encoding = tiktoken.encoding_for_model("gpt-4")
                 return len(encoding.encode(text))
-            except Exception:
-                pass
+            except Exception as _suppressed:
+                logging.getLogger(__name__).debug(
+                    "suppressed exception: %s", _suppressed
+                )
         
         # 回退：按空格分词后乘以经验系数 1.3
         words = len(text.split())

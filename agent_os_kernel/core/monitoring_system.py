@@ -10,6 +10,7 @@ from datetime import datetime
 from datetime import timezone, timezone, timedelta
 from enum import Enum
 import asyncio
+import logging
 
 
 class AlertSeverity(Enum):
@@ -144,8 +145,10 @@ class MonitoringSystem:
                     asyncio.create_task(notify(alert))
                 else:
                     notify(alert)
-            except Exception:
-                pass
+            except Exception as _suppressed:
+                logging.getLogger(__name__).debug(
+                    "suppressed exception: %s", _suppressed
+                )
     
     def add_notification(self, callback: Callable):
         """添加通知回调"""

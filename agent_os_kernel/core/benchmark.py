@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from contextlib import contextmanager
 from datetime import datetime
 import json
+import logging
 
 
 @dataclass
@@ -157,8 +158,10 @@ class LatencyBenchmark:
             for _ in range(self.warmup_iterations):
                 try:
                     func(*args, **kwargs)
-                except Exception:
-                    pass
+                except Exception as _suppressed:
+                    logging.getLogger(__name__).debug(
+                        "suppressed exception: %s", _suppressed
+                    )
         
         # 正式测量（失败的调用不计入延迟样本，单独计数）
         errors = 0

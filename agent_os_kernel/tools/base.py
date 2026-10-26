@@ -403,8 +403,10 @@ class AgentNativeCLITool(CLITool):
                     return json.loads(result.stdout)
                 except json.JSONDecodeError:
                     pass
-        except Exception:
-            pass
+        except Exception as _suppressed:
+            logging.getLogger(__name__).debug(
+                "suppressed exception: %s", _suppressed
+            )
         
         # 回退到默认实现
         return super().get_capabilities()

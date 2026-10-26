@@ -181,7 +181,7 @@ class MemoryCache:
         """估算大小"""
         try:
             return len(pickle.dumps(value))
-        except:
+        except Exception:
             return len(str(value))
     
     def _calculate_hit_rate(self) -> float:
@@ -289,8 +289,11 @@ class DiskCache:
                 
                 if entry.is_expired():
                     os.remove(path)
-            except:
-                os.remove(path)
+            except Exception:
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
 
 
 class TieredCache:

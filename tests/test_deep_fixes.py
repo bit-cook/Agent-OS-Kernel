@@ -120,3 +120,53 @@ class TestBatchClearResults:
         )
         proc.clear_results(completed_before=datetime(2021, 1, 1))
         assert "a" not in proc._results
+
+
+class TestCalculatorHardening:
+    """calculator 从 eval+co_names 改为 AST 白名单后的逃逸/DoS 回归"""
+
+    def setup_method(self):
+        from agent_os_kernel.tools.builtin import CalculatorTool
+        self.calc = CalculatorTool()
+
+    def test_normal_expressions(self):
+        cases = {
+            "2 + 3 * 4": 14,
+            "(2 + 3) * 4": 20,
+            "sqrt(16) + abs(-2)": 6.0,
+            "max(1, 5, 3)": 5,
+            "7 % 3": 1,
+            "2 ** 10": 1024,
+            "-5 + 3": -2,
+        }
+        for expr, expected in cases.items():
+            r = self.calc.execute(expression=expr)
+            assert r["success"], f"{expr} failed: {r['error']}"
+            assert r["data"] == expected, f"{expr} -> {r['data']} != {expected}"
+
+    def test_sandbox_escapes_rejected(self):
+        escapes = [
+            "().__class__.__mro__[1].__subclasses__()",
+            "(1).__class__.__bases__[0].__subclasses__()",
+            "getattr(math, '__import__')('os')",
+            "__import__('os').system('echo PWNED')",
+            "open('/etc/passwd').read()",
+            "[x for x in ().__class__.__mro__]",
+            "'a' + 'b'",
+            "lambda: 1",
+            "1 if 2 else 3",
+            "{}.__class__",
+        ]
+        for expr in escapes:
+            r = self.calc.execute(expression=expr)
+            assert not r["success"], f"ESCAPED: {expr} -> {r['data']}"
+
+    def test_dos_rejected(self):
+        for expr in ["9**9**9", "pow(9, 9**9)", "9**99999"]:
+            r = self.calc.execute(expression=expr)
+            assert not r["success"], f"DoS ACCEPTED: {expr}"
+
+    def test_length_limit(self):
+        r = self.calc.execute(expression="1+" * 400 + "1")
+        assert not r["success"]
+        assert "too long" in r["error"]

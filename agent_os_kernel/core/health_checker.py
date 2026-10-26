@@ -393,9 +393,15 @@ class DependencyHealthChecker(BaseHealthChecker):
         try:
             import subprocess
             
+            # argv 形式：字符串命令经 shlex 切分，不走 shell（防元字符注入）
+            command = self.config.command
+            if isinstance(command, str):
+                import shlex
+                command = shlex.split(command)
+            
             result = subprocess.run(
-                self.config.command,
-                shell=True,
+                command,
+                shell=False,
                 capture_output=True,
                 text=True,
                 timeout=10,

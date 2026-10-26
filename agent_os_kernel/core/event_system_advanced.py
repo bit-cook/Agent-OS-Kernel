@@ -21,6 +21,7 @@ from enum import Enum, auto
 from typing import Any, Callable, Dict, List, Optional, Set, Union, Generic, TypeVar
 from collections import defaultdict, deque
 import copy
+import logging
 
 
 class EventPriority(Enum):
@@ -457,15 +458,19 @@ class AdvancedEventSystem:
             for callback in self.subscribers.get(event.event_type.name, []):
                 try:
                     callback(event)
-                except Exception:
-                    pass
+                except Exception as _suppressed:
+                    logging.getLogger(__name__).debug(
+                        "suppressed exception: %s", _suppressed
+                    )
             
             # Notify wildcard subscribers
             for callback in self.subscribers.get("*", []):
                 try:
                     callback(event)
-                except Exception:
-                    pass
+                except Exception as _suppressed:
+                    logging.getLogger(__name__).debug(
+                        "suppressed exception: %s", _suppressed
+                    )
             
             # Record trace
             self.tracer.record_event(event, "processed")

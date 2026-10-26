@@ -346,14 +346,14 @@ class AgentMessenger:
                     while not self._inbox[agent_id].empty():
                         try:
                             self._inbox[agent_id].get_nowait()
-                        except:
+                        except asyncio.QueueEmpty:
                             break
             else:
                 for agent_id in self._inbox:
                     while not self._inbox[agent_id].empty():
                         try:
                             self._inbox[agent_id].get_nowait()
-                        except:
+                        except asyncio.QueueEmpty:
                             break
                 self._history.clear()
         

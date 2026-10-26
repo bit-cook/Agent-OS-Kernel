@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from concurrent.futures import ThreadPoolExecutor, Future
 from contextlib import contextmanager
 import weakref
+import logging
 
 
 T = TypeVar('T')
@@ -137,8 +138,10 @@ class ConnectionPool(Generic[T]):
         if hasattr(conn, 'close'):
             try:
                 conn.close()
-            except Exception:
-                pass
+            except Exception as _suppressed:
+                logging.getLogger(__name__).debug(
+                    "suppressed exception: %s", _suppressed
+                )
     
     def status(self) -> Dict[str, int]:
         """获取池状态"""
@@ -599,8 +602,10 @@ class BatchProcessor:
         if self._processor:
             try:
                 self._processor(batch)
-            except Exception:
-                pass  # 处理失败，丢弃批次
+            except Exception as _suppressed:
+                logging.getLogger(__name__).debug(
+                    "suppressed exception: %s", _suppressed
+                )  # 处理失败，丢弃批次
     
     def stats(self) -> Dict[str, Any]:
         """获取统计"""

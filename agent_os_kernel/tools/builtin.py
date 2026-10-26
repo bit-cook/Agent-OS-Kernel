@@ -67,6 +67,93 @@ def _default_roots(allowed_roots: Optional[List[str]]) -> List[str]:
     return allowed_roots if allowed_roots else [os.getcwd()]
 
 
+# ─── 计算器：AST 白名单求值器 ─────────────────────────────
+#
+# 替代旧的 compile + co_names 检查 + eval 方案：
+# - co_names 只覆盖 LOAD_GLOBAL/LOAD_ATTR 的名字，无法覆盖所有逃逸面
+#   （如生成器/切片/格式化等技巧），且 `pow(9, 9**9)` 级大指数会
+#   制造 CPU/内存 DoS（Python int 无上界）
+# AST 求值器只放行：数值常量、白名单二元/一元运算符、白名单函数调用、
+# 白名单常量名；属性访问/下标/推导式/字符串一律拒绝；幂运算限幅。
+
+import ast as _ast
+import operator as _operator
+
+_MAX_EXPRESSION_LEN = 500
+_MAX_POW_EXPONENT = 1000
+
+_CALC_BINOPS = {
+    _ast.Add: _operator.add,
+    _ast.Sub: _operator.sub,
+    _ast.Mult: _operator.mul,
+    _ast.Div: _operator.truediv,
+    _ast.FloorDiv: _operator.floordiv,
+    _ast.Mod: _operator.mod,
+    _ast.Pow: _operator.pow,
+}
+_CALC_UNARYOPS = {
+    _ast.UAdd: _operator.pos,
+    _ast.USub: _operator.neg,
+}
+_CALC_FUNCS = {
+    "abs": abs, "round": round, "min": min, "max": max, "sum": sum,
+    "pow": pow, "sqrt": math.sqrt, "sin": math.sin, "cos": math.cos,
+    "tan": math.tan, "log": math.log, "log10": math.log10, "exp": math.exp,
+}
+_CALC_CONSTANTS = {"pi": math.pi, "e": math.e}
+
+
+class CalculatorError(ValueError):
+    """表达式非法（白名单外或超限）"""
+
+
+def _calc_eval_node(node: _ast.AST):
+    """递归求值 AST 节点；任何白名单外结构抛 CalculatorError"""
+    if isinstance(node, _ast.Expression):
+        return _calc_eval_node(node.body)
+
+    if isinstance(node, _ast.Constant):
+        if isinstance(node.value, bool) or not isinstance(node.value, (int, float)):
+            raise CalculatorError("only numeric constants are allowed")
+        return node.value
+
+    if isinstance(node, _ast.BinOp):
+        op = _CALC_BINOPS.get(type(node.op))
+        if op is None:
+            raise CalculatorError(f"disallowed operator: {type(node.op).__name__}")
+        left = _calc_eval_node(node.left)
+        right = _calc_eval_node(node.right)
+        if isinstance(node.op, _ast.Pow) and abs(right) > _MAX_POW_EXPONENT:
+            raise CalculatorError(f"exponent too large (max {_MAX_POW_EXPONENT})")
+        return op(left, right)
+
+    if isinstance(node, _ast.UnaryOp):
+        op = _CALC_UNARYOPS.get(type(node.op))
+        if op is None:
+            raise CalculatorError(f"disallowed unary operator: {type(node.op).__name__}")
+        return op(_calc_eval_node(node.operand))
+
+    if isinstance(node, _ast.Call):
+        if not isinstance(node.func, _ast.Name):
+            raise CalculatorError("only direct calls to whitelisted functions")
+        fn = _CALC_FUNCS.get(node.func.id)
+        if fn is None:
+            raise CalculatorError(f"disallowed function: {node.func.id}")
+        if node.keywords:
+            raise CalculatorError("keyword arguments are not allowed")
+        args = [_calc_eval_node(a) for a in node.args]
+        if node.func.id == "pow" and len(args) == 2 and abs(args[1]) > _MAX_POW_EXPONENT:
+            raise CalculatorError(f"exponent too large (max {_MAX_POW_EXPONENT})")
+        return fn(*args)
+
+    if isinstance(node, _ast.Name):
+        if node.id in _CALC_CONSTANTS:
+            return _CALC_CONSTANTS[node.id]
+        raise CalculatorError(f"unknown name: {node.id}")
+
+    raise CalculatorError(f"disallowed expression element: {type(node).__name__}")
+
+
 class CalculatorTool(Tool):
     """计算器工具"""
     
@@ -87,43 +174,24 @@ class CalculatorTool(Tool):
         ]
     
     def execute(self, expression: str, **kwargs) -> Dict[str, Any]:
-        """安全地计算数学表达式"""
+        """安全地计算数学表达式（AST 白名单，无 eval 语义）"""
         try:
-            # 安全评估：只允许数学运算
-            allowed_names = {
-                "abs": abs,
-                "max": max,
-                "min": min,
-                "sum": sum,
-                "pow": pow,
-                "round": round,
-                "math": math,
-                "sin": math.sin,
-                "cos": math.cos,
-                "tan": math.tan,
-                "sqrt": math.sqrt,
-                "log": math.log,
-                "log10": math.log10,
-                "exp": math.exp,
-                "pi": math.pi,
-                "e": math.e,
-            }
-            
-            # 编译表达式
-            code = compile(expression, "<string>", "eval")
-            
-            # 检查只允许安全的操作
-            for name in code.co_names:
-                if name not in allowed_names:
-                    return {
-                        "success": False,
-                        "data": None,
-                        "error": f"Disallowed name: {name}",
-                        "metadata": {}
-                    }
-            
-            result = eval(code, {"__builtins__": {}}, allowed_names)
-            
+            if not isinstance(expression, str) or not expression.strip():
+                return {
+                    "success": False, "data": None,
+                    "error": "expression must be a non-empty string",
+                    "metadata": {},
+                }
+            if len(expression) > _MAX_EXPRESSION_LEN:
+                return {
+                    "success": False, "data": None,
+                    "error": f"expression too long (max {_MAX_EXPRESSION_LEN} chars)",
+                    "metadata": {},
+                }
+
+            tree = _ast.parse(expression, mode="eval")
+            result = _calc_eval_node(tree)
+
             return {
                 "success": True,
                 "data": result,
@@ -131,6 +199,13 @@ class CalculatorTool(Tool):
                 "metadata": {"expression": expression}
             }
             
+        except CalculatorError as e:
+            return {
+                "success": False,
+                "data": None,
+                "error": str(e),
+                "metadata": {"expression": expression}
+            }
         except Exception as e:
             return {
                 "success": False,

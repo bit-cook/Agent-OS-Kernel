@@ -13,7 +13,8 @@ import logging
 from typing import Dict, Any, Optional, List
 
 from ..kernel import AgentOSKernel
-from ..core.types import AgentProcess, LLMResponse
+from ..core.scheduler import AgentProcess
+from ..llm.provider import LLMResponse
 from ..tools.base import Tool
 
 

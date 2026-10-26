@@ -19,6 +19,7 @@ from enum import Enum
 import threading
 import uuid
 from collections import deque
+import logging
 
 
 T = TypeVar('T')
@@ -280,8 +281,10 @@ class MacroCommand(Command):
         for command in reversed(self._executed_commands):
             try:
                 command.undo()
-            except Exception:
-                pass  # Continue with other undos
+            except Exception as _suppressed:
+                logging.getLogger(__name__).debug(
+                    "suppressed exception: %s", _suppressed
+                )  # Continue with other undos
     
     def undo(self) -> None:
         """Undo all executed commands in reverse order"""
@@ -425,8 +428,10 @@ class CommandQueue:
             for callback in self._on_execute_callbacks:
                 try:
                     callback(command, result)
-                except Exception:
-                    pass
+                except Exception as _suppressed:
+                    logging.getLogger(__name__).debug(
+                        "suppressed exception: %s", _suppressed
+                    )
             
             return result
         except Exception:
@@ -454,8 +459,10 @@ class CommandQueue:
                     for callback in self._on_undo_callbacks:
                         try:
                             callback(command)
-                        except Exception:
-                            pass
+                        except Exception as _suppressed:
+                            logging.getLogger(__name__).debug(
+                                "suppressed exception: %s", _suppressed
+                            )
                 except Exception:
                     break
         return undone

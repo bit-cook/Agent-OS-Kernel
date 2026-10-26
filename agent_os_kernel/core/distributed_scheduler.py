@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from enum import Enum
 import asyncio
 import random
+import logging
 
 
 class SchedulerState(Enum):
@@ -99,8 +100,10 @@ class DistributedScheduler:
                             await callback(task, best_node)
                         else:
                             callback(task, best_node)
-                    except Exception:
-                        pass
+                    except Exception as _suppressed:
+                        logging.getLogger(__name__).debug(
+                            "suppressed exception: %s", _suppressed
+                        )
             else:
                 task.status = "pending"
                 await self._task_queue.put((-task.priority, task_id))

@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, Dict
 from functools import wraps
 import threading
+import logging
 
 
 class CircuitState(Enum):
@@ -156,8 +157,10 @@ class CircuitBreaker:
             if self.on_state_change:
                 try:
                     self.on_state_change(self.name, old_state, new_state)
-                except Exception:
-                    pass  # Don't let callback failures affect circuit
+                except Exception as _suppressed:
+                    logging.getLogger(__name__).debug(
+                        "suppressed exception: %s", _suppressed
+                    )  # Don't let callback failures affect circuit
     
     def _record_failure(self):
         """Record a failure and potentially open circuit."""

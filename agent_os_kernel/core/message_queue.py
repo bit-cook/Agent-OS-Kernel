@@ -23,6 +23,7 @@ from collections import defaultdict, deque
 from pathlib import Path
 import copy
 import copy
+import logging
 
 
 class MessagePriority(Enum):
@@ -234,8 +235,10 @@ class PriorityMessageQueue:
             file_path = os.path.join(self.persistence_path, f"{message.message_id}.msg")
             with open(file_path, 'w', encoding='utf-8') as f:
                 json.dump(message.to_dict(), f, ensure_ascii=False, indent=2)
-        except Exception:
-            pass  # Silently fail on persistence errors
+        except Exception as _suppressed:
+            logging.getLogger(__name__).debug(
+                "suppressed exception: %s", _suppressed
+            )  # Silently fail on persistence errors
     
     def _load_persisted_messages(self) -> None:
         """Load persisted messages from disk"""
@@ -252,10 +255,14 @@ class PriorityMessageQueue:
                             message = Message.from_dict(data)
                             if message.status == MessageStatus.PENDING:
                                 heappush(self._queue, self._get_message_key(message))
-                    except Exception:
-                        pass  # Skip corrupted files
-        except Exception:
-            pass  # Silently fail on load errors
+                    except Exception as _suppressed:
+                        logging.getLogger(__name__).debug(
+                            "suppressed exception: %s", _suppressed
+                        )  # Skip corrupted files
+        except Exception as _suppressed:
+            logging.getLogger(__name__).debug(
+                "suppressed exception: %s", _suppressed
+            )  # Silently fail on load errors
     
     def acknowledge(self, message_id: str) -> bool:
         """
@@ -273,8 +280,10 @@ class PriorityMessageQueue:
                 file_path = os.path.join(self.persistence_path, f"{message_id}.msg")
                 if os.path.exists(file_path):
                     os.remove(file_path)
-            except Exception:
-                pass
+            except Exception as _suppressed:
+                logging.getLogger(__name__).debug(
+                    "suppressed exception: %s", _suppressed
+                )
         return True
     
     def clear(self) -> int:
@@ -294,8 +303,10 @@ class PriorityMessageQueue:
                     for filename in os.listdir(self.persistence_path):
                         if filename.endswith('.msg'):
                             os.remove(os.path.join(self.persistence_path, filename))
-                except Exception:
-                    pass
+                except Exception as _suppressed:
+                    logging.getLogger(__name__).debug(
+                        "suppressed exception: %s", _suppressed
+                    )
             
             return count
 
@@ -457,8 +468,10 @@ class MessageBroker:
                                 if sub.matches(message):
                                     try:
                                         sub.callback(message)
-                                    except Exception:
-                                        pass
+                                    except Exception as _suppressed:
+                                        logging.getLogger(__name__).debug(
+                                            "suppressed exception: %s", _suppressed
+                                        )
                             found_message = message
                             break
             
