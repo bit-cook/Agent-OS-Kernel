@@ -6,7 +6,6 @@ Agent-OS-Kernel 批处理演示
 
 from agent_os_kernel.core.batch_processor import BatchProcessor, AggregationType
 
-
 async def demo_batch():
     """演示批处理"""
     print("=" * 60)
@@ -25,16 +24,20 @@ async def demo_batch():
     for i in range(5):
         await processor.add_task({"id": i, "value": i + 1})
     
+    # 刷新批次（不足一批的任务也会被处理）
+    await processor.flush()
+    
     # 获取统计
     stats = processor.get_statistics()
     print(f"\n批处理统计:")
-    print(f"  批次数量: {stats.batch_count}")
-    print(f"  处理数量: {stats.processed_count}")
-    print(f"  失败数量: {stats.failed_count}")
+    print(f"  批次数量: {stats['batch_count']}")
+    print(f"  处理数量: {stats['processed_count']}")
+    print(f"  失败数量: {stats['failed_count']}")
+    print(f"  活动批次: {stats['active_batches']}")
     
     # 获取聚合结果
-    if stats.total_processed > 0:
-        print(f"  聚合值: {stats.aggregated_value}")
+    if stats['processed_count'] > 0:
+        print(f"  聚合值: {stats['aggregated_value']}")
     
     print("\n" + "=" * 60)
     print("演示完成!")

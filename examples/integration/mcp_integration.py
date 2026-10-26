@@ -13,7 +13,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agent_os_kernel import AgentOSKernel
-from agent_os_kernel.tools.mcp import init_mcp_registry, get_mcp_registry
+from agent_os_kernel.tools.mcp.registry import init_mcp_registry, get_mcp_registry
 
 
 async def demo_mcp_basic():
@@ -40,6 +40,7 @@ async def demo_mcp_basic():
     # 示例 2: Filesystem MCP 服务器
     mcp_registry.add_server(
         name="filesystem",
+        command="",
         url="http://localhost:3001/mcp"  # HTTP 方式
     )
     

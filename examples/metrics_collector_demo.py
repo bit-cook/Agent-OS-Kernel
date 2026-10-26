@@ -11,6 +11,7 @@ Metrics Collector Demo - Agent-OS-Kernel 指标收集器演示
 
 import time
 import random
+import sys
 import threading
 from agent_os_kernel.core.metrics_collector import (
     MetricsRegistry,
@@ -27,6 +28,14 @@ from agent_os_kernel.core.metrics_collector import (
     histogram,
     export_metrics,
 )
+
+
+def pause():
+    """交互式运行时等待回车；非交互运行（管道/CI）时直接跳过"""
+    if sys.stdin.isatty():
+        input("\n按回车键继续...")
+    else:
+        print()
 
 
 def demo_counter():
@@ -293,8 +302,11 @@ def demo_real_world_scenario():
         time.sleep(0.05)
         
         # 请求完成
-        status = random.choice(["200", "201", "400", "404", "500"], 
-                              weights=[60, 15, 15, 8, 2])
+        status = random.choices(
+            ["200", "201", "400", "404", "500"],
+            weights=[60, 15, 15, 8, 2],
+            k=1,
+        )[0]
         in_flight_requests.dec()
         
         # 记录指标
@@ -322,19 +334,24 @@ def demo_real_world_scenario():
         print(f"    {method} {endpoint} -> {status}: {int(count)}")
     
     print("\n延迟统计:")
+    print("  （延迟指标带有 method/endpoint 两个标签，查询时需给出完整标签组合）")
     for endpoint in endpoints:
-        count = request_duration.get_count({"endpoint": endpoint})
+        count = 0
+        total = 0.0
+        for method in methods:
+            label_values = {"method": method, "endpoint": endpoint}
+            count += request_duration.get_count(label_values)
+            total += request_duration.get_sum(label_values)
         if count > 0:
-            total = request_duration.get_sum({"endpoint": endpoint})
             percentiles = request_duration.get_percentiles(
                 [0.5, 0.9, 0.95],
-                label_values={"endpoint": endpoint}
+                label_values={"method": methods[0], "endpoint": endpoint},
             )
             print(f"  {endpoint}:")
             print(f"    请求数: {count}")
             print(f"    平均: {total/count:.3f}s")
-            print(f"    P50: {percentiles.get(0.5, 0):.3f}s")
-            print(f"    P90: {percentiles.get(0.9, 0):.3f}s")
+            print(f"    P50 ({methods[0]}): {percentiles.get(0.5, 0):.3f}s")
+            print(f"    P90 ({methods[0]}): {percentiles.get(0.9, 0):.3f}s")
             print(f"    P95: {percentiles.get(0.95, 0):.3f}s")
     
     # 导出Prometheus格式
@@ -351,19 +368,19 @@ def main():
     
     # 运行各个演示
     demo_counter()
-    input("\n按回车键继续...")
+    pause()
     
     demo_gauge()
-    input("\n按回车键继续...")
+    pause()
     
     demo_histogram()
-    input("\n按回车键继续...")
+    pause()
     
     demo_metrics_export()
-    input("\n按回车键继续...")
+    pause()
     
     demo_thread_safety()
-    input("\n按回车键继续...")
+    pause()
     
     demo_real_world_scenario()
     

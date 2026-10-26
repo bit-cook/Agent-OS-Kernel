@@ -41,8 +41,10 @@ async def demo_core_modules():
     # Events
     from agent_os_kernel.core.events import EventBus, Event, EventType
     bus = EventBus()
+    await bus.start()
     event = Event.create(EventType.AGENT_CREATED, "test", {"test": True})
     await bus.publish(event)
+    await bus.stop()
     print("✓ Events: OK")
     
     # Memory
@@ -58,7 +60,7 @@ async def demo_core_modules():
     print("✓ Cost Tracker: OK")
     
     # Observability
-    from agent_os_kernel.core.observability import Observability, EventType
+    from agent_os_kernel.core.observability import Observability
     obs = Observability()
     obs.start_session(name="test")
     print("✓ Observability: OK")
@@ -66,14 +68,18 @@ async def demo_core_modules():
     # Checkpointer
     from agent_os_kernel.core.checkpointer import Checkpointer
     cp = Checkpointer()
-    cp.save({"step": 0}, thread_id="demo")
-    print("✓ Checkpointer: OK")
+    checkpoint_id = await cp.create(name="demo", state={"step": 0})
+    print(f"✓ Checkpointer: OK (检查点 {checkpoint_id[:8]}...)")
     
     # Task Manager
     from agent_os_kernel.core.task_manager import TaskManager
     manager = TaskManager()
-    manager.create_task("test", "output", "agent")
-    print("✓ Task Manager: OK")
+
+    async def work():
+        return {"output": "done"}
+
+    execution = await manager.execute("exec-1", "test", "agent", work)
+    print(f"✓ Task Manager: OK (执行状态 {execution.status.value})")
     
     # Agent Definition
     from agent_os_kernel.core.agent_definition import AgentDefinition, CrewDefinition

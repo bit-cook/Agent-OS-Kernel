@@ -21,23 +21,24 @@ def demo_agent_definition():
     )
     print(f"\n✅ 任务创建: {task.description}")
     
-    # 创建Agent定义
+    # 创建Agent定义（name, role, goal, backstory 为必填）
     agent = AgentDefinition(
         agent_id="researcher",
         name="Research Agent",
         role="Senior Researcher",
+        goal="Discover breakthrough AI technologies",
+        backstory="Expert in AI research with 10 years experience",
         description="Expert in AI research"
     )
-    print(f"✅ Agent创建: {agent.name}")
+    print(f"✅ Agent创建: {agent.name} (role: {agent.role})")
     
-    # 创建Crew定义
+    # 创建Crew定义（agents/tasks 以列表传入）
     crew = CrewDefinition(
-        crew_id="research-crew",
         name="Research Crew",
-        description="AI research team"
+        agents=[agent],
+        tasks=[task],
+        process_mode="sequential"
     )
-    crew.add_agent(agent)
-    crew.add_task(task)
     print(f"✅ Crew创建: {crew.name}")
     print(f"   Agent数量: {len(crew.agents)}")
     print(f"   任务数量: {len(crew.tasks)}")

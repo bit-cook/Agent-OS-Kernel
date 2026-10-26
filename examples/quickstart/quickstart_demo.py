@@ -122,11 +122,12 @@ async def demo_with_llm():
     print("=" * 60)
     
     from agent_os_kernel.llm import create_mock_provider
-    
+    from agent_os_kernel.llm.provider import ChatMessage
+
     provider = create_mock_provider()
     print(f"✅ Provider created: {provider.provider_name}")
-    
-    messages = [{"role": "user", "content": "Hello!"}]
+
+    messages = [ChatMessage(role="user", content="Hello!")]
     result = await provider.chat(messages)
     print(f"✅ Response: {result.get('content', '')[:50]}...")
     
@@ -144,16 +145,16 @@ async def demo_observability():
     print("🚀 Observability Demo")
     print("=" * 60)
     
-    from agent_os_kernel.core.observability import Observability, EventType
-    
+    from agent_os_kernel.core.observability import Observability
+
     obs = Observability()
     session = obs.start_session(name="QuickStart", tags=["demo"])
     print(f"✅ Session started: {session.id}")
-    
-    obs.record_event(EventType.AGENT_START)
-    obs.record_event(EventType.TASK_START)
-    obs.record_event(EventType.TASK_COMPLETE)
-    obs.record_event(EventType.AGENT_END)
+
+    obs.record_event("agent_start")
+    obs.record_event("task_start")
+    obs.record_event("task_complete")
+    obs.record_event("agent_end")
     
     timeline = obs.get_timeline()
     print(f"✅ Events recorded: {len(timeline)}")

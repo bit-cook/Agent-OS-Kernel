@@ -184,7 +184,11 @@ async def demo_health_check():
     
     # Mock health check to fail
     original_check = health_checker._perform_check
-    health_checker._perform_check = asyncio.coroutine(lambda a: False)
+
+    async def failing_check(agent):
+        return False
+
+    health_checker._perform_check = failing_check
     
     # Run health checks
     await pool._health_check()
@@ -195,11 +199,17 @@ async def demo_health_check():
     
     # Restore and demonstrate recovery
     logger.info("\n--- Demonstrating Recovery ---")
-    health_checker._perform_check = asyncio.coroutine(lambda a: True)
-    
+
+    async def passing_check(agent):
+        return True
+
+    health_checker._perform_check = passing_check
+
     # Simulate recovery
-    original_init = test_agent.initialize
-    test_agent.initialize = asyncio.coroutine(lambda: True)
+    async def fake_initialize():
+        return True
+
+    test_agent.initialize = fake_initialize
     
     success = await health_checker.recover(test_agent)
     logger.info(f"Recovery successful: {success}")
@@ -221,6 +231,10 @@ async def demo_load_balancing():
         Agent(agent_id="a2", name="Server-2", max_concurrent_tasks=10),
         Agent(agent_id="a3", name="Server-3", max_concurrent_tasks=10),
     ]
+
+    # Initialize agents so they are in IDLE/RUNNING state (required by load balancers)
+    for agent in agents:
+        await agent.initialize()
     
     # Set different loads
     agents[0].current_load = 8
@@ -257,6 +271,10 @@ async def demo_load_balancing():
         Agent(agent_id="p2", name="Priority-Normal", priority=AgentPriority.NORMAL),
         Agent(agent_id="p3", name="Priority-Low", priority=AgentPriority.LOW),
     ]
+
+    for agent in priority_agents:
+        await agent.initialize()
+
     priority_agents[0].current_load = 1
     priority_agents[1].current_load = 1
     priority_agents[2].current_load = 1

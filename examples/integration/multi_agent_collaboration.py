@@ -20,7 +20,8 @@ from agent_os_kernel.agents.communication import (
     create_knowledge_sharing,
     create_group_chat_manager,
     create_collaboration,
-    MessageType
+    MessageType,
+    Message
 )
 
 
@@ -58,10 +59,10 @@ async def demo_messenger():
         receiver_id="agent-2"
     )
     
-    await messenger.send(message)
-    
+    await messenger.send(msg)
+
     received = await messenger.receive("agent-2", timeout=2.0)
-    
+
     if received:
         print(f"  ✅ Bob 收到: {received.content[:50]}...")
     
@@ -229,7 +230,8 @@ async def demo_collaboration():
     
     # 创建协作系统
     collaboration = create_collaboration()
-    
+    await collaboration.start()
+
     # 创建协作会话
     session_id = await collaboration.create_session(
         session_id="project-alpha",
@@ -240,7 +242,7 @@ async def demo_collaboration():
             {"id": "agent-3", "name": "Carol"}
         ]
     )
-    
+
     print(f"\n🚀 创建协作会话: {session_id}")
     
     # 定义并行任务
@@ -268,7 +270,8 @@ async def demo_collaboration():
     
     # 结束会话
     summary = await collaboration.end_session(session_id)
-    
+    await collaboration.stop()
+
     return collaboration
 
 
@@ -331,8 +334,8 @@ async def demo_complete_pipeline():
     
     # 2. 提取知识
     print("\n📚 提取知识...")
-    
-    from .knowledge_share import KnowledgePacket, KnowledgeType
+
+    from agent_os_kernel.agents.communication.knowledge_share import KnowledgePacket, KnowledgeType
     
     knowledge_items = [
         ("模块化设计", "使用插件机制实现模块化", "agent-2"),

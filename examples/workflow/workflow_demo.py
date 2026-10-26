@@ -1,11 +1,20 @@
 # -*- coding: utf-8 -*-
-"""工作流引擎演示
+
+"""
+工作流引擎演示
 
 演示如何使用 DAG 工作流引擎。
+
 """
 
 import asyncio
-from agent_os_kernel.core.workflow_engine import WorkflowEngine, Workflow, WorkflowStatus
+from agent_os_kernel.core.workflow_engine import (
+    WorkflowEngine,
+    Task,
+    TaskConfig,
+    TaskStatus,
+    WorkflowStatus,
+)
 
 
 async def task_a(inputs, context):
@@ -52,10 +61,7 @@ async def main():
     engine = WorkflowEngine(max_concurrent=2)
     
     # 创建工作流
-    workflow = await engine.create_workflow(
-        name="数据处理流程",
-        description="演示数据获取、处理、分析、报告的完整流程"
-    )
+    workflow = engine.create_workflow("data_pipeline", "数据处理流程")
     
     # 添加任务 (DAG 结构)
     #     A
@@ -64,30 +70,34 @@ async def main():
     #    \ /
     #     D
     
-    await engine.add_task(workflow, "task_a", task_a)
-    await engine.add_task(workflow, "task_b", task_b, dependencies=["task_a"])
-    await engine.add_task(workflow, "task_c", task_c, dependencies=["task_a"])
-    await engine.add_task(workflow, "task_d", task_d, dependencies=["task_b", "task_c"])
+    workflow.add_task(Task(TaskConfig(task_id="task_a", func=task_a)))
+    workflow.add_task(Task(TaskConfig(task_id="task_b", func=task_b, dependencies=["task_a"])))
+    workflow.add_task(Task(TaskConfig(task_id="task_c", func=task_c, dependencies=["task_a"])))
+    workflow.add_task(Task(TaskConfig(task_id="task_d", func=task_d, dependencies=["task_b", "task_c"])))
     
     print(f"\n📋 工作流已创建: {workflow.name}")
-    print(f"📌 任务数量: {len(workflow.nodes)}")
+    print(f"📌 任务数量: {len(workflow.tasks)}")
     
     # 执行工作流
     print("\n🚀 开始执行工作流...")
-    result = await engine.execute(
-        workflow,
+    result = await engine.run(
+        "data_pipeline",
         context={"owner": "demo", "version": "1.0"}
     )
     
+    completed = [tid for tid, r in result.results.items() if r.status == TaskStatus.COMPLETED]
+    failed = [tid for tid, r in result.results.items() if r.status == TaskStatus.FAILED]
+    
     print(f"\n✅ 工作流执行完成!")
-    print(f"   状态: {result['status'].value}")
-    print(f"   完成任务: {len(result['completed'])}")
-    print(f"   失败任务: {len(result['failed'])}")
-    print(f"   耗时: {result['duration']:.2f}秒")
+    print(f"   状态: {result.status.value}")
+    print(f"   完成任务: {len(completed)}")
+    print(f"   失败任务: {len(failed)}")
+    if result.start_time and result.end_time:
+        print(f"   耗时: {result.end_time - result.start_time:.2f}秒")
     
     # 显示结果
     print("\n📊 任务结果:")
-    for node_id, node in workflow.nodes.items():
+    for node_id, node in result.tasks.items():
         print(f"   {node_id}: {node.status.value}")
         if node.result:
             print(f"      → {node.result}")

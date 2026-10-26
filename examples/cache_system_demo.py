@@ -232,10 +232,10 @@ def demo_cache_warming():
     
     print("\nChecking warmed cache...")
     value, found = cache.get("user:1001")
-    print(f"  user:1001: {value} (found: {found})}")
+    print(f"  user:1001: {value} (found: {found})")
     
     value, found = cache.get("config:theme")
-    print(f"  config:theme: {value} (found: {found})}")
+    print(f"  config:theme: {value} (found: {found})")
     
     print("\nSimulating access patterns...")
     for i in range(1, 5):
@@ -274,7 +274,8 @@ def demo_distributed_cache():
     
     print("\nInvalidating data...")
     node1.invalidate("shared_key", across_nodes=False)
-    print(f"  After invalidation: {node1.contains('shared_key')}")
+    value, found = node1.get("shared_key")
+    print(f"  After invalidation: {found}")
     
     print("\nGetting statistics...")
     stats = node1.get_stats()

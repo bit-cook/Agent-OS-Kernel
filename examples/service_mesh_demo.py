@@ -177,18 +177,17 @@ def demo_circuit_breaker():
         return "fallback response"
     
     print("\n模拟服务调用 (70% 失败率):")
+    print("（熔断器未打开时异常会原样抛出；打开后走降级逻辑）")
     for i in range(10):
         time.sleep(0.2)
         
         try:
-            if cb.state == CircuitState.OPEN:
-                print(f"  调用 {i+1}: 熔断器打开 - 使用降级")
-                result = cb.call_with_circuit(unreliable_service, fallback=fallback)
-            else:
-                result = cb.call_with_circuit(unreliable_service, fallback=fallback)
-                print(f"  调用 {i+1}: {result}")
+            result = cb.call_with_circuit(unreliable_service, fallback=fallback)
+            print(f"  调用 {i+1}: {result}")
         except CircuitBreakerOpen:
             print(f"  调用 {i+1}: 熔断器打开，异常")
+        except Exception as e:
+            print(f"  调用 {i+1}: 服务异常 - {e}")
         
         stats = cb.get_stats()
         print(f"    状态: {stats['state']}, 失败数: {stats['failure_count']}")

@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-"""事件总线演示
+
+"""
+事件总线演示
 
 演示发布/订阅模式的事件驱动架构。
 """
@@ -25,57 +27,58 @@ async def handle_error(event: Event):
 
 async def main():
     """主函数"""
-    print("="*60)
+    print("=" * 60)
     print("Event Bus Demo")
-    print("="*60)
-    
+    print("=" * 60)
+
     # 创建事件总线
     bus = EventBus(max_queue_size=100)
     await bus.initialize()
-    
-    # 订阅事件
+
+    # 订阅事件（当前 API 按事件类型精确匹配；消息发布到 agent.message.1/2）
     bus.subscribe("agent.started", handle_agent_start)
-    bus.subscribe("agent.message.*", handle_agent_message)
+    bus.subscribe("agent.message.1", handle_agent_message)
+    bus.subscribe("agent.message.2", handle_agent_message)
     bus.subscribe("agent.error", handle_error, priority=EventPriority.HIGH)
-    
+
     print("\n📬 订阅者已注册")
-    
-    # 发布事件
+
+    # 发布事件（当前 API：publish 接收 Event 对象，publish_event 为便捷方法）
     print("\n📨 发布事件...")
-    
+
     # Agent 启动
-    await bus.publish(
+    await bus.publish_event(
         event_type="agent.started",
         payload={"agent_id": "agent-001", "name": "Assistant"},
         source="kernel"
     )
-    
+
     # 多条消息
     for i in range(3):
-        await bus.publish(
+        await bus.publish_event(
             event_type=f"agent.message.{i % 2 + 1}",
             payload={"content": f"这是第{i+1}条消息", "from": "user"},
             source="agent-001"
         )
-    
+
     # 错误事件
-    await bus.publish(
+    await bus.publish_event(
         event_type="agent.error",
         payload={"error": "连接超时", "agent_id": "agent-001"},
-        priority=EventPriority.CRITICAL
+        priority=EventPriority.HIGH
     )
-    
+
     # 等待处理
     await asyncio.sleep(0.5)
-    
+
     # 获取统计
     stats = bus.get_stats()
     print(f"\n📊 事件统计:")
     print(f"   发布: {stats['published']}")
-    print(f"   投递: {stats['delivered']}")
-    print(f"   失败: {stats['failed']}")
-    print(f"   订阅者: {stats['subscribers']}")
-    
+    print(f"   处理: {stats['processed']}")
+    print(f"   处理器调用: {stats['handlers_called']}")
+    print(f"   订阅者: {stats['subscribers_count']}")
+
     # 关闭
     await bus.shutdown()
     print("\n✅ 演示完成")

@@ -8,9 +8,9 @@ import os
 import json
 import re
 from typing import Dict, Any, Optional, List
-from agent_os_kernel import (
-    AgentOSKernel, AgentProcess, Tool, SimpleTool
-)
+from agent_os_kernel import AgentOSKernel
+from agent_os_kernel.core.scheduler import AgentProcess
+from agent_os_kernel.tools import Tool, SimpleTool
 
 # 检查是否安装了 anthropic
 try:
@@ -104,18 +104,19 @@ If the task is complete, set "done" to true and omit the "action" field.
             else:
                 result = {"success": False, "error": f"Tool {action.get('tool')} not found"}
         
-        # 6. 记录审计日志
-        self.storage.log_action(
-            agent_pid=process.pid,
-            action_type="llm_reasoning",
-            input_data={"context": context[:500]},  # 截断以节省空间
-            output_data={"result": result},
-            reasoning=reasoning
-        )
+        # 6. 记录审计日志（当前 API：storage.log_audit 接收 dict）
+        self.storage.log_audit({
+            'agent_pid': process.pid,
+            'action': 'llm_reasoning',
+            'resource': 'llm',
+            'details': {'reasoning': reasoning, 'result': result},
+            'result': 'success',
+            'duration_ms': 0.0,
+        })
         
         # 7. 更新上下文
         if result:
-            result_text = f"Tool: {action['tool']}\nResult: {result['data']}"
+            result_text = f"Tool: {action['tool']}\nResult: {result.get('data', result)}"
             self.context_manager.allocate_page(
                 agent_pid=process.pid,
                 content=result_text,
@@ -134,7 +135,8 @@ If the task is complete, set "done" to true and omit the "action" field.
             "done": done,
             "reasoning": reasoning,
             "action": action,
-            "result": result
+            "result": result,
+            "success": True
         }
     
     def _prepare_context(self, process: AgentProcess) -> str:
@@ -378,11 +380,11 @@ def demo_with_real_api():
     print("Audit Trail")
     print("=" * 60 + "\n")
     
-    audit_trail = kernel.storage.get_audit_trail(agent_pid)
+    audit_trail = kernel.storage.get_audit_logs(agent_pid=agent_pid)
     for i, log in enumerate(audit_trail, 1):
         print(f"Step {i}:")
-        print(f"  Action: {log['action_type']}")
-        print(f"  Reasoning: {log['reasoning'][:200]}...")
+        print(f"  Action: {log['action']}")
+        print(f"  Reasoning: {log['details'].get('reasoning', '')[:200]}...")
         print()
 
 

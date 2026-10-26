@@ -11,6 +11,15 @@ from agent_os_kernel.llm import (
     LLMConfig,
     create_mock_provider,
 )
+from agent_os_kernel.llm.provider import ChatMessage
+
+
+def to_chat_messages(messages):
+    """将 dict 消息列表转换为 ChatMessage 对象列表"""
+    return [
+        ChatMessage(role=m["role"], content=m["content"])
+        for m in messages
+    ]
 
 
 async def demo_mock_provider():
@@ -28,8 +37,8 @@ async def demo_mock_provider():
         {"role": "user", "content": "Hello! What can you do?"}
     ]
     
-    result = await provider.chat(messages)
-    
+    result = await provider.chat(to_chat_messages(messages))
+
     print(f"\n模型: {result['model']}")
     print(f"响应: {result['content'][:200]}...")
     print(f"\nToken 使用:")
@@ -61,7 +70,7 @@ async def demo_mock_responses():
     tests = ["Write some python code", "Help me please"]
     
     for msg in tests:
-        result = await provider.chat([{"role": "user", "content": msg}])
+        result = await provider.chat(to_chat_messages([{"role": "user", "content": msg}]))
         print(f"\n输入: {msg}")
         print(f"响应: {result['content'][:100]}...")
 
@@ -109,7 +118,7 @@ async def demo_provider_factory():
     print(f"支持的模型: {mock.supported_models}")
     
     # 获取指标
-    await mock.chat([{"role": "user", "content": "test"}])
+    await mock.chat(messages=[ChatMessage(role="user", content="test")])
     metrics = mock.get_metrics()
     print(f"请求次数: {metrics['total_requests']}")
 
@@ -132,7 +141,9 @@ def demo_error_handling():
     
     for i in range(10):
         try:
-            result = asyncio.run(provider.chat([{"role": "user", "content": "test"}]))
+            result = asyncio.run(provider.chat(
+                messages=[ChatMessage(role="user", content="test")]
+            ))
             if result:
                 success += 1
         except Exception as e:

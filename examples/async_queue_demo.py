@@ -12,32 +12,34 @@ async def demo_async_queue():
     print("=" * 60)
     print("Agent-OS-Kernel 异步队列演示")
     print("=" * 60)
-    
+
     # 创建队列
     queue = AsyncQueue(max_size=100)
-    
+
     # 创建消息
     msg = Message(
-        content={"task": "process", "data": "test"},
+        msg_id="msg-001",
+        topic="demo",
+        payload={"task": "process", "data": "test"},
         priority=1
     )
-    
+
     # 发送消息
     print("\n发送消息...")
-    await queue.enqueue(msg)
-    
+    await queue.publish(msg.topic, msg.payload, priority=msg.priority)
+
     # 接收消息
     print("接收消息...")
-    received = await queue.dequeue()
-    print(f"   收到: {received.content}")
-    
+    received = await queue.get(msg.topic)
+    print(f"   收到: {received.payload}")
+
     # 获取统计
-    stats = queue.get_statistics()
+    stats = queue.get_stats()
     print(f"\n队列统计:")
-    print(f"  队列大小: {stats.size}")
-    print(f"  已处理: {stats.processed_count}")
-    print(f"  失败: {stats.failed_count}")
-    
+    print(f"  已发布: {stats['published']}")
+    print(f"  已消费: {stats['consumed']}")
+    print(f"  失败: {stats['failed']}")
+
     print("\n" + "=" * 60)
     print("演示完成!")
     print("=" * 60)

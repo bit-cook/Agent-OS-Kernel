@@ -4,10 +4,9 @@ Agent-OS-Kernel 成本跟踪演示
 展示成本跟踪功能的使用方法
 """
 
-from agent_os_kernel.core.cost_tracker import CostTracker, CostBreakdown
+from agent_os_kernel.core.cost_tracker import CostTracker
 
-
-async def demo_cost_tracker():
+def demo_cost_tracker():
     """演示成本跟踪"""
     print("=" * 60)
     print("Agent-OS-Kernel 成本跟踪演示")
@@ -16,35 +15,33 @@ async def demo_cost_tracker():
     # 创建成本跟踪器
     tracker = CostTracker()
     
-    # 记录成本
-    await tracker.record_cost(
+    # 记录成本（成本按内置定价表自动计算）
+    tracker.record(
         provider="openai",
         model="gpt-4",
-        prompt_tokens=1000,
-        completion_tokens=500,
-        cost=0.03
+        input_tokens=1000,
+        output_tokens=500
     )
     
-    await tracker.record_cost(
+    tracker.record(
         provider="anthropic",
         model="claude-3",
-        prompt_tokens=2000,
-        completion_tokens=1000,
-        cost=0.075
+        input_tokens=2000,
+        output_tokens=1000
     )
     
     # 获取成本统计
-    stats = tracker.get_statistics()
+    stats = tracker.get_global_stats()
     print(f"\n成本统计:")
-    print(f"  总成本: ${stats.total_cost:.4f}")
-    print(f"  总Token: {stats.total_tokens}")
-    print(f"  提供商数: {len(stats.provider_breakdown)}")
+    print(f"  总成本: ${stats['total_cost']:.4f}")
+    print(f"  总Token: {stats['total_tokens']}")
+    print(f"  总请求: {stats['total_requests']}")
+    print(f"  提供商数: {len(stats['by_provider'])}")
     
     # 获取详细分解
-    breakdown = tracker.get_breakdown_by_provider()
     print(f"\n按提供商分解:")
-    for provider, data in breakdown.items():
-        print(f"  {provider}: ${data['cost']:.4f}")
+    for provider, data in stats['by_provider'].items():
+        print(f"  {provider}: ${data['cost']:.4f} ({data['requests']} 次请求, {data['tokens']} tokens)")
     
     print("\n" + "=" * 60)
     print("演示完成!")
@@ -52,5 +49,4 @@ async def demo_cost_tracker():
 
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(cost_tracker_demo())
+    demo_cost_tracker()

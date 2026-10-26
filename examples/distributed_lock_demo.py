@@ -15,6 +15,7 @@ from agent_os_kernel.core.distributed_lock import (
     ReadWriteLock,
     InMemoryLockBackend,
     ReadWriteLockBackend,
+    LockTimeoutError,
     create_distributed_lock,
     create_read_write_lock,
 )
@@ -119,53 +120,73 @@ async def demo_read_write_lock():
     print("\n" + "=" * 50)
     print("演示 4: 读写锁 (Read-Write Lock)")
     print("=" * 50)
-    
-    rw_lock = create_read_write_lock(ReadWriteLockBackend())
+
+    # 每个子场景使用独立的锁实例，保证场景之间互不干扰
     lock_name = "shared_data"
-    
+
     print("\n1. 测试读锁并发...")
     print("   尝试同时获取多个读锁...")
-    
-    # 模拟多个读取操作
+
+    rw_lock = create_read_write_lock(ReadWriteLockBackend())
+
     async def reader(reader_id: int):
-        async with rw_lock.read(lock_name) as owner:
-            print(f"   Reader {reader_id}: 读取数据中... (持有者: {owner[:8]}...)")
-            await asyncio.sleep(0.2)
-            return f"reader_{reader_id}_data"
-    
+        owner = await rw_lock.acquire_read(lock_name, timeout=2.0)
+        print(f"   Reader {reader_id}: 读取数据中... (持有者: {owner[:8]}...)")
+        await asyncio.sleep(0.2)
+        await rw_lock.release_read(lock_name, owner)
+        return f"reader_{reader_id}_data"
+
     # 多个读取操作应该同时成功
     readers = [reader(i) for i in range(3)]
     results = await asyncio.gather(*readers)
     print(f"   读取结果: {len(results)} 个读操作全部成功")
-    
+    print(f"   释放后是否仍锁定: {await rw_lock.backend.is_locked(lock_name)}")
+
     print("\n2. 测试写锁独占...")
-    async with rw_lock.write(lock_name) as write_owner:
-        print(f"   写锁获取成功 (持有者: {write_owner[:8]}...)")
-        print("   正在写入数据（独占操作）...")
-        await asyncio.sleep(0.3)
-        print("   数据写入完成")
-    
+    rw_lock = create_read_write_lock(ReadWriteLockBackend())
+
+    write_owner = await rw_lock.acquire_write(lock_name, timeout=2.0)
+    print(f"   写锁获取成功 (持有者: {write_owner[:8]}...)")
+
+    # 写锁持有期间，其他写锁和读锁都应失败
+    try:
+        await rw_lock.acquire_write(lock_name, timeout=0.1)
+        print("   第二个写锁获取成功（不应该发生）")
+    except LockTimeoutError:
+        print("   第二个写锁获取超时（写锁独占，符合预期）")
+
+    try:
+        await rw_lock.acquire_read(lock_name, timeout=0.1)
+        print("   读锁获取成功（不应该发生）")
+    except LockTimeoutError:
+        print("   读锁获取超时（写锁独占，符合预期）")
+
+    print(f"   正在写入数据（独占操作）...")
+    await asyncio.sleep(0.2)
+    print(f"   数据写入完成")
+    await rw_lock.release_write(lock_name, write_owner)
+    print(f"   写锁释放后是否仍锁定: {await rw_lock.backend.is_locked(lock_name)}")
+
     print("\n3. 测试写锁阻塞读锁...")
+    rw_lock = create_read_write_lock(ReadWriteLockBackend())
+
     # 先获取写锁
-    write_task = asyncio.create_task(
-        rw_lock.acquire_write(lock_name, timeout=5.0)
-    )
-    await asyncio.sleep(0.1)  # 确保写锁开始等待
-    
+    write_owner = await rw_lock.acquire_write(lock_name, timeout=2.0)
+    print(f"   写锁获取成功 (持有者: {write_owner[:8]}...)")
+
     # 尝试获取读锁（应该超时）
     try:
-        await asyncio.wait_for(rw_lock.acquire_read(lock_name, timeout=0.2), timeout=0.3)
+        await rw_lock.acquire_read(lock_name, timeout=0.2)
         print("   读锁获取成功（不应该发生）")
-    except asyncio.TimeoutError:
+    except LockTimeoutError:
         print("   读锁获取超时（写锁正在占用，符合预期）")
-    
-    # 取消写锁任务
-    write_task.cancel()
-    try:
-        await write_task
-    except asyncio.CancelledError:
-        pass
-    
+
+    # 释放写锁后读锁可以获取
+    await rw_lock.release_write(lock_name, write_owner)
+    read_owner = await rw_lock.acquire_read(lock_name, timeout=2.0)
+    print(f"   写锁释放后读锁获取成功 (持有者: {read_owner[:8]}...)")
+    await rw_lock.release_read(lock_name, read_owner)
+
     print("\n" + "-" * 50)
 
 

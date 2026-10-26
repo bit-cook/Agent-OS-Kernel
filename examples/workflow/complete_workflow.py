@@ -5,9 +5,8 @@ Complete Agent Workflow Demo
 """
 
 import asyncio
-from agent_os_kernel import AgentOSKernel, ContextManager
+from agent_os_kernel import AgentOSKernel, ContextManager, StorageManager
 from agent_os_kernel.llm import LLMProviderFactory, LLMConfig
-from agent_os_kernel.storage import StorageManager
 
 
 async def main():
@@ -24,11 +23,10 @@ async def main():
     print("\n2. 配置 LLM Provider")
     factory = LLMProviderFactory()
     
-    provider = factory.create(LLMConfig(
-        provider="deepseek",
-        model="deepseek-chat"
-    ))
-    print("   ✓ DeepSeek Provider 配置成功")
+    # 未检测到 DeepSeek API Key 时使用 Mock Provider（设置
+    # DEEPSEEK_API_KEY 环境变量后即可改用真实 Provider）
+    provider = factory.create_mock()
+    print("   ✓ Provider 配置成功（Mock，无 API Key 时离线运行）")
     
     # 3. 创建上下文管理器
     print("\n3. 初始化上下文管理")
@@ -37,11 +35,8 @@ async def main():
     
     # 4. 创建存储
     print("\n4. 初始化存储")
-    storage = StorageManager.from_postgresql(
-        "postgresql://user:pass@localhost/agent_os",
-        enable_vector=True
-    )
-    print("   ✓ PostgreSQL 存储就绪")
+    storage = StorageManager()
+    print("   ✓ 存储就绪（内存后端）")
     
     # 5. 创建 Agent
     print("\n5. 创建 Agent")

@@ -60,8 +60,8 @@ async def main():
     # 5. CircuitBreaker
     print("\n[5] CircuitBreaker - 熔断保护")
     
-    config = CircuitConfig(name="demo", failure_threshold=5, timeout_seconds=60)
-    cb = CircuitBreaker(config=config)
+    config = CircuitConfig(failure_threshold=5, timeout_seconds=60)
+    cb = CircuitBreaker(name="demo", config=config)
     print(f"   ✓ 熔断器已创建，状态: {cb.state.value}")
     
     # 6. 统计

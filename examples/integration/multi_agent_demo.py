@@ -153,7 +153,8 @@ async def demo_collaboration():
     print("=" * 50)
     
     collab = create_collaboration()
-    
+    await collab.start()
+
     # 创建会话
     session_id = await collab.create_session(
         session_id="project-alpha",
@@ -182,6 +183,7 @@ async def demo_collaboration():
     
     # 结束会话
     summary = await collab.end_session(session_id)
+    await collab.stop()
     print(f"  ✓ 会话结束: {summary['completed_tasks']}/{summary['total_tasks']} 任务完成")
 
 

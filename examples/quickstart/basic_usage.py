@@ -52,12 +52,12 @@ def demo_basic_usage():
     print("=" * 60)
     
     first_agent_pid = list(kernel.scheduler.processes.keys())[0]
-    audit_trail = kernel.storage.get_audit_trail(first_agent_pid)
-    
+    audit_trail = kernel.storage.get_audit_logs(first_agent_pid)
+
     for i, log in enumerate(audit_trail[:3], 1):
         print(f"\n步骤 {i}:")
-        print(f"  动作: {log.action_type}")
-        print(f"  推理: {log.reasoning[:100]}...")
+        print(f"  动作: {log['action']}")
+        print(f"  详情: {str(log['details'])[:100]}...")
     
     # 清理
     kernel.shutdown()
@@ -110,8 +110,8 @@ def demo_resource_quota():
     print("=" * 60)
     print()
     
-    from agent_os_kernel.core.types import ResourceQuota
-    
+    from agent_os_kernel.core.scheduler import ResourceQuota
+
     # 创建带严格配额的调度器
     quota = ResourceQuota(
         max_tokens_per_window=5000,

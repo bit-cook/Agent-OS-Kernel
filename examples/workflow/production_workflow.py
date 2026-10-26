@@ -10,11 +10,11 @@ import logging
 from datetime import datetime
 from agent_os_kernel import (
     AgentOSKernel,
-    AgentDefinition,
-    ResourceQuota,
     SecurityPolicy,
     PermissionLevel
 )
+from agent_os_kernel.core.agent_definition import AgentDefinition
+from agent_os_kernel.core.scheduler import ResourceQuota
 from agent_os_kernel.core.agent_pool import AgentPool
 from agent_os_kernel.core.rate_limiter import RateLimitConfig, RateLimiter
 from agent_os_kernel.core.enhanced_memory import EnhancedMemory
@@ -43,15 +43,14 @@ class ProductionWorkflow:
         
         # 1. 创建内核
         self.kernel = AgentOSKernel()
-        await self.kernel.initialize()
         
         # 2. 配置资源配额
         quota = ResourceQuota(
-            max_tokens=128000,
-            max_memory_mb=1024,
-            max_cpu_percent=50,
-            max_disk_gb=10
+            max_tokens_per_window=128000,
+            max_api_calls_per_window=1000
         )
+        # 应用到调度器的配额管理器
+        self.kernel.scheduler.quota_manager.quota = quota
         
         # 3. 配置安全策略
         policy = SecurityPolicy(
@@ -59,12 +58,19 @@ class ProductionWorkflow:
             allowed_paths=["/workspace"],
             blocked_paths=["/etc", "/root"]
         )
+        # 应用到内核: 为 Agent 绑定安全策略
+        self.policy = policy
+        self.kernel.spawn_agent(
+            name="SecureWorker",
+            task="在安全策略下执行任务",
+            priority=50,
+            policy=policy,
+        )
         
         # 4. 初始化 Agent 池
         self.agent_pool = AgentPool(
             max_size=10,
-            min_idle=2,
-            max_idle_time=3600,
+            idle_timeout=3600,
             cleanup_interval=300
         )
         await self.agent_pool.initialize()
@@ -81,7 +87,6 @@ class ProductionWorkflow:
         
         # 6. 初始化内存系统
         self.memory = EnhancedMemory()
-        await self.memory.initialize()
         
         self.initialized = True
         logger.info("Production workflow initialized successfully")
@@ -93,11 +98,8 @@ class ProductionWorkflow:
         if self.agent_pool:
             await self.agent_pool.shutdown()
         
-        if self.memory:
-            await self.memory.shutdown()
-        
         if self.kernel:
-            await self.kernel.shutdown()
+            self.kernel.shutdown()
         
         self.initialized = False
         logger.info("Production workflow shutdown complete")
@@ -129,8 +131,8 @@ class ProductionWorkflow:
         
         try:
             # 3. 检查短期记忆
-            short_mem = await self.memory.get_short_term(user_id)
-            context = short_mem.get("recent_context", "")
+            recent = self.memory.search(user_id, limit=3)
+            context = recent[0].content if recent else ""
             
             # 4. 处理请求 (简化)
             logger.info(f"Processing request for user {user_id}: {request[:50]}...")
@@ -138,14 +140,15 @@ class ProductionWorkflow:
             response = f"收到请求: {request}\n上下文: {context}"
             
             # 5. 保存到记忆
-            await self.memory.add_short_term(
-                user_id,
-                {"request": request, "response": response},
-                ttl_seconds=3600
+            self.memory.add(
+                f"[{user_id}] {request} -> {response}",
+                memory_type="short_term",
+                importance=0.5,
+                tags=[user_id]
             )
             
             # 6. 记录任务
-            agent.record_task()
+            agent.increment_use()
             
             return response
             
