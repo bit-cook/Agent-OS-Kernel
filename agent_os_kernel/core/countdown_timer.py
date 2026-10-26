@@ -313,19 +313,8 @@ class CountdownTimerManager:
         self._running_timers.add(timer_id)
         triggered_alerts = set()
 
-        while timer.state == TimerState.RUNNING:
-            elapsed = timer.elapsed_seconds
-
-            # 检查是否完成
-            if elapsed >= timer.duration_seconds:
-                timer.state = TimerState.COMPLETED
-                timer.end_time = datetime.now()
-                if timer.on_complete:
-                    timer.on_complete(*timer.on_complete_args, **timer.on_complete_kwargs)
-                self._running_timers.discard(timer_id)
-                break
-
-            # 检查提醒
+        async def _fire_alerts(elapsed: float) -> None:
+            """检查并触发未触发的提醒（完成前的最后一次清扫保证不遗漏）"""
             for alert in timer.alerts:
                 if alert.alert_id in triggered_alerts:
                     continue
@@ -346,6 +335,25 @@ class CountdownTimerManager:
 
                     triggered_alerts.add(alert.alert_id)
 
+        while timer.state == TimerState.RUNNING:
+            elapsed = timer.elapsed_seconds
+
+            # 检查是否完成
+            if elapsed >= timer.duration_seconds:
+                # 完成前最后一次提醒清扫：循环抖动（慢 runner 上一次迭代
+                # 可能跨过多个检查点）不得让 trigger_at <= duration 的提醒
+                # 被静默跳过
+                await _fire_alerts(elapsed)
+                timer.state = TimerState.COMPLETED
+                timer.end_time = datetime.now()
+                if timer.on_complete:
+                    timer.on_complete(*timer.on_complete_args, **timer.on_complete_kwargs)
+                self._running_timers.discard(timer_id)
+                break
+
+            # 检查提醒
+            await _fire_alerts(elapsed)
+
             await asyncio.sleep(check_interval)
 
     def run_countdown_sync(self, timer_id: str, check_interval: float = 0.1) -> None:
@@ -358,19 +366,8 @@ class CountdownTimerManager:
         triggered_alerts = set()
         start_time = datetime.now()
 
-        while timer.state == TimerState.RUNNING:
-            elapsed = (datetime.now() - start_time).total_seconds() + timer.paused_elapsed
-
-            # 检查是否完成
-            if elapsed >= timer.duration_seconds:
-                timer.state = TimerState.COMPLETED
-                timer.end_time = datetime.now()
-                if timer.on_complete:
-                    timer.on_complete(*timer.on_complete_args, **timer.on_complete_kwargs)
-                self._running_timers.discard(timer_id)
-                break
-
-            # 检查提醒
+        def _fire_alerts(elapsed: float) -> None:
+            """检查并触发未触发的提醒（完成前最后一次清扫保证不遗漏）"""
             for alert in timer.alerts:
                 if alert.alert_id in triggered_alerts:
                     continue
@@ -380,6 +377,24 @@ class CountdownTimerManager:
                     except Exception as e:
                         logger.error(f"Error triggering alert {alert.alert_id}: {e}")
                     triggered_alerts.add(alert.alert_id)
+
+        while timer.state == TimerState.RUNNING:
+            elapsed = (datetime.now() - start_time).total_seconds() + timer.paused_elapsed
+
+            # 检查是否完成
+            if elapsed >= timer.duration_seconds:
+                # 完成前最后一次提醒清扫：循环抖动不得让 trigger_at <=
+                # duration 的提醒被静默跳过
+                _fire_alerts(elapsed)
+                timer.state = TimerState.COMPLETED
+                timer.end_time = datetime.now()
+                if timer.on_complete:
+                    timer.on_complete(*timer.on_complete_args, **timer.on_complete_kwargs)
+                self._running_timers.discard(timer_id)
+                break
+
+            # 检查提醒
+            _fire_alerts(elapsed)
 
             import time
 
