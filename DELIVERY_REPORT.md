@@ -41,3 +41,56 @@
 ## 卡点
 推送需要 GitHub 写权限 token (本机无 gh CLI/无凭据)。提供 token 后
 我立即推送并更新远程; 或当前本地提交可直接作为补丁使用。
+
+---
+
+## 追加：可选项 + 深度审计（最终状态）
+
+### Rust 可选项（分支 rust-refactor-v3，提交 d477b36 / 57b92d9 / 6fa81fc）
+
+1. **存储层 memory 后端**：`StorageBackend` enum（Postgres | Memory）。
+   `AgentOSKernel::new()` 读 `AOSK_DATABASE_URL`——有值且可连用 PG，
+   无值/连不通自动回退内存（warning 明示数据不落盘）。内核不再强依赖
+   PostgreSQL 才能启动（原实现无库直接 Err）。
+2. **真实 LLM providers**：`llm-providers` feature 解禁（reqwest 替代禁用的
+   async-openai，default-features=false + rustls-tls 避免 openssl-sys）。
+   OpenAI/MiniMax（OpenAI 兼容 chat completions）+ Anthropic（messages API），
+   请求构造/响应解析为纯函数离线单测，缺 key 明确 Err，网络失败 Err 上浮。
+3. **删除供应链噪音**：vendor/、async-trait.crate、rustup-init.sh（~680KB，
+   零引用）。
+4. **修复 Cargo.toml 无效配置**：`[target.'cfg(feature="python")'.dependencies]`
+   （Cargo 持续报警，feature 选择不生效）→ pyo3 optional + python feature。
+
+### Python 深度审计（提交 dc7bc50，ruff 全量扫描产物）
+
+**6 处运行时 NameError**（测试未覆盖路径，触发即崩）：
+context_manager.ContextOverflowError 未定义；metrics.get_all 缺 import copy；
+storage 缺 os/math/logger；resources/gpu 缺 _global_gpu_manager 单例；
+tools/base 缺 defaultdict。
+
+**3 处真逻辑 bug**（F841 无用变量暴露）：
+- benchmark：失败调用被当成延迟样本混入 p95/p99 且错误数不可见
+  → 失败不计入样本，新增 LatencyResult.error_count
+- lock_manager.acquire：阻塞路径 create_task 后丢弃，继续创建新锁顶掉
+  原持有者（互斥破坏）→ 重构为临界区外等待 + 重试循环，超时返回 None
+- optimization/batch.clear_results：`now()-now()>1h` 恒 False，清理从不
+  执行 → BatchResult 增加 completed_at，按 cutoff 真正清理
+
+### 最终验证
+
+| 项 | 结果 |
+|---|---|
+| Python 全量测试 | 662 passed / 0 failed（+7 回归，39.4s） |
+| Rust 测试（默认） | 33 passed / 0 failed |
+| Rust 测试（llm-providers） | 43 passed / 0 failed |
+| Rust 构建 | 零新增 warning，src/ 零 stub |
+| 文档链接检查 | OK |
+
+### 提交清单
+
+- Python main：dc7bc50（审计修复）、4d778f0（CHANGELOG）
+- Rust rust-refactor-v3：d477b36（清噪音）、57b92d9（memory 后端 + LLM）、6fa81fc（文档）
+
+### 仍未完成（需用户侧）
+
+- GitHub 推送：需要用户提供有写权限的 token（本机无 gh、无凭据）
