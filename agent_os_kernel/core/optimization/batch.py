@@ -59,6 +59,7 @@ class BatchResult:
     result: Any = None
     error: Optional[str] = None
     execution_time_ms: float = 0.0
+    completed_at: Optional[datetime] = None
     metadata: Dict = field(default_factory=dict)
 
 
@@ -261,6 +262,7 @@ class BatchProcessor:
                     success=True,
                     result=result,
                     execution_time_ms=execution_time,
+                    completed_at=datetime.now(),
                     metadata={
                         **item.metadata,
                         "attempts": attempt + 1
@@ -277,6 +279,7 @@ class BatchProcessor:
                         success=False,
                         error=str(e),
                         execution_time_ms=(datetime.now() - start_time).total_seconds() * 1000,
+                        completed_at=datetime.now(),
                         metadata={
                             **item.metadata,
                             "attempts": attempt + 1
@@ -294,12 +297,13 @@ class BatchProcessor:
         ]
     
     def clear_results(self, completed_before: datetime = None):
-        """清理旧结果"""
-        cutoff = completed_before or datetime.now() - timedelta(hours=1)
+        """清理旧结果（completed_at 早于 cutoff 的结果）"""
+        cutoff = completed_before or (datetime.now() - timedelta(hours=1))
         
         to_remove = [
             item_id for item_id, result in self._results.items()
-            if hasattr(result, 'execution_time_ms') and datetime.now() - datetime.now() > timedelta(hours=1)
+            if getattr(result, 'completed_at', None) is not None
+            and result.completed_at < cutoff
         ]
         
         for item_id in to_remove:

@@ -10,6 +10,7 @@ Metrics - 性能指标
 """
 
 import asyncio
+import copy
 import logging
 import time
 from typing import Dict, List, Optional, Callable

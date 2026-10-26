@@ -306,6 +306,10 @@ class GPUManager:
         }
 
 
+# 模块级单例
+_global_gpu_manager = GPUManager()
+
+
 # 便捷函数
 def get_gpu_manager() -> GPUManager:
     """获取 GPU 管理器"""

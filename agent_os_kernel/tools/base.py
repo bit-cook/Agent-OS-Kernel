@@ -15,6 +15,7 @@ Tool System - 工具调用系统
 
 import json
 import subprocess
+from collections import defaultdict
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Callable, List, Tuple
 from dataclasses import dataclass, field

@@ -108,53 +108,74 @@ class LockManager:
         lock_id = f"{name}_{owner_id}"
         timeout = timeout_seconds or self.default_timeout
         
-        async with self._lock:
-            if name in self._locks:
-                existing_lock = self._locks[name]
-                
-                if lock_type == LockType.READ_WRITE and existing_lock.lock_type == LockType.READ_WRITE:
-                    # 读锁：可以多个同时获取
-                    if owner_id in self._read_locks:
-                        self._read_locks[owner_id] += 1
-                        self._stats["acquired"] += 1
-                        return self._locks[name]
-                    elif len(self._read_locks) < self.max_concurrent:
-                        self._read_locks[owner_id] = 1
-                        self._stats["acquired"] += 1
-                        return self._locks[name]
-                
-                # 等待或超时
-                if not blocking:
+        # 阻塞等待的重试循环：等待必须在 self._lock 临界区之外，
+        # 否则 release() 永远拿不到锁（自死锁）；原实现把
+        # create_task 的结果丢弃后继续建新锁，互斥被破坏。
+        deadline = (
+            asyncio.get_event_loop().time() + timeout if timeout > 0 else None
+        )
+        
+        while True:
+            waiter: asyncio.Queue = None
+            async with self._lock:
+                if name in self._locks:
+                    existing_lock = self._locks[name]
+                    
+                    if lock_type == LockType.READ_WRITE and existing_lock.lock_type == LockType.READ_WRITE:
+                        # 读锁：可以多个同时获取
+                        if owner_id in self._read_locks:
+                            self._read_locks[owner_id] += 1
+                            self._stats["acquired"] += 1
+                            return self._locks[name]
+                        elif len(self._read_locks) < self.max_concurrent:
+                            self._read_locks[owner_id] = 1
+                            self._stats["acquired"] += 1
+                            return self._locks[name]
+                    
+                    # 等待或超时
+                    if not blocking:
+                        return None
+                    
+                    if name not in self._waiting:
+                        self._waiting[name] = asyncio.Queue()
+                    waiter = self._waiting[name]
+                else:
+                    # 创建新锁
+                    expires_at = datetime.now(timezone.utc) + timedelta(seconds=timeout) if timeout > 0 else None
+                    
+                    lock = Lock(
+                        lock_id=lock_id,
+                        name=name,
+                        lock_type=lock_type,
+                        owner_id=owner_id,
+                        status=LockStatus.LOCKED,
+                        expires_at=expires_at,
+                        timeout_seconds=timeout
+                    )
+                    
+                    self._locks[name] = lock
+                    
+                    if lock_type == LockType.READ_WRITE:
+                        self._read_locks[owner_id] = self._read_locks.get(owner_id, 0) + 1
+                    
+                    self._stats["acquired"] += 1
+                    
+                    logger.debug(f"Lock acquired: {name} by {owner_id}")
+                    
+                    return lock
+            
+            # 锁被占用且 blocking：在临界区外等待释放通知（release() 会 put），
+            # 醒来后回到循环顶部重试
+            if deadline is not None:
+                remaining = deadline - asyncio.get_event_loop().time()
+                if remaining <= 0:
                     return None
-                
-                if name not in self._waiting:
-                    self._waiting[name] = asyncio.Queue()
-                
-                wait_task = asyncio.create_task(self._waiting[name].get())
-            
-            # 创建新锁
-            expires_at = datetime.now(timezone.utc) + timedelta(seconds=timeout) if timeout > 0 else None
-            
-            lock = Lock(
-                lock_id=lock_id,
-                name=name,
-                lock_type=lock_type,
-                owner_id=owner_id,
-                status=LockStatus.LOCKED,
-                expires_at=expires_at,
-                timeout_seconds=timeout
-            )
-            
-            self._locks[name] = lock
-            
-            if lock_type == LockType.READ_WRITE:
-                self._read_locks[owner_id] = self._read_locks.get(owner_id, 0) + 1
-            
-            self._stats["acquired"] += 1
-            
-            logger.debug(f"Lock acquired: {name} by {owner_id}")
-            
-            return lock
+                try:
+                    await asyncio.wait_for(waiter.get(), timeout=remaining)
+                except asyncio.TimeoutError:
+                    return None
+            else:
+                await waiter.get()
     
     async def release(self, name: str, owner_id: str) -> bool:
         """

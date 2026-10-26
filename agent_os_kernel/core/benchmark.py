@@ -28,6 +28,7 @@ class LatencyResult:
     std_dev_ms: float = 0.0
     iterations: int = 0
     samples: List[float] = field(default_factory=list)
+    error_count: int = 0
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -159,20 +160,21 @@ class LatencyBenchmark:
                 except Exception:
                     pass
         
-        # 正式测量
+        # 正式测量（失败的调用不计入延迟样本，单独计数）
+        errors = 0
         for _ in range(iterations):
             start = time.perf_counter()
             try:
                 func(*args, **kwargs)
-                success = True
             except Exception:
-                success = False
+                errors += 1
+                continue
             end = time.perf_counter()
             
             latency_ms = (end - start) * 1000
             samples.append(latency_ms)
         
-        return self._calculate_stats(samples)
+        return self._calculate_stats(samples, error_count=errors)
     
     def measure_context(
         self,
@@ -199,10 +201,10 @@ class LatencyBenchmark:
         
         return self._calculate_stats(samples)
     
-    def _calculate_stats(self, samples: List[float]) -> LatencyResult:
+    def _calculate_stats(self, samples: List[float], error_count: int = 0) -> LatencyResult:
         """计算统计结果"""
         if not samples:
-            return LatencyResult()
+            return LatencyResult(error_count=error_count)
         
         sorted_samples = sorted(samples)
         n = len(samples)
@@ -219,6 +221,7 @@ class LatencyBenchmark:
             ),
             iterations=n,
             samples=samples,
+            error_count=error_count,
         )
 
 
