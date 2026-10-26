@@ -337,12 +337,19 @@ class PluginManager:
 
     def list_loaded(self) -> List[str]:
         """列出已加载（is_loaded）的插件 ID"""
-        return [pid for pid, p in self._plugins.items() if getattr(p, 'is_loaded', False)]
+        loaded_states = {PluginState.LOADED, PluginState.ENABLED, PluginState.DISABLED}
+        return [pid for pid, info in self._plugin_info.items() if info.state in loaded_states]
 
     def get_stats(self) -> Dict[str, Any]:
-        """获取插件管理器统计信息"""
-        loaded = sum(1 for p in self._plugins.values() if p.is_loaded)
-        enabled = sum(1 for p in self._plugins.values() if getattr(p, 'is_enabled', False))
+        """获取插件管理器统计信息
+
+        状态权威来源是 _plugin_info[pid].state（PluginState 枚举）；
+        原实现访问插件实例上不存在的 is_loaded 属性，每调必 AttributeError。
+        """
+        loaded_states = {PluginState.LOADED, PluginState.ENABLED, PluginState.DISABLED}
+        states = [info.state for info in self._plugin_info.values()]
+        loaded = sum(1 for s in states if s in loaded_states)
+        enabled = sum(1 for s in states if s == PluginState.ENABLED)
         return {
             "total_plugins": len(self._plugins),
             "loaded": loaded,

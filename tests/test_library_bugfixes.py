@@ -120,3 +120,69 @@ class TestAsyncLockOwnerId:
         m = LockManager()
         async with async_lock(m, "res2") as lock:
             assert lock.owner_id == "context"
+
+
+class TestCostTrackerReset:
+    """#7 reset() 无参时静默 no-op"""
+
+    def test_reset_no_args_clears_everything(self):
+        from agent_os_kernel.core.cost_tracker import CostTracker
+        ct = CostTracker()
+        ct.record("mock", "m", 100, 50)
+        assert ct.get_global_stats()["total_requests"] == 1
+        ct.reset()
+        stats = ct.get_global_stats()
+        assert stats["total_requests"] == 0
+        assert stats["total_tokens"] == 0
+
+
+class TestAgentRegistryTimezone:
+    """#8 AgentMetadata.heartbeat 默认 naive：统计即崩"""
+
+    @pytest.mark.asyncio
+    async def test_stats_and_list_active(self):
+        from agent_os_kernel.core.agent_registry import AgentRegistry
+        r = AgentRegistry()
+        await r.register(agent_id="a1", name="A", role="worker")
+        assert r.get_stats()["total_agents"] == 1
+        assert len(await r.list_active()) == 1
+
+
+class TestReadWriteLockMultiReader:
+    """#9 多读者只有最后一个能 release，其余永久堵死写锁"""
+
+    @pytest.mark.asyncio
+    async def test_all_readers_release_then_write(self):
+        from agent_os_kernel.core.distributed_lock import ReadWriteLockBackend, LockType
+        b = ReadWriteLockBackend()
+        assert all([
+            await b.acquire("cfg", f"r{i}", LockType.READ, 30, 60) for i in range(3)
+        ])
+        assert all([await b.release("cfg", f"r{i}") for i in range(3)])
+        assert await b.acquire("cfg", "w1", LockType.WRITE, 30, 60)
+        assert await b.release("cfg", "w1")
+
+
+class TestClaudeIntegratedKernelStep:
+    """#10 execute_agent_step 引用不存在的 permission_manager/log_action"""
+
+    def test_step_runs_and_audits(self):
+        from agent_os_kernel.integrations.claude_integration import ClaudeIntegratedKernel
+        k = ClaudeIntegratedKernel()   # 无 key -> mock LLM
+        pid = k.spawn_agent(name="CA", task="演示", priority=20)
+        k.run(max_iterations=2)
+        logs = k.storage.get_audit_logs(agent_pid=pid)
+        entries = logs if isinstance(logs, list) else []
+        assert any("llm" in str(e.get("resource", "")) for e in entries)
+
+
+class TestPluginManagerStats:
+    """#11 get_stats 访问插件实例上不存在的 is_loaded"""
+
+    def test_get_stats_and_list_loaded(self):
+        from agent_os_kernel.core.plugin_system import PluginManager
+        m = PluginManager()
+        stats = m.get_stats()
+        assert stats["total_plugins"] == 0
+        assert stats["loaded"] == 0
+        assert m.list_loaded() == []

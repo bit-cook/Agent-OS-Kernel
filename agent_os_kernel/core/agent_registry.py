@@ -6,7 +6,7 @@ import logging
 from typing import Dict, List, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
-from datetime import timezone, timezone, timedelta, timedelta
+from datetime import timezone, timedelta
 import uuid
 
 logger = logging.getLogger(__name__)
@@ -22,9 +22,9 @@ class AgentMetadata:
     owner: Optional[str] = None
     tags: List[str] = field(default_factory=list)
     capabilities: List[str] = field(default_factory=list)
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    last_active: datetime = field(default_factory=datetime.utcnow)
-    heartbeat: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    last_active: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    heartbeat: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     metadata: Dict = field(default_factory=dict)
 
 

@@ -148,8 +148,13 @@ If the task is complete, set "done" to true and omit the "action" field.
         if action and not done:
             tool_name = action.get('tool')
             
-            # 检查权限
-            if not self.permission_manager.can_use_tool(process.pid, tool_name):
+            # 检查权限（进程级安全策略：spawn 时挂载于 context；
+            # 无策略=允许，与内核 spawn_agent 语义一致。
+            # 原实现调用不存在的 self.permission_manager，每步必 AttributeError）
+            policy = process.context.get('security_policy') or {}
+            allowed = policy.get('allowed_tools')
+            blocked = policy.get('blocked_tools') or []
+            if (allowed and tool_name not in allowed) or tool_name in blocked:
                 result = {
                     "success": False,
                     "error": f"Tool '{tool_name}' is not allowed for this agent"
@@ -162,15 +167,21 @@ If the task is complete, set "done" to true and omit the "action" field.
                 else:
                     result = {"success": False, "error": f"Tool '{tool_name}' not found"}
         
-        # 6. 记录审计日志
+        # 6. 记录审计日志（真实方法 log_audit，dict 契约；
+        # 原实现调用不存在的 storage.log_action 每步必错）
         duration_ms = (time.time() - start_time) * 1000
-        self.storage.log_action(
-            agent_pid=process.pid,
-            action_type="llm_reasoning",
-            input_data={"context": context[:500]},  # 截断以节省空间
-            output_data={"result": result},
-            reasoning=reasoning
-        )
+        self.storage.log_audit({
+            'agent_pid': process.pid,
+            'action': 'llm_reasoning',
+            'resource': f"llm:{self.model}",
+            'details': {
+                'context': context[:500],   # 截断以节省空间
+                'result': result,
+                'reasoning': reasoning,
+            },
+            'result': 'success',
+            'duration_ms': duration_ms,
+        })
         
         # 7. 更新上下文
         if result:

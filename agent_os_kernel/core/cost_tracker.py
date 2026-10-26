@@ -345,8 +345,16 @@ class CostTracker:
         session_id: Optional[str] = None,
         agent_id: Optional[str] = None
     ):
-        """重置统计"""
+        """重置统计：指定 session/agent 则只清对应部分；都不指定则全清"""
         with self._lock:
+            if not session_id and not agent_id:
+                # 无参数 = 全量重置（原来两个分支都不进，静默 no-op）
+                self._entries.clear()
+                self._session_totals.clear()
+                self._agent_totals.clear()
+                logger.info("CostTracker fully reset")
+                return
+
             if session_id:
                 if session_id in self._session_totals:
                     del self._session_totals[session_id]

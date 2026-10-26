@@ -236,20 +236,29 @@ class ReadWriteLockBackend(InMemoryLockBackend):
             return False
         
         owner = self._locks[lock_name]
+        lock_type = owner.lock_type
+        
+        # 读锁：权威持有者集合是 _read_locks（_locks 只存最后一条记录，
+        # 原来按它做 owner 校验导致多个并发读者只有最后一个能 release，
+        # 其余 owner 永久留在集合里堵死后续写锁）
+        if lock_type == LockType.READ:
+            if lock_name not in self._read_locks or owner_id not in self._read_locks[lock_name]:
+                return False
+            self._read_locks[lock_name].discard(owner_id)
+            if not self._read_locks[lock_name]:
+                del self._read_locks[lock_name]
+                del self._locks[lock_name]
+                del self._lock_types[lock_name]
+            return True
+        
         if owner.owner_id != owner_id:
             return False
-        
-        lock_type = owner.lock_type
         
         del self._locks[lock_name]
         del self._lock_types[lock_name]
         
         if lock_type == LockType.WRITE:
             self._write_lock = None
-        elif lock_type == LockType.READ and lock_name in self._read_locks:
-            self._read_locks[lock_name].discard(owner_id)
-            if not self._read_locks[lock_name]:
-                del self._read_locks[lock_name]
         
         return True
 
